@@ -1,5 +1,5 @@
 import { App, Modal, Setting, TFolder, normalizePath } from 'obsidian';
-import type { WebSidecarSettings } from './types';
+import type { WebSidecarSettings } from '../types';
 
 /**
  * Modal for creating a new note with URL pre-filled

@@ -79,6 +79,7 @@
   padding: 4px;
   margin: -4px -4px 8px -4px;
   border-radius: 4px;
+  border-radius: 4px;
   transition: background 0.15s ease;
 }
 
@@ -293,4 +294,524 @@
 /* Exact match highlight */
 .web-sidecar-exact .web-sidecar-item {
   background: var(--background-primary-alt);
+}
+
+/* Web viewer header action button (experimental) */
+.web-sidecar-new-tab-btn {
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.web-sidecar-new-tab-btn:hover {
+  color: var(--interactive-accent);
+}
+
+/* Injected menu item styling */
+.web-sidecar-menu-item {
+  cursor: pointer;
+}
+
+.web-sidecar-menu-item.selected,
+.web-sidecar-menu-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* Settings sub-options indentation */
+.web-sidecar-sub-setting {
+  padding-left: 24px;
+  border-left: 2px solid var(--background-modifier-border);
+  margin-left: 12px;
+}
+
+/* ============================================
+   BROWSER MODE STYLES
+   ============================================ */
+
+/* Browser mode header */
+.web-sidecar-browser-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px 4px;
+}
+
+/* Browser tabs container */
+.web-sidecar-browser-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+/* Individual browser tab wrapper */
+.web-sidecar-browser-tab {
+  border-radius: var(--radius-s);
+}
+
+/* Main tab row (clickable) */
+.web-sidecar-browser-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.web-sidecar-browser-tab-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* Favicon container */
+.web-sidecar-browser-favicon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-browser-favicon img {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.web-sidecar-browser-favicon svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+/* Tab title */
+.web-sidecar-browser-tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+/* Expand button */
+.web-sidecar-expand-btn {
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+}
+
+.web-sidecar-expand-btn:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+/* Notes container (expanded view) */
+.web-sidecar-browser-notes {
+  padding-left: 24px;
+  padding-bottom: 4px;
+}
+
+.web-sidecar-browser-notes.hidden {
+  display: none;
+}
+
+/* Note list in browser mode */
+.web-sidecar-browser-note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.web-sidecar-browser-note-list li {
+  padding: 3px 8px;
+}
+
+.web-sidecar-browser-note-link {
+  color: var(--text-accent);
+  text-decoration: none;
+  font-size: var(--font-ui-smaller);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.web-sidecar-browser-note-link:hover {
+  text-decoration: underline;
+}
+
+/* TLD section in browser mode */
+.web-sidecar-browser-tld {
+  margin-top: 4px;
+}
+
+.web-sidecar-browser-tld summary {
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.web-sidecar-browser-tld summary:hover {
+  color: var(--text-normal);
+}
+
+.web-sidecar-tld-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.web-sidecar-tld-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* "+ New Tab" button */
+.web-sidecar-new-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+  border: 1px dashed var(--background-modifier-border);
+}
+
+.web-sidecar-new-tab-btn:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+
+.web-sidecar-new-tab-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-new-tab-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.web-sidecar-new-tab-text {
+  font-size: var(--font-ui-small);
+}
+
+/* "New Note" button in expanded tab */
+.web-sidecar-new-note-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+  border: 1px dashed var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+}
+
+.web-sidecar-new-note-btn:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+
+.web-sidecar-new-note-icon {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-new-note-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.web-sidecar-new-note-text {
+  font-size: var(--font-ui-smaller);
+}
+
+/* Settings sub-headings */
+.web-sidecar-sub-heading {
+  font-size: var(--font-ui-small);
+  margin-top: 12px;
+  margin-bottom: 4px;
+  padding-left: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Note count badge */
+.web-sidecar-note-count-badge {
+  font-size: 10px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 4px;
+  font-weight: 500;
+  cursor: default;
+}
+
+/* Recent web notes collapsible section */
+.web-sidecar-recent-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.web-sidecar-recent-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.web-sidecar-recent-summary:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+.web-sidecar-recent-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.web-sidecar-recent-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.web-sidecar-recent-list {
+  padding: 0 8px 8px;
+}
+
+/* Inline New Note button on tab row (when no exact matches) */
+.web-sidecar-inline-new-note {
+  flex-shrink: 0;
+  padding: 4px;
+  margin-left: 4px;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+}
+
+.web-sidecar-inline-new-note:hover {
+  color: var(--interactive-accent);
+  background-color: var(--background-modifier-hover);
+}
+
+.web-sidecar-inline-new-note svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Web notes grouped by domain section */
+.web-sidecar-domain-section {
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.web-sidecar-domain-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.web-sidecar-domain-summary:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+.web-sidecar-domain-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.web-sidecar-domain-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.web-sidecar-domain-list {
+  padding: 0 8px 8px;
+}
+
+.web-sidecar-domain-group {
+  margin-bottom: 2px;
+}
+
+.web-sidecar-domain-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+}
+
+.web-sidecar-domain-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.web-sidecar-domain-favicon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-domain-favicon img {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.web-sidecar-domain-favicon svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+}
+
+.web-sidecar-domain-name {
+  flex: 1;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.web-sidecar-domain-count {
+  font-size: 10px;
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.web-sidecar-domain-notes {
+  padding-left: 22px;
+  margin-top: 2px;
+}
+
+/* ============================================
+   VIRTUAL TAB STYLES (from open notes with URLs)
+   ============================================ */
+
+/* Virtual tab section */
+.web-sidecar-virtual-section {
+  margin-top: 8px;
+}
+
+.web-sidecar-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px 0;
+  padding-left: 8px;
+}
+
+/* Virtual tab entry - styled like browser tabs but with subtle distinction */
+.web-sidecar-virtual-tab {
+  background: var(--background-secondary);
+  border: none;
+  margin-bottom: 2px;
+  padding: 8px;
+  border-radius: var(--radius-s);
+}
+
+.web-sidecar-virtual-tab:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Virtual tab icon (link icon instead of favicon) */
+.web-sidecar-virtual-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.web-sidecar-virtual-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Virtual tab title - always italicized */
+.web-sidecar-virtual-title {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Note name subtitle under virtual tab title */
+.web-sidecar-virtual-note-name {
+  display: block;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tab indicators container (right-aligned icons and badges) */
+.web-sidecar-tab-indicators {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Pop-out icon */
+.web-sidecar-popout-icon {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.web-sidecar-popout-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Tab count badge (for deduplicated URLs) */
+.web-sidecar-tab-count-badge {
+  font-size: 10px;
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 500;
 }

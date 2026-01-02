@@ -1,7 +1,9 @@
-import { Plugin, WorkspaceLeaf } from 'obsidian';
-import { WebSidecarSettings, DEFAULT_SETTINGS, TrackedWebViewer } from './types';
-import { WebSidecarSettingTab } from './settings';
-import { WebSidecarView, VIEW_TYPE_WEB_SIDECAR } from './webSidecarView';
+import { Plugin, WorkspaceLeaf, Menu, TFile, MarkdownView } from 'obsidian';
+import { WebSidecarSettings, DEFAULT_SETTINGS, TrackedWebViewer, VirtualTab } from './types';
+import { WebSidecarSettingTab } from './settings/settingsTab';
+import { WebSidecarView, VIEW_TYPE_WEB_SIDECAR } from './views/webSidecarView';
+import { WebViewerActions } from './experimental/webViewerActions';
+import { CreateNoteModal } from './modals/createNoteModal';
 
 /**
  * Supported web viewer types
@@ -22,6 +24,9 @@ export default class WebSidecarPlugin extends Plugin {
 	private view: WebSidecarView | null = null;
 	private trackedTabs: Map<string, TrackedWebViewer> = new Map();
 	private pollIntervalId: number | null = null;
+	private webViewerActions: WebViewerActions | null = null;
+	/** Cache of URL -> title for virtual tabs */
+	private urlTitleCache: Map<string, string> = new Map();
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -34,7 +39,8 @@ export default class WebSidecarPlugin extends Plugin {
 					leaf,
 					() => this.settings,
 					() => this.refreshView(),
-					() => this.getTrackedTabs()
+					() => this.getTrackedTabs(),
+					() => this.getVirtualTabs()
 				);
 				return this.view;
 			}
@@ -78,10 +84,45 @@ export default class WebSidecarPlugin extends Plugin {
 
 		// Initial scan of all web viewers
 		this.scanAllWebViewers();
+
+		// Initialize web viewer actions (experimental feature)
+		this.webViewerActions = new WebViewerActions(this.app, () => this.settings);
+		this.webViewerActions.initialize();
+
+		// Listen for custom event from webViewerActions to open create note modal
+		const handleCreateNote = (e: Event) => {
+			const customEvent = e as CustomEvent<{ url: string }>;
+			if (customEvent.detail?.url) {
+				new CreateNoteModal(
+					this.app,
+					customEvent.detail.url,
+					this.settings,
+					async (path) => {
+						const file = this.app.vault.getAbstractFileByPath(path);
+						if (file instanceof TFile) {
+							await this.app.workspace.openLinkText(path, '', true);
+						}
+						this.scanAllWebViewers();
+					}
+				).open();
+			}
+		};
+		window.addEventListener('web-sidecar:create-note', handleCreateNote);
+		this.register(() => window.removeEventListener('web-sidecar:create-note', handleCreateNote));
+
+		// Register file-menu event for "More Options" menu in web viewers
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu: Menu, _file, _source, leaf?: WorkspaceLeaf) => {
+				if (leaf && this.webViewerActions) {
+					this.webViewerActions.addMenuItems(menu, leaf);
+				}
+			})
+		);
 	}
 
 	onunload(): void {
 		this.stopPolling();
+		this.webViewerActions?.destroy();
 	}
 
 	async loadSettings(): Promise<void> {
@@ -91,6 +132,7 @@ export default class WebSidecarPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 		this.refreshView();
+		this.webViewerActions?.onSettingsChanged();
 	}
 
 	/**
@@ -123,8 +165,11 @@ export default class WebSidecarPlugin extends Plugin {
 
 		// Only update view if something actually changed
 		if (previousHash !== newHash) {
-			this.view?.updateTabs(this.getTrackedTabs());
+			this.view?.updateTabs(this.getTrackedTabs(), this.getVirtualTabs());
 		}
+
+		// Update experimental header buttons (dynamic)
+		this.webViewerActions?.updateAllButtons();
 	}
 
 	/**
@@ -132,7 +177,7 @@ export default class WebSidecarPlugin extends Plugin {
 	 */
 	private getTabsHash(): string {
 		const tabs = Array.from(this.trackedTabs.values());
-		return tabs.map(t => `${t.leafId}:${t.url}`).join('|');
+		return tabs.map(t => `${t.leafId}:${t.url}:${t.title}`).join('|');
 	}
 
 	/**
@@ -147,16 +192,26 @@ export default class WebSidecarPlugin extends Plugin {
 			const info = this.getWebViewerInfo(leaf);
 
 			if (info) {
+				// Detect if leaf is in a popout window
+				const leafWindow = (leaf.getRoot() as any).containerEl?.win;
+				const isPopout = leafWindow !== undefined && leafWindow !== window;
+
+				// Cache title if available (for virtual tabs)
+				if (info.title && info.url) {
+					this.urlTitleCache.set(info.url, info.title);
+				}
+
 				const existing = this.trackedTabs.get(leafId);
 
 				// Update or create entry
 				if (existing) {
 					// Only update URL and title if changed
-					if (existing.url !== info.url || existing.title !== info.title) {
+					if (existing.url !== info.url || existing.title !== info.title || existing.isPopout !== isPopout) {
 						this.trackedTabs.set(leafId, {
 							...existing,
 							url: info.url,
 							title: info.title || existing.title,
+							isPopout,
 						});
 					}
 				} else {
@@ -166,6 +221,7 @@ export default class WebSidecarPlugin extends Plugin {
 						url: info.url,
 						title: info.title || this.extractTitleFromUrl(info.url),
 						lastFocused: Date.now(),
+						isPopout,
 					});
 				}
 			}
@@ -206,16 +262,60 @@ export default class WebSidecarPlugin extends Plugin {
 	}
 
 	/**
+	 * Get virtual tabs from open notes with URL properties
+	 * Excludes notes whose URLs are already open in web viewers
+	 */
+	getVirtualTabs(): VirtualTab[] {
+		const virtualTabs: VirtualTab[] = [];
+		const openUrls = new Set(Array.from(this.trackedTabs.values()).map(t => t.url));
+
+		// Get all open markdown leaves
+		const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
+
+		for (const leaf of markdownLeaves) {
+			const view = leaf.view;
+			if (!(view instanceof MarkdownView)) continue;
+
+			const file = view.file;
+			if (!file) continue;
+
+			// Get frontmatter
+			const cache = this.app.metadataCache.getFileCache(file);
+			const frontmatter = cache?.frontmatter;
+			if (!frontmatter) continue;
+
+			// Check each URL property field
+			for (const propName of this.settings.urlPropertyFields) {
+				const propValue = frontmatter[propName];
+				if (typeof propValue === 'string' && propValue.startsWith('http')) {
+					// Skip if URL is already open in a web viewer
+					if (openUrls.has(propValue)) continue;
+
+					virtualTabs.push({
+						file,
+						url: propValue,
+						propertyName: propName,
+						cachedTitle: this.urlTitleCache.get(propValue),
+					});
+					break; // Only add one virtual tab per note
+				}
+			}
+		}
+
+		return virtualTabs;
+	}
+
+	/**
 	 * Refresh the view manually
 	 */
 	refreshView(): void {
 		this.scanAllWebViewers();
 		this.cleanupClosedTabs();
-		this.view?.updateTabs(this.getTrackedTabs());
+		this.view?.updateTabs(this.getTrackedTabs(), this.getVirtualTabs());
 	}
 
 	/**
-	 * Handle active leaf changes to update focus time
+	 * Handle active leaf changes to update focus time and refresh view
 	 */
 	private onActiveLeafChange(leaf: WorkspaceLeaf | null): void {
 		if (!leaf) return;
@@ -227,17 +327,23 @@ export default class WebSidecarPlugin extends Plugin {
 			const info = this.getWebViewerInfo(leaf);
 
 			if (info) {
+				// Detect if leaf is in a popout window
+				const leafWindow = (leaf.getRoot() as any).containerEl?.win;
+				const isPopout = leafWindow !== undefined && leafWindow !== window;
+
 				// Update focus time
 				this.trackedTabs.set(leafId, {
 					leafId,
 					url: info.url,
 					title: info.title || this.extractTitleFromUrl(info.url),
 					lastFocused: Date.now(),
+					isPopout,
 				});
-
-				this.view?.updateTabs(this.getTrackedTabs());
 			}
 		}
+
+		// Always refresh the view to update virtual tabs (from open markdown notes)
+		this.view?.updateTabs(this.getTrackedTabs(), this.getVirtualTabs());
 	}
 
 	/**
@@ -248,11 +354,26 @@ export default class WebSidecarPlugin extends Plugin {
 		const url = state?.url;
 
 		if (url && typeof url === 'string') {
-			const title = typeof state?.title === 'string' ? state.title : undefined;
+			const rawTitle = typeof state?.title === 'string' ? state.title : undefined;
+			// Filter out invalid/loading titles
+			const title = this.isValidTitle(rawTitle) ? rawTitle : undefined;
 			return { url, title };
 		}
 
 		return null;
+	}
+
+	/**
+	 * Check if a title is valid (not a loading/placeholder state)
+	 */
+	private isValidTitle(title: string | undefined): boolean {
+		if (!title || title.trim() === '') return false;
+		// Filter out data: URIs (actual URIs have format like data:text/plain, data:image/png)
+		if (/^data:[a-z]+\//.test(title)) return false;
+		// Filter out about: pages (about:blank, about:newtab, etc. - actual URLs)
+		if (/^about:(blank|newtab|srcdoc)/.test(title)) return false;
+		if (title === 'New Tab' || title === 'Loading...') return false;
+		return true;
 	}
 
 	/**

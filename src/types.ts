@@ -16,12 +16,44 @@ export interface WebSidecarSettings {
     recentNotesCount: number;
     /** Sort order for web viewer tabs */
     tabSortOrder: TabSortOrder;
+    /** Sidebar tab appearance mode */
+    tabAppearance: TabAppearance;
+    /** Enable experimental web viewer header actions (may break with Obsidian updates) */
+    enableWebViewerActions: boolean;
+    /** Show new tab button in web viewer header (requires enableWebViewerActions) */
+    showWebViewerHeaderButton: boolean;
+    /** Show new note button in web viewer header (requires enableWebViewerActions) */
+    showWebViewerNewNoteButton: boolean;
+    /** Show new tab option in web viewer More Options menu (requires enableWebViewerActions) */
+    showWebViewerMenuOption: boolean;
+    /** Show "Open note to the right" option in web viewer menu */
+    showWebViewerOpenNoteOption: boolean;
+    /** Show "Open note to the right" button in web viewer header */
+    showWebViewerOpenNoteButton: boolean;
+    /** Collapse duplicate URLs into single entry with click-to-cycle */
+    collapseDuplicateUrls: boolean;
+    /** How to open notes when clicked from sidebar */
+    noteOpenBehavior: NoteOpenBehavior;
+    /** Enable subreddit filtering for 'same domain' notes */
+    enableSubredditFilter: boolean;
+    /** Enable grouping matches by subreddit */
+    enableSubredditExplorer: boolean;
 }
 
 /**
  * Sort order options for web viewer tabs
  */
 export type TabSortOrder = 'focus' | 'title';
+
+/**
+ * Tab appearance mode for sidebar
+ */
+export type TabAppearance = 'notes' | 'browser';
+
+/**
+ * Note opening behavior from sidebar
+ */
+export type NoteOpenBehavior = 'split' | 'tab';
 
 /**
  * Default settings values
@@ -33,6 +65,17 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     newNoteFolderPath: '',
     recentNotesCount: 10,
     tabSortOrder: 'focus',
+    tabAppearance: 'notes',
+    enableWebViewerActions: false,
+    showWebViewerHeaderButton: true,
+    showWebViewerNewNoteButton: true,
+    showWebViewerMenuOption: true,
+    showWebViewerOpenNoteOption: false,
+    showWebViewerOpenNoteButton: false,
+    collapseDuplicateUrls: false,
+    noteOpenBehavior: 'split',
+    enableSubredditFilter: false,
+    enableSubredditExplorer: false,
 };
 
 /**
@@ -56,6 +99,7 @@ export interface MatchedNote {
 export interface MatchResult {
     exactMatches: MatchedNote[];
     tldMatches: MatchedNote[];
+    subredditMatches?: Map<string, MatchedNote[]>;
 }
 
 /**
@@ -88,4 +132,20 @@ export interface TrackedWebViewer {
     title: string;
     /** When this tab was last focused */
     lastFocused: number;
+    /** Whether this tab is in a popout window */
+    isPopout: boolean;
+}
+
+/**
+ * Virtual tab from an open note with URL property
+ */
+export interface VirtualTab {
+    /** The note file this virtual tab is from */
+    file: TFile;
+    /** URL from the note's property */
+    url: string;
+    /** Property name where URL was found */
+    propertyName: string;
+    /** Cached title from previous web viewer load */
+    cachedTitle?: string;
 }
