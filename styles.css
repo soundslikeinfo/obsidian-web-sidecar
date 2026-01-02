@@ -1,7 +1,8 @@
 /* Web Sidecar Plugin Styles */
 
 .web-sidecar-container {
-  padding: 12px;
+  padding: 4px 8px;
+  /* Reduced from 12px, especially top padding */
 }
 
 .web-sidecar-header {
@@ -174,6 +175,7 @@
 
 .web-sidecar-section {
   margin-bottom: 16px;
+  /* Ensure full width for sections too */
 }
 
 .web-sidecar-section h5 {
@@ -331,7 +333,8 @@
 .web-sidecar-browser-header {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 12px 4px;
+  padding: 4px 0 2px;
+  /* Reduced padding, removed side padding */
 }
 
 /* Browser tabs container */
@@ -339,7 +342,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0 8px;
+  padding: 0;
+  /* Removed side padding to ensure full width */
 }
 
 /* Individual browser tab wrapper */
@@ -814,4 +818,13 @@
   padding: 1px 5px;
   border-radius: 8px;
   font-weight: 500;
+}
+
+/* Utility classes */
+.web-sidecar-align-right {
+  margin-left: auto;
+}
+
+.web-sidecar-hidden {
+  display: none !important;
 }

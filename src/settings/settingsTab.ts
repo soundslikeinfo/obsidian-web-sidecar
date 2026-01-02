@@ -125,7 +125,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.setDesc('How to open notes when clicked from the sidebar')
 			.addDropdown(dropdown => dropdown
 				.addOption('split', 'Open to the right')
-				.addOption('tab', 'Open in new tab')
+				.addOption('tab', 'Open in new web viewer')
 				.setValue(this.plugin.settings.noteOpenBehavior)
 				.onChange(async (value) => {
 					this.plugin.settings.noteOpenBehavior = value as 'split' | 'tab';
@@ -180,7 +180,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			containerEl.createEl('h4', { text: 'Header Buttons', cls: 'web-sidecar-sub-heading' });
 
 			new Setting(containerEl)
-				.setName('New tab button')
+				.setName('New web viewer button')
 				.setDesc('Add ⊕ button to open a new web viewer tab')
 				.setClass('web-sidecar-sub-setting')
 				.addToggle(toggle => toggle

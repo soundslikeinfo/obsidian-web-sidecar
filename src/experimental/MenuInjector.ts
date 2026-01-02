@@ -1,0 +1,237 @@
+
+import { App, setIcon, TFile } from 'obsidian';
+import type { WebSidecarSettings } from '../types';
+import { findMatchingNotes } from '../services/noteMatcher';
+import type { UrlIndex } from '../services/UrlIndex';
+
+const WEB_VIEW_TYPES = ['webviewer', 'surfing-view'];
+
+export class MenuInjector {
+    private app: App;
+    private getSettings: () => WebSidecarSettings;
+    private urlIndex: UrlIndex;
+
+    constructor(app: App, getSettings: () => WebSidecarSettings, urlIndex: UrlIndex) {
+        this.app = app;
+        this.getSettings = getSettings;
+        this.urlIndex = urlIndex;
+    }
+
+    /**
+     * Maybe inject our menu item into a newly opened menu
+     */
+    maybeInjectMenuItem(menuEl: HTMLElement): void {
+        // Check if the active leaf is a web viewer
+        const activeLeaf = this.app.workspace.activeLeaf;
+        if (!activeLeaf) {
+            return;
+        }
+
+        const viewType = activeLeaf.view.getViewType();
+        if (!WEB_VIEW_TYPES.includes(viewType)) {
+            return;
+        }
+
+        // Check if menu option is enabled
+        if (!this.getSettings().showWebViewerMenuOption) {
+            return;
+        }
+
+        // Look for indicators this is a pane menu (has Split right, Split down, etc.)
+        const menuItemsNodeList = menuEl.querySelectorAll('.menu-item-title');
+        const menuItemsArr = Array.from(menuItemsNodeList);
+        let isPaneMenu = false;
+        for (const item of menuItemsArr) {
+            const text = item.textContent?.trim();
+            if (text === 'Split right' || text === 'Split down' || text === 'Open in default browser') {
+                isPaneMenu = true;
+                break;
+            }
+        }
+
+        if (!isPaneMenu) {
+            return;
+        }
+
+        // Check if we already injected (avoid duplicates)
+        if (menuEl.querySelector('.web-sidecar-menu-item')) {
+            return;
+        }
+
+        // Find the position to insert (after "Open in default browser" or at the end of the first section)
+        const menuSections = menuEl.querySelectorAll('.menu-separator');
+        const items = Array.from(menuEl.children);
+
+        // Find "Open in default browser" and insert after it
+        let insertAfterEl: Element | null = null;
+        for (const item of items) {
+            const title = item.querySelector('.menu-item-title');
+            if (title?.textContent?.trim() === 'Open in default browser') {
+                insertAfterEl = item;
+                break;
+            }
+        }
+
+        // Create our menu item
+        const menuItem = document.createElement('div');
+        menuItem.className = 'menu-item web-sidecar-menu-item';
+
+        const icon = document.createElement('div');
+        icon.className = 'menu-item-icon';
+        setIcon(icon, 'plus-circle');
+
+        const title = document.createElement('div');
+        title.className = 'menu-item-title';
+        title.textContent = 'New web viewer';
+
+        menuItem.appendChild(icon);
+        menuItem.appendChild(title);
+
+        // Handle hover state properly - clear sibling hover states
+        menuItem.addEventListener('mouseenter', () => {
+            // Remove hover/selected classes from all siblings
+            const siblings = menuEl.querySelectorAll('.menu-item');
+            siblings.forEach((sibling) => {
+                if (sibling !== menuItem) {
+                    sibling.classList.remove('selected', 'is-selected');
+                    // Also trigger mouseleave to reset Obsidian's internal state
+                    sibling.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+                }
+            });
+            menuItem.classList.add('selected');
+        });
+
+        menuItem.addEventListener('mouseleave', () => {
+            menuItem.classList.remove('selected');
+        });
+
+        menuItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close the menu
+            menuEl.remove();
+            this.openNewWebViewer();
+        });
+
+        // Create a separator to appear above our menu item
+        const separator = document.createElement('div');
+        separator.className = 'menu-separator';
+
+        // Insert after "Open in default browser" or at a sensible position
+        if (insertAfterEl && insertAfterEl.nextSibling) {
+            // Insert separator then menu item after "Open in default browser"
+            insertAfterEl.parentNode?.insertBefore(separator, insertAfterEl.nextSibling);
+            separator.parentNode?.insertBefore(menuItem, separator.nextSibling);
+        } else if (menuSections.length > 0 && menuSections[0]) {
+            // Insert before the first separator
+            const firstSeparator = menuSections[0];
+            firstSeparator.parentNode?.insertBefore(separator, firstSeparator);
+            separator.parentNode?.insertBefore(menuItem, separator.nextSibling);
+        } else {
+            // Fallback: append separator and menu item to menu
+            menuEl.appendChild(separator);
+            menuEl.appendChild(menuItem);
+        }
+
+        // Try to inject "Open note to the right" if enabled
+        if (this.getSettings().showWebViewerOpenNoteOption) {
+            this.maybeInjectOpenNoteOption(menuEl, insertAfterEl);
+        }
+    }
+
+    /**
+     * Inject "Open note to the right" option if there are notes linked to the current URL
+     */
+    private maybeInjectOpenNoteOption(menuEl: HTMLElement, insertAfterEl: Element | null): void {
+        const leaf = this.app.workspace.activeLeaf;
+        if (!leaf) return;
+
+        const state = leaf.view.getState();
+        const url = typeof state?.url === 'string' ? state.url : undefined;
+        if (!url) return;
+
+        // Find linked notes
+        const matches = findMatchingNotes(this.app, url, this.getSettings(), this.urlIndex);
+        const linkedNotes = matches.exactMatches.map(m => m.file);
+
+        if (linkedNotes.length === 0) return;
+
+        // Determine which note to open
+        let noteToOpen: TFile | undefined = linkedNotes[0];
+        let menuText = 'Open note to the right';
+        let iconName = 'split-square-horizontal';
+
+        // If multiple notes, find the most recently modified one
+        if (linkedNotes.length > 1) {
+            linkedNotes.sort((a, b) => b.stat.mtime - a.stat.mtime);
+            noteToOpen = linkedNotes[0];
+            menuText = 'Open most recent note to the right';
+            iconName = 'history';
+        }
+
+        if (!noteToOpen) return;
+
+        // Create menu item
+        const menuItem = document.createElement('div');
+        menuItem.className = 'menu-item web-sidecar-menu-item-note';
+
+        const icon = document.createElement('div');
+        icon.className = 'menu-item-icon';
+        setIcon(icon, iconName);
+
+        const title = document.createElement('div');
+        title.className = 'menu-item-title';
+        title.textContent = menuText;
+
+        menuItem.appendChild(icon);
+        menuItem.appendChild(title);
+
+        // Hover handling
+        menuItem.addEventListener('mouseenter', () => {
+            const siblings = menuEl.querySelectorAll('.menu-item');
+            siblings.forEach((sibling) => {
+                if (sibling !== menuItem) {
+                    sibling.classList.remove('selected', 'is-selected');
+                    sibling.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+                }
+            });
+            menuItem.classList.add('selected');
+        });
+
+        menuItem.addEventListener('mouseleave', () => {
+            menuItem.classList.remove('selected');
+        });
+
+        // Click handling
+        menuItem.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            menuEl.remove();
+
+            // Open note to the right
+            if (noteToOpen) {
+                const newLeaf = this.app.workspace.createLeafBySplit(leaf, 'vertical');
+                await newLeaf.openFile(noteToOpen);
+            }
+        });
+
+        // Insert after "New web viewer" item if it exists, or at sensible position
+        const newTabItem = menuEl.querySelector('.web-sidecar-menu-item');
+        if (newTabItem && newTabItem.nextSibling) {
+            newTabItem.parentNode?.insertBefore(menuItem, newTabItem.nextSibling);
+        } else if (newTabItem) {
+            newTabItem.parentNode?.appendChild(menuItem);
+        } else if (insertAfterEl && insertAfterEl.nextSibling) {
+            insertAfterEl.parentNode?.insertBefore(menuItem, insertAfterEl.nextSibling);
+        } else {
+            menuEl.appendChild(menuItem);
+        }
+    }
+
+    private async openNewWebViewer(): Promise<void> {
+        const leaf = this.app.workspace.getLeaf('tab');
+        await leaf.setViewState({
+            type: 'webviewer',
+            state: { url: 'about:blank', navigate: true }
+        });
+        this.app.workspace.revealLeaf(leaf);
+    }
+}
