@@ -14,7 +14,14 @@ export interface WebSidecarSettings {
     newNoteFolderPath: string;
     /** Number of recent notes to show when no web viewer is active */
     recentNotesCount: number;
+    /** Sort order for web viewer tabs */
+    tabSortOrder: TabSortOrder;
 }
+
+/**
+ * Sort order options for web viewer tabs
+ */
+export type TabSortOrder = 'focus' | 'title';
 
 /**
  * Default settings values
@@ -25,6 +32,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     enableTldSearch: true,
     newNoteFolderPath: '',
     recentNotesCount: 10,
+    tabSortOrder: 'focus',
 };
 
 /**
@@ -66,4 +74,18 @@ export interface RecentNoteWithUrl {
 export interface WebViewerInfo {
     url: string;
     title?: string;
+}
+
+/**
+ * Tracked web viewer tab with focus timestamp
+ */
+export interface TrackedWebViewer {
+    /** Unique leaf ID */
+    leafId: string;
+    /** Current URL */
+    url: string;
+    /** Page title */
+    title: string;
+    /** When this tab was last focused */
+    lastFocused: number;
 }

@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
-import type { WebSidecarSettings, WebViewerInfo } from './types';
+import type { WebSidecarSettings, TrackedWebViewer } from './types';
 import { findMatchingNotes, getRecentNotesWithUrls } from './noteMatcher';
 import { extractDomain } from './urlUtils';
 import { CreateNoteModal } from './createNoteModal';
@@ -11,18 +11,21 @@ export const VIEW_TYPE_WEB_SIDECAR = 'web-sidecar-view';
  */
 export class WebSidecarView extends ItemView {
     private settings: WebSidecarSettings;
-    private currentInfo: WebViewerInfo | null = null;
+    private trackedTabs: TrackedWebViewer[] = [];
     private getSettings: () => WebSidecarSettings;
     private onRefresh: () => void;
+    private getTabs: () => TrackedWebViewer[];
 
     constructor(
         leaf: WorkspaceLeaf,
         getSettings: () => WebSidecarSettings,
-        onRefresh: () => void
+        onRefresh: () => void,
+        getTabs: () => TrackedWebViewer[]
     ) {
         super(leaf);
         this.getSettings = getSettings;
         this.onRefresh = onRefresh;
+        this.getTabs = getTabs;
         this.settings = getSettings();
     }
 
@@ -40,7 +43,8 @@ export class WebSidecarView extends ItemView {
 
     async onOpen(): Promise<void> {
         this.settings = this.getSettings();
-        this.renderEmptyState();
+        this.trackedTabs = this.getTabs();
+        this.render();
     }
 
     async onClose(): Promise<void> {
@@ -48,42 +52,52 @@ export class WebSidecarView extends ItemView {
     }
 
     /**
-     * Update the view with web viewer info
+     * Update the view with tracked tabs
      */
-    updateWithInfo(info: WebViewerInfo | null): void {
+    updateTabs(tabs: TrackedWebViewer[]): void {
         this.settings = this.getSettings();
-        this.currentInfo = info;
+        this.trackedTabs = tabs;
+        this.render();
+    }
 
-        if (!info) {
-            this.renderEmptyState();
-        } else {
-            this.renderUrlMatches(info);
-        }
+    /**
+     * Legacy method for compatibility
+     */
+    updateWithInfo(info: { url: string; title?: string } | null): void {
+        // Not used in multi-tab mode, but keeping for compatibility
+        this.onRefresh();
     }
 
     /**
      * Legacy method for compatibility
      */
     updateUrl(url: string | null): void {
-        if (url) {
-            this.updateWithInfo({ url });
+        this.onRefresh();
+    }
+
+    /**
+     * Main render method
+     */
+    private render(): void {
+        const container = this.containerEl.children[1] as HTMLElement;
+        container.empty();
+        container.addClass('web-sidecar-container');
+
+        if (this.trackedTabs.length === 0) {
+            this.renderEmptyState(container);
         } else {
-            this.updateWithInfo(null);
+            this.renderTabList(container);
         }
     }
 
     /**
      * Render the empty state with recent notes
      */
-    private renderEmptyState(): void {
-        const container = this.containerEl.children[1] as HTMLElement;
-        container.empty();
-        container.addClass('web-sidecar-container');
-
+    private renderEmptyState(container: HTMLElement): void {
         // Header with refresh button
         const header = container.createDiv({ cls: 'web-sidecar-header' });
         const headerRow = header.createDiv({ cls: 'web-sidecar-header-row' });
-        headerRow.createEl('h4', { text: 'No web viewer active' });
+        headerRow.createEl('h4', { text: 'No web viewer tabs open' });
 
         const refreshBtn = headerRow.createEl('button', {
             cls: 'web-sidecar-refresh-btn clickable-icon',
@@ -117,28 +131,71 @@ export class WebSidecarView extends ItemView {
     }
 
     /**
-     * Render matches for a URL
+     * Render the list of all tracked tabs
      */
-    private renderUrlMatches(info: WebViewerInfo): void {
-        const container = this.containerEl.children[1] as HTMLElement;
-        container.empty();
-        container.addClass('web-sidecar-container');
-
-        const url = info.url;
-        const domain = extractDomain(url);
-
-        // Header section with site info
+    private renderTabList(container: HTMLElement): void {
+        // Header with count and controls
         const header = container.createDiv({ cls: 'web-sidecar-header' });
-
-        // Header row with title and refresh button
         const headerRow = header.createDiv({ cls: 'web-sidecar-header-row' });
+        headerRow.createEl('h4', { text: `Open Tabs (${this.trackedTabs.length})` });
 
-        // Site info with favicon
-        const siteInfo = headerRow.createDiv({ cls: 'web-sidecar-site-info' });
+        const controls = headerRow.createDiv({ cls: 'web-sidecar-controls' });
+
+        // Sort toggle
+        const sortBtn = controls.createEl('button', {
+            cls: 'web-sidecar-sort-btn clickable-icon',
+            attr: {
+                'aria-label': `Sort by ${this.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`,
+                'title': `Currently: ${this.settings.tabSortOrder === 'focus' ? 'Recent first' : 'Alphabetical'}`
+            }
+        });
+        setIcon(sortBtn, this.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
+        sortBtn.addEventListener('click', async () => {
+            this.settings.tabSortOrder = this.settings.tabSortOrder === 'focus' ? 'title' : 'focus';
+            await this.onRefresh();
+        });
+
+        // New web viewer button
+        const newWebViewBtn = controls.createEl('button', {
+            cls: 'web-sidecar-new-btn clickable-icon',
+            attr: { 'aria-label': 'Open new web viewer', 'title': 'Open new web viewer' }
+        });
+        setIcon(newWebViewBtn, 'plus');
+        newWebViewBtn.addEventListener('click', () => this.openNewWebViewer());
+
+        // Refresh button
+        const refreshBtn = controls.createEl('button', {
+            cls: 'web-sidecar-refresh-btn clickable-icon',
+            attr: { 'aria-label': 'Refresh' }
+        });
+        setIcon(refreshBtn, 'refresh-cw');
+        refreshBtn.addEventListener('click', () => this.onRefresh());
+
+        // Render each tab
+        for (const tab of this.trackedTabs) {
+            this.renderTabEntry(container, tab);
+        }
+    }
+
+    /**
+     * Render a single tab entry with its matching notes
+     */
+    private renderTabEntry(container: HTMLElement, tab: TrackedWebViewer): void {
+        const tabSection = container.createDiv({ cls: 'web-sidecar-tab-entry' });
+
+        // Tab header with favicon and title - clickable to focus the web viewer
+        const tabHeader = tabSection.createDiv({ cls: 'web-sidecar-tab-header clickable' });
+        tabHeader.addEventListener('click', (e) => {
+            // Don't trigger if clicking on the create button
+            if ((e.target as HTMLElement).closest('.web-sidecar-create-btn-small')) return;
+            this.focusWebViewer(tab.leafId);
+        });
+
+        const domain = extractDomain(tab.url);
 
         // Favicon
         if (domain) {
-            const favicon = siteInfo.createEl('img', {
+            const favicon = tabHeader.createEl('img', {
                 cls: 'web-sidecar-favicon',
                 attr: {
                     src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
@@ -152,97 +209,51 @@ export class WebSidecarView extends ItemView {
             };
         }
 
-        // Title
-        const title = info.title || domain || 'Web Page';
-        siteInfo.createEl('span', { text: title, cls: 'web-sidecar-site-title' });
-
-        // Refresh button
-        const refreshBtn = headerRow.createEl('button', {
-            cls: 'web-sidecar-refresh-btn clickable-icon',
-            attr: { 'aria-label': 'Refresh' }
-        });
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.addEventListener('click', () => this.onRefresh());
-
-        // URL display (smaller, below title)
-        const urlDisplay = header.createDiv({ cls: 'web-sidecar-url' });
-        urlDisplay.createEl('code', { text: url, cls: 'web-sidecar-full-url' });
+        // Title and URL
+        const tabInfo = tabHeader.createDiv({ cls: 'web-sidecar-tab-info' });
+        tabInfo.createEl('span', { text: tab.title, cls: 'web-sidecar-tab-title' });
+        tabInfo.createEl('code', { text: tab.url, cls: 'web-sidecar-tab-url' });
 
         // Create note button
-        const createBtn = header.createEl('button', {
-            cls: 'web-sidecar-create-btn',
+        const createBtn = tabHeader.createEl('button', {
+            cls: 'web-sidecar-create-btn-small clickable-icon',
             attr: { 'aria-label': 'Create note for this URL' }
         });
         setIcon(createBtn, 'plus');
-        createBtn.createSpan({ text: 'Create note' });
-        createBtn.addEventListener('click', () => this.openCreateNoteModal(url));
+        createBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openCreateNoteModal(tab.url);
+        });
 
-        // Find matches
-        const matches = findMatchingNotes(this.app, url, this.settings);
+        // Find matches for this tab
+        const matches = findMatchingNotes(this.app, tab.url, this.settings);
+        const hasMatches = matches.exactMatches.length > 0 || matches.tldMatches.length > 0;
 
-        // Exact matches section
-        this.renderMatchSection(
-            container,
-            'Exact matches',
-            matches.exactMatches.map(m => ({ file: m.file, url: m.url })),
-            'exact'
-        );
+        if (hasMatches) {
+            // Exact matches
+            if (matches.exactMatches.length > 0) {
+                const matchList = tabSection.createEl('ul', { cls: 'web-sidecar-list web-sidecar-exact' });
+                for (const match of matches.exactMatches) {
+                    this.renderNoteItem(matchList, match.file, match.url);
+                }
+            }
 
-        // TLD matches section (collapsible)
-        if (this.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            this.renderCollapsibleSection(
-                container,
-                `Same domain (${domain})`,
-                matches.tldMatches.map(m => ({ file: m.file, url: m.url }))
-            );
-        }
+            // TLD matches (collapsible)
+            if (this.settings.enableTldSearch && matches.tldMatches.length > 0) {
+                const details = tabSection.createEl('details', { cls: 'web-sidecar-tld-matches' });
+                const summary = details.createEl('summary');
+                summary.createSpan({ text: `Same domain (${matches.tldMatches.length})` });
 
-        // Empty state for no matches
-        if (matches.exactMatches.length === 0 && matches.tldMatches.length === 0) {
-            container.createEl('p', {
-                text: 'No matching notes found.',
-                cls: 'web-sidecar-empty-text'
+                const matchList = details.createEl('ul', { cls: 'web-sidecar-list' });
+                for (const match of matches.tldMatches) {
+                    this.renderNoteItem(matchList, match.file, match.url);
+                }
+            }
+        } else {
+            tabSection.createEl('p', {
+                text: 'No matching notes',
+                cls: 'web-sidecar-no-matches'
             });
-        }
-    }
-
-    /**
-     * Render a section with matched notes
-     */
-    private renderMatchSection(
-        container: HTMLElement,
-        title: string,
-        notes: { file: TFile; url: string }[],
-        type: 'exact' | 'tld'
-    ): void {
-        if (notes.length === 0) return;
-
-        const section = container.createDiv({ cls: `web-sidecar-section web-sidecar-${type}` });
-        section.createEl('h5', { text: `${title} (${notes.length})` });
-
-        const list = section.createEl('ul', { cls: 'web-sidecar-list' });
-
-        for (const note of notes) {
-            this.renderNoteItem(list, note.file, note.url);
-        }
-    }
-
-    /**
-     * Render a collapsible section
-     */
-    private renderCollapsibleSection(
-        container: HTMLElement,
-        title: string,
-        notes: { file: TFile; url: string }[]
-    ): void {
-        const details = container.createEl('details', { cls: 'web-sidecar-collapsible' });
-        const summary = details.createEl('summary');
-        summary.createSpan({ text: `${title} (${notes.length})` });
-
-        const list = details.createEl('ul', { cls: 'web-sidecar-list' });
-
-        for (const note of notes) {
-            this.renderNoteItem(list, note.file, note.url);
         }
     }
 
@@ -263,12 +274,72 @@ export class WebSidecarView extends ItemView {
             this.app.workspace.openLinkText(file.path, '', true);
         });
 
-        // Show URL snippet
-        const urlSnippet = li.createEl('span', {
-            cls: 'web-sidecar-url-snippet'
+        // Show URL snippet - clickable to open in web viewer
+        const urlSnippet = li.createEl('a', {
+            cls: 'web-sidecar-url-snippet clickable',
+            attr: { href: '#', title: 'Open in web viewer' }
         });
         const domain = extractDomain(url);
         urlSnippet.setText(domain || url);
+        urlSnippet.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.openUrlInWebViewer(url);
+        });
+    }
+
+    /**
+     * Focus a specific web viewer by leaf ID
+     */
+    private focusWebViewer(leafId: string): void {
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+        for (const leaf of leaves) {
+            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            if (id === leafId) {
+                this.app.workspace.revealLeaf(leaf);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Open a URL - focus existing tab if already open, otherwise create new
+     */
+    private async openUrlInWebViewer(url: string): Promise<void> {
+        // First check if this URL is already open in a tab
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+        for (const leaf of leaves) {
+            const state = leaf.view.getState();
+            if (state?.url === url) {
+                // URL already open, focus this tab
+                this.app.workspace.revealLeaf(leaf);
+                return;
+            }
+        }
+
+        // URL not open, create new tab
+        const leaf = this.app.workspace.getLeaf('tab');
+        await leaf.setViewState({
+            type: 'webviewer',
+            state: { url, navigate: true }
+        });
+        this.app.workspace.revealLeaf(leaf);
+    }
+
+    /**
+     * Open a new empty web viewer
+     */
+    private async openNewWebViewer(): Promise<void> {
+        const leaf = this.app.workspace.getLeaf('tab');
+        await leaf.setViewState({
+            type: 'webviewer',
+            state: { url: 'about:blank', navigate: true }
+        });
+        this.app.workspace.revealLeaf(leaf);
     }
 
     /**

@@ -81,5 +81,18 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					this.plugin.settings.recentNotesCount = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// Tab Sort Order
+		new Setting(containerEl)
+			.setName('Tab sort order')
+			.setDesc('How to sort open web viewer tabs')
+			.addDropdown(dropdown => dropdown
+				.addOption('focus', 'Recently focused')
+				.addOption('title', 'Alphabetical by title')
+				.setValue(this.plugin.settings.tabSortOrder)
+				.onChange(async (value) => {
+					this.plugin.settings.tabSortOrder = value as 'focus' | 'title';
+					await this.plugin.saveSettings();
+				}));
 	}
 }
