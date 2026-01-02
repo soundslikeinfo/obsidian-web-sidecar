@@ -1,99 +1,253 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { WebSidecarSettings, DEFAULT_SETTINGS, WebViewerInfo } from './types';
+import { WebSidecarSettingTab } from './settings';
+import { WebSidecarView, VIEW_TYPE_WEB_SIDECAR } from './webSidecarView';
 
-// Remember to rename these classes and interfaces!
+/**
+ * Supported web viewer types
+ */
+const WEB_VIEW_TYPES = ['webviewer', 'surfing-view'];
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+/**
+ * Polling interval for URL changes (ms)
+ */
+const POLL_INTERVAL = 500;
 
-	async onload() {
+/**
+ * Web Sidecar Plugin
+ * Watches active web viewer URLs and displays related notes in a sidebar
+ */
+export default class WebSidecarPlugin extends Plugin {
+	settings: WebSidecarSettings;
+	private view: WebSidecarView | null = null;
+	private lastUrl: string | null = null;
+	private pollIntervalId: number | null = null;
+
+	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		// Register the sidebar view
+		this.registerView(
+			VIEW_TYPE_WEB_SIDECAR,
+			(leaf) => {
+				this.view = new WebSidecarView(leaf, () => this.settings, () => this.refreshView());
+				return this.view;
+			}
+		);
+
+		// Add ribbon icon to open sidebar
+		this.addRibbonIcon('globe', 'Open Web Sidecar', () => {
+			this.activateView();
 		});
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
+		// Add command to toggle sidebar
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
+			id: 'open-web-sidecar',
+			name: 'Open Web Sidecar sidebar',
 			callback: () => {
-				new SampleModal(this.app).open();
-			}
+				this.activateView();
+			},
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
 
-					// This command will only show up in Command Palette when the check function returns true
+		// Add command to refresh sidebar
+		this.addCommand({
+			id: 'refresh-web-sidecar',
+			name: 'Refresh Web Sidecar',
+			callback: () => {
+				this.refreshView();
+			},
+		});
+
+		// Add command to create note for current URL
+		this.addCommand({
+			id: 'create-note-for-url',
+			name: 'Create note for current URL',
+			checkCallback: (checking: boolean) => {
+				const info = this.getCurrentWebViewerInfo();
+				if (info) {
+					if (!checking) {
+						this.view?.updateWithInfo(info);
+					}
 					return true;
 				}
 				return false;
-			}
+			},
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		// Add settings tab
+		this.addSettingTab(new WebSidecarSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
+		// Listen for active leaf changes
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', (leaf) => {
+				this.onActiveLeafChange(leaf);
+			})
+		);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		// Start polling for URL changes within web viewers
+		this.startPolling();
 	}
 
-	onunload() {
+	onunload(): void {
+		this.stopPolling();
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+	async loadSettings(): Promise<void> {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	async saveSettings() {
+	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+		this.refreshView();
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	/**
+	 * Start polling for URL changes
+	 */
+	private startPolling(): void {
+		this.pollIntervalId = this.registerInterval(
+			window.setInterval(() => this.pollForUrlChanges(), POLL_INTERVAL)
+		);
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	/**
+	 * Stop polling
+	 */
+	private stopPolling(): void {
+		if (this.pollIntervalId !== null) {
+			window.clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+	}
+
+	/**
+	 * Poll for URL changes in web viewers
+	 */
+	private pollForUrlChanges(): void {
+		const info = this.getCurrentWebViewerInfo();
+		const currentUrl = info?.url ?? null;
+
+		if (currentUrl !== this.lastUrl) {
+			this.lastUrl = currentUrl;
+			if (info) {
+				this.view?.updateWithInfo(info);
+			} else {
+				this.view?.updateWithInfo(null);
+			}
+		}
+	}
+
+	/**
+	 * Refresh the view manually
+	 */
+	refreshView(): void {
+		const info = this.getCurrentWebViewerInfo();
+		this.lastUrl = info?.url ?? null;
+		this.view?.updateWithInfo(info);
+	}
+
+	/**
+	 * Handle active leaf changes to detect web viewer URL changes
+	 */
+	private onActiveLeafChange(leaf: WorkspaceLeaf | null): void {
+		if (!leaf) {
+			return;
+		}
+
+		const viewType = leaf.view.getViewType();
+
+		if (WEB_VIEW_TYPES.includes(viewType)) {
+			// Immediate update when switching to a web viewer
+			const info = this.getWebViewerInfo(leaf);
+			if (info) {
+				this.lastUrl = info.url;
+				this.view?.updateWithInfo(info);
+			}
+		}
+	}
+
+	/**
+	 * Get info from a specific web viewer leaf
+	 */
+	private getWebViewerInfo(leaf: WorkspaceLeaf): WebViewerInfo | null {
+		const state = leaf.view.getState();
+		const url = state?.url;
+
+		if (url && typeof url === 'string') {
+			return {
+				url,
+				title: typeof state?.title === 'string' ? state.title : this.extractTitleFromUrl(url),
+			};
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get the current web viewer info from any open web viewer
+	 */
+	private getCurrentWebViewerInfo(): WebViewerInfo | null {
+		// First check the active leaf
+		const activeLeaf = this.app.workspace.activeLeaf;
+		if (activeLeaf && WEB_VIEW_TYPES.includes(activeLeaf.view.getViewType())) {
+			return this.getWebViewerInfo(activeLeaf);
+		}
+
+		// Then check all web viewer leaves
+		const leaves = this.app.workspace.getLeavesOfType('webviewer')
+			.concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+		for (const leaf of leaves) {
+			const info = this.getWebViewerInfo(leaf);
+			if (info) {
+				return info;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Extract a title from URL as fallback
+	 */
+	private extractTitleFromUrl(url: string): string {
+		try {
+			let urlWithProtocol = url;
+			if (!url.match(/^https?:\/\//)) {
+				urlWithProtocol = 'https://' + url;
+			}
+			const parsed = new URL(urlWithProtocol);
+			return parsed.hostname.replace(/^www\./, '');
+		} catch {
+			return url;
+		}
+	}
+
+	/**
+	 * Activate and reveal the sidebar view
+	 */
+	async activateView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR);
+
+		if (leaves.length > 0) {
+			leaf = leaves[0] ?? null;
+		} else {
+			// Create in right sidebar
+			leaf = workspace.getRightLeaf(false);
+			if (leaf) {
+				await leaf.setViewState({
+					type: VIEW_TYPE_WEB_SIDECAR,
+					active: true,
+				});
+			}
+		}
+
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+			this.refreshView();
+		}
 	}
 }
