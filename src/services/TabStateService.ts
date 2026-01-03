@@ -115,11 +115,15 @@ export class TabStateService {
 
     /**
      * Get virtual tabs from open notes with URL properties
+     * Deduplicated by file path (same note in multiple tabs = 1 virtual tab)
      */
     getVirtualTabs(): VirtualTab[] {
         const virtualTabs: VirtualTab[] = [];
         const openUrls = new Set(Array.from(this.trackedTabs.values()).map(t => t.url));
         const settings = this.getSettings();
+
+        // Track files we've already processed to deduplicate
+        const processedFilePaths = new Set<string>();
 
         // Get all open markdown leaves
         const markdownLeaves = this.plugin.app.workspace.getLeavesOfType('markdown');
@@ -130,6 +134,10 @@ export class TabStateService {
 
             const file = view.file;
             if (!file) continue;
+
+            // CRITICAL: Deduplicate by file path - skip if already processed
+            if (processedFilePaths.has(file.path)) continue;
+            processedFilePaths.add(file.path);
 
             // Get frontmatter
             const cache = this.plugin.app.metadataCache.getFileCache(file);

@@ -332,21 +332,45 @@ for (const [key, el] of currentElements) {
 }
 ```
 
-### Header Controls
+### "New Web Viewer" Button Placement (CRITICAL)
 
-**Location:** Native Obsidian action bar (top-right of pane, next to close/popout buttons)
+> [!CAUTION]
+> This button placement has regressed 8+ times. Follow these rules EXACTLY.
+
+**DOM Order in browser mode (top to bottom):**
+1. `web-sidecar-browser-tabs` — Tab list container (all web viewer tabs)
+2. `web-sidecar-new-tab-btn` — "New web viewer" button row
+3. `web-sidecar-virtual-section` — "Opened web notes" heading + virtual tabs
+4. `web-sidecar-recent-section` — Recent web notes section
+
+**Rules:**
+- The "New web viewer" button MUST appear **immediately after** the last web viewer tab
+- The button MUST appear **before** the "Opened web notes" heading
+- If there are no web viewer tabs, the button is the topmost element (besides nav-header)
+- New tabs created via this button should appear **immediately above** this button row
+
+**Implementation:**
+```typescript
+// Use explicit insertBefore/after, NOT createDiv (which just appends)
+tabListContainer.after(newTabBtn);  // Button after tabs
+newTabBtn.after(virtualSection);    // Virtual section after button
+```
+
+### Nav-Header Buttons
+
+The nav-header toolbar contains these buttons (left to right):
 
 | Button | Icon | Action |
 |--------|------|--------|
-| Expand/Collapse Toggle | `unfold-vertical` / `fold-vertical` | Toggle expand/collapse all tab notes |
 | New Web Viewer | `plus` | Open new blank web viewer |
+| Expand/Collapse Toggle | `unfold-vertical` / `fold-vertical` | Toggle expand/collapse all tab notes |
 | Sort | `clock` / `arrow-down-az` | Toggle between focus-time and alphabetical |
 | Refresh | `refresh-cw` | Force rescan all web viewers |
 
-**Implementation notes:**
-- Uses `this.addAction()` in `onOpen()` to add buttons to native header
-- Expand/collapse is a single toggle button (swaps icon in place)
-- All buttons work in both Browser and Notes mode
+> [!IMPORTANT]
+> There are TWO "New web viewer" buttons: one in nav-header (plus icon) and one inline button below tabs. Both must always be present.
+
+### Header Controls
 
 ### Click Behaviors
 

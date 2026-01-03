@@ -378,6 +378,18 @@
   color: var(--text-normal);
 }
 
+/* Virtual tab (in "Opened web notes") muted active state */
+.web-sidecar-virtual-section .web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+  background-color: var(--background-modifier-hover);
+  border-left: 2px solid var(--text-muted);
+  margin-left: -2px;
+}
+
+.web-sidecar-virtual-section .web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-title {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 /* Favicon container */
 .web-sidecar-browser-favicon {
   flex-shrink: 0;
@@ -445,8 +457,8 @@
   position: relative;
 }
 
-/* Blue dot focus indicator for notes (when note is active but web viewer isn't) */
-.web-sidecar-browser-note-list li.is-focused::before {
+/* Blue dot focus indicator - always present but invisible by default */
+.web-sidecar-browser-note-list li::before {
   content: '';
   position: absolute;
   left: 0;
@@ -456,6 +468,13 @@
   height: 6px;
   border-radius: 50%;
   background-color: var(--interactive-accent);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Blue dot becomes visible when note is focused */
+.web-sidecar-browser-note-list li.is-focused::before {
+  opacity: 1;
 }
 
 .web-sidecar-browser-note-link {

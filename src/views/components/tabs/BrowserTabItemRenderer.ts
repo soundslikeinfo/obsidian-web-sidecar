@@ -312,7 +312,7 @@ export class BrowserTabItemRenderer {
         if (exactCount === 0) {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
-            newNoteBtn.setAttribute('aria-label', 'New Note');
+            newNoteBtn.setAttribute('aria-label', 'New linked note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.view.openCreateNoteModal(tab.url);
@@ -323,8 +323,29 @@ export class BrowserTabItemRenderer {
         if (hasExpandableContent && notesContainer) {
             expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
-            // Set icon based on preserved state
-            if (existingNotesContainer && wasExpanded) {
+            // Check if a linked note is currently focused - if so, auto-expand
+            let linkedNoteFocused = false;
+            let focusedNotePath: string | null = null;
+            if (activeLeaf?.view?.getViewType() === 'markdown') {
+                const view = activeLeaf.view as any;
+                if (view.file) {
+                    focusedNotePath = view.file.path;
+                    // Check if this note is linked to the current tab
+                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
+                        linkedNoteFocused = true;
+                    }
+                }
+            }
+
+            // Auto-expand if linked note is focused (and not already expanded)
+            const wasAlreadyExpanded = existingNotesContainer && wasExpanded;
+            if (linkedNoteFocused && !wasAlreadyExpanded) {
+                notesContainer.removeClass('hidden');
+            }
+
+            // Set icon based on current expanded state
+            const isCurrentlyExpanded = !notesContainer.hasClass('hidden');
+            if (isCurrentlyExpanded) {
                 setIcon(expandBtn, 'chevron-down');
             } else {
                 setIcon(expandBtn, 'chevron-right');
@@ -336,20 +357,48 @@ export class BrowserTabItemRenderer {
             };
 
             // Auto-populate content if container is expanded but empty
-            // This handles bulk expand and preserved expanded state
-            const isExpanded = notesContainer && !notesContainer.hasClass('hidden');
-            if (isExpanded && notesContainer.children.length === 0) {
+            // This handles bulk expand, preserved expanded state, and auto-expand for focused notes
+            if (isCurrentlyExpanded && notesContainer.children.length === 0) {
                 this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+            }
+
+            // CRITICAL: Update is-focused class on existing note items when focus changes
+            // This runs every time the view updates, ensuring the blue dot follows focus
+            if (isCurrentlyExpanded && notesContainer.children.length > 0) {
+                this.updateNoteFocusState(notesContainer, focusedNotePath);
             }
         }
     }
 
-    private renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
+    /**
+     * Update the is-focused class on note list items based on current focus
+     * This is called on every render to ensure the blue dot follows focus changes
+     */
+    updateNoteFocusState(container: HTMLElement, focusedNotePath: string | null): void {
+        const noteItems = container.querySelectorAll('.web-sidecar-browser-note-list li');
+        noteItems.forEach((li) => {
+            const link = li.querySelector('.web-sidecar-browser-note-link');
+            if (!link) return;
+
+            // Get the file path from the data attribute we'll add during render
+            const itemPath = li.getAttribute('data-note-path');
+
+            if (focusedNotePath && itemPath === focusedNotePath) {
+                li.addClass('is-focused');
+            } else {
+                li.removeClass('is-focused');
+            }
+        });
+    }
+
+    renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
+                // Store path for focus tracking
+                li.setAttribute('data-note-path', match.file.path);
 
                 // Check if this note is the currently focused leaf
                 let activeLeaf = this.view.app.workspace.activeLeaf;
@@ -388,11 +437,12 @@ export class BrowserTabItemRenderer {
             }
         }
 
-        // 2. New Note button (always show)
+        // 2. New linked note button (always show)
         const newNoteBtn = container.createDiv({ cls: 'web-sidecar-new-note-btn' });
         const noteIcon = newNoteBtn.createSpan({ cls: 'web-sidecar-new-note-icon' });
         setIcon(noteIcon, 'file-plus');
-        newNoteBtn.createSpan({ text: 'New Note', cls: 'web-sidecar-new-note-text' });
+        newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
+        newNoteBtn.setAttribute('aria-label', 'New linked note');
         newNoteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.view.openCreateNoteModal(url);

@@ -80,3 +80,97 @@ If this breaks again, verify:
 - [ ] Is `active-leaf-change` forcing a render?
 - [ ] Is `active-leaf-change` IGNORED when `leaf === this.leaf`?
 - [ ] Is `lastActiveLeaf` fallback logic in place?
+
+---
+
+## "New Web Viewer" Button Placement Regression
+
+This has regressed **8+ times**. The button keeps moving above the tabs instead of below.
+
+### The Problem
+The "New web viewer" button row must appear:
+- **AFTER** all web viewer tabs
+- **BEFORE** the "Opened web notes" virtual section
+
+### Why It Regresses
+Using `container.createDiv()` just appends elements, causing incorrect order when elements are created in different sequence across code paths.
+
+### The Fix
+Use explicit DOM insertion order with `element.after()`:
+
+```typescript
+// BrowserTabRenderer.ts - renderBrowserModeTabList()
+// CRITICAL: Enforce exact DOM order
+
+// 1. Tab list container exists/created first
+tabListContainer.after(newTabBtn);       // Button immediately after tabs
+newTabBtn.after(virtualSection);         // Virtual section after button
+```
+
+### Checklist
+- [ ] Is `tabListContainer.after(newTabBtn)` being called?
+- [ ] Is `newTabBtn.after(virtualSection)` being called?
+- [ ] Are we NOT using `container.createDiv()` for these elements?
+
+---
+
+## Tab Sync Delay Regression
+
+New tabs don't appear immediately in the sidecar after creation.
+
+### The Problem
+When clicking "New web viewer", the UI doesn't show the new tab until clicking again.
+
+### Why It Happens
+Obsidian's workspace doesn't immediately register new leaves. A single refresh call happens before the leaf exists.
+
+### The Fix
+Use dual refresh pattern:
+
+```typescript
+// NavigationService.ts - openNewWebViewer()
+async openNewWebViewer(): Promise<void> {
+    this.isManualRefreshCallback(true);
+    const leaf = this.app.workspace.getLeaf('tab');
+    await leaf.setViewState({ type: 'webviewer', state: { url: 'about:blank', navigate: true } });
+    this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    
+    // CRITICAL: Immediate refresh THEN delayed refresh
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();
+}
+```
+
+### Checklist
+- [ ] Is `setActiveLeaf` being called after reveal?
+- [ ] Is there an immediate refresh BEFORE the delay?
+- [ ] Is there a second refresh AFTER a 100ms delay?
+- [ ] Is `isManualRefreshCallback(true)` set before EACH refresh call?
+
+---
+
+## Nav-Header Plus Button
+
+The nav-header must have a plus icon button for creating new web viewers.
+
+### The Fix
+```typescript
+// webSidecarView.ts - createNavHeader()
+// New Web Viewer button (leftmost)
+const newViewerBtn = buttonContainer.createEl('div', {
+    cls: 'clickable-icon nav-action-button',
+    attr: { 'aria-label': 'New web viewer' }
+});
+setIcon(newViewerBtn, 'plus');
+newViewerBtn.onclick = () => this.openNewWebViewer();
+```
+
+### Checklist
+- [ ] Is the plus button being created in `createNavHeader()`?
+- [ ] Is it positioned BEFORE (leftmost) the expand/collapse button?
+- [ ] Does clicking it call `openNewWebViewer()`?

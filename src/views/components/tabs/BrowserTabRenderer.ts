@@ -1,6 +1,7 @@
 
 import { setIcon } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
+import { findMatchingNotes } from '../../../services/noteMatcher';
 import { ContextMenus } from '../ContextMenus';
 import { NoteRenderer } from '../NoteRenderer';
 import { SectionRenderer } from '../SectionRenderer';
@@ -92,31 +93,129 @@ export class BrowserTabRenderer {
             }
         }
 
-        // Render virtual tabs (from open notes with URLs) in browser style
-        // This section is currently re-rendered fully each time.
-        let virtualSection = container.querySelector('.web-sidecar-virtual-section') as HTMLElement;
-        if (virtualTabs.length > 0) {
-            if (!virtualSection) {
-                virtualSection = container.createDiv({ cls: 'web-sidecar-virtual-section' });
-            } else {
-                virtualSection.empty(); // Clear existing content for full re-render
-            }
-            virtualSection.createEl('h5', { text: 'Opened web notes', cls: 'web-sidecar-section-title' });
-            for (const virtualTab of virtualTabs) {
-                this.itemRenderer.renderVirtualTab(virtualSection, virtualTab);
-            }
-        } else if (virtualSection) {
-            virtualSection.remove(); // Remove section if no virtual tabs
-        }
+        // --- CRITICAL DOM ORDER ---
+        // Order MUST be: 1) Tab list, 2) New web viewer button, 3) Virtual tabs section, 4) Recent section
+        // This order is enforced by explicit insertBefore calls below.
 
-        // "+ New web viewer" button - reuse if exists
+        // "+ New web viewer" button - MUST appear immediately AFTER web viewer tabs, BEFORE virtual section
         let newTabBtn = container.querySelector('.web-sidecar-new-tab-btn') as HTMLElement;
         if (!newTabBtn) {
-            newTabBtn = container.createDiv({ cls: 'web-sidecar-new-tab-btn' });
+            newTabBtn = document.createElement('div');
+            newTabBtn.className = 'web-sidecar-new-tab-btn';
             const plusIcon = newTabBtn.createSpan({ cls: 'web-sidecar-new-tab-icon' });
             setIcon(plusIcon, 'plus');
             newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
             newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
+        }
+        // Insert button right after tabListContainer
+        if (tabListContainer.nextSibling !== newTabBtn) {
+            tabListContainer.after(newTabBtn);
+        }
+
+        // Render virtual tabs (from open notes with URLs) in browser style
+        // Virtual section MUST come AFTER the New web viewer button
+        // Uses DOM reconciliation to preserve expanded state
+        let virtualSection = container.querySelector('.web-sidecar-virtual-section') as HTMLElement;
+        if (virtualTabs.length > 0) {
+            if (!virtualSection) {
+                virtualSection = document.createElement('div');
+                virtualSection.className = 'web-sidecar-virtual-section';
+            }
+
+            // Ensure header exists
+            let header = virtualSection.querySelector('.web-sidecar-section-title');
+            if (!header) {
+                header = virtualSection.createEl('h5', { text: 'Opened web notes', cls: 'web-sidecar-section-title' });
+                virtualSection.prepend(header);
+            }
+
+            // DOM reconciliation for virtual tabs - preserve expanded state
+            const currentElements = new Map<string, HTMLElement>();
+            virtualSection.querySelectorAll(':scope > .web-sidecar-browser-tab').forEach((el) => {
+                const htmlEl = el as HTMLElement;
+                const key = htmlEl.getAttribute('data-virtual-key');
+                if (key) currentElements.set(key, htmlEl);
+            });
+
+            const newKeys = new Set<string>();
+
+            // Get current focus state for updating existing tabs
+            let activeLeaf = this.view.app.workspace.activeLeaf;
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+                activeLeaf = this.view.lastActiveLeaf;
+            }
+            let focusedNotePath: string | null = null;
+            if (activeLeaf?.view?.getViewType() === 'markdown') {
+                const view = activeLeaf.view as any;
+                if (view.file) {
+                    focusedNotePath = view.file.path;
+                }
+            }
+
+            for (const virtualTab of virtualTabs) {
+                const key = `virtual:${virtualTab.url}`;
+                newKeys.add(key);
+
+                let tabEl = currentElements.get(key);
+                if (tabEl) {
+                    // UPDATE existing - preserve expanded state
+                    virtualSection.appendChild(tabEl); // Maintain order
+
+                    // Get notes container and expand button
+                    const notesContainer = tabEl.querySelector('.web-sidecar-browser-notes') as HTMLElement;
+                    const expandBtn = tabEl.querySelector('.web-sidecar-expand-btn') as HTMLElement;
+
+                    // Check if focused note is linked to this virtual tab
+                    const matches = findMatchingNotes(this.view.app, virtualTab.url, this.view.settings, this.view.urlIndex);
+                    const isLinkedNoteFocused = focusedNotePath &&
+                        matches.exactMatches.some(m => m.file.path === focusedNotePath);
+
+                    // Apply muted active state to virtual tab
+                    if (isLinkedNoteFocused) {
+                        tabEl.addClass('is-active');
+                    } else {
+                        tabEl.removeClass('is-active');
+                    }
+
+                    if (notesContainer && expandBtn) {
+                        // Auto-expand if linked note is focused
+                        if (isLinkedNoteFocused && notesContainer.hasClass('hidden')) {
+                            notesContainer.removeClass('hidden');
+                            expandBtn.empty();
+                            setIcon(expandBtn, 'chevron-down');
+
+                            // Populate notes if empty
+                            if (notesContainer.children.length === 0) {
+                                this.itemRenderer.renderBrowserTabNotes(notesContainer, virtualTab.url, matches);
+                            }
+                        }
+
+                        // Update focus state on notes
+                        if (!notesContainer.hasClass('hidden')) {
+                            this.itemRenderer.updateNoteFocusState(notesContainer, focusedNotePath);
+                        }
+                    }
+                } else {
+                    // CREATE new virtual tab
+                    this.itemRenderer.renderVirtualTab(virtualSection, virtualTab);
+                    const newEl = virtualSection.lastElementChild as HTMLElement;
+                    if (newEl) newEl.setAttribute('data-virtual-key', key);
+                }
+            }
+
+            // Remove stale virtual tabs
+            for (const [key, el] of currentElements) {
+                if (!newKeys.has(key)) {
+                    el.remove();
+                }
+            }
+
+            // Insert virtual section right after newTabBtn
+            if (newTabBtn.nextSibling !== virtualSection) {
+                newTabBtn.after(virtualSection);
+            }
+        } else if (virtualSection) {
+            virtualSection.remove(); // Remove section if no virtual tabs
         }
 
         // "Recent web notes" collapsible section at bottom - remove and re-add to preserve order

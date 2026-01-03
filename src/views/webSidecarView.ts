@@ -143,6 +143,14 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         const navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
         const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
 
+        // New Web Viewer button (leftmost)
+        const newViewerBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'New web viewer' }
+        });
+        setIcon(newViewerBtn, 'plus');
+        newViewerBtn.onclick = () => this.openNewWebViewer();
+
         // Expand/Collapse button
         const expandBtn = buttonContainer.createEl('div', {
             cls: 'clickable-icon nav-action-button',

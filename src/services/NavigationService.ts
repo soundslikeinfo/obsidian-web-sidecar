@@ -184,6 +184,7 @@ export class NavigationService {
 
     /**
      * Open a new empty web viewer
+     * CRITICAL: Must trigger immediate UI refresh showing the new tab
      */
     async openNewWebViewer(): Promise<void> {
         this.isManualRefreshCallback(true);
@@ -193,8 +194,14 @@ export class NavigationService {
             state: { url: 'about:blank', navigate: true }
         });
         this.app.workspace.revealLeaf(leaf);
-        // Allow workspace to register the new leaf before refreshing
-        await new Promise(resolve => setTimeout(resolve, 50));
+        this.app.workspace.setActiveLeaf(leaf, { focus: true });
+
+        // CRITICAL: Immediate refresh first, then delayed refresh to catch any late registration
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
+
+        // Second refresh after Obsidian fully registers the leaf
+        await new Promise(resolve => setTimeout(resolve, 100));
         this.isManualRefreshCallback(true);
         this.onRefreshCallback();
     }
