@@ -51,7 +51,8 @@ export default class WebSidecarPlugin extends Plugin {
 					() => this.tabStateService.refreshState(), // onRefresh callback
 					() => this.tabStateService.getTrackedTabs(),
 					() => this.tabStateService.getVirtualTabs(),
-					this.urlIndex
+					this.urlIndex,
+					() => this.saveSettings() // saveSettings callback
 				);
 				return this.view;
 			}

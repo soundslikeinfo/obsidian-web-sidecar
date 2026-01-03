@@ -102,9 +102,10 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.addDropdown(dropdown => dropdown
 				.addOption('focus', 'Recently focused')
 				.addOption('title', 'Alphabetical by title')
+				.addOption('manual', 'Manual (drag to reorder)')
 				.setValue(this.plugin.settings.tabSortOrder)
 				.onChange(async (value) => {
-					this.plugin.settings.tabSortOrder = value as 'focus' | 'title';
+					this.plugin.settings.tabSortOrder = value as 'focus' | 'title' | 'manual';
 					await this.plugin.saveSettings();
 				}));
 

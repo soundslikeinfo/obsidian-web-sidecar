@@ -33,6 +33,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private onRefreshFn: () => void;
     private getTabsFn: () => TrackedWebViewer[];
     private getVirtualTabsFn: () => VirtualTab[];
+    private saveSettingsFn: () => Promise<void>;
 
     // Services & Components
     private navigationService: NavigationService;
@@ -48,19 +49,24 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     /** Track expand state for toggle */
     private allExpanded: boolean = false;
 
+    /** Reference to sort button for dynamic updates */
+    private sortBtn: HTMLElement | null = null;
+
     constructor(
         leaf: WorkspaceLeaf,
         getSettings: () => WebSidecarSettings,
         onRefresh: () => void,
         getTabs: () => TrackedWebViewer[],
         getVirtualTabs: () => VirtualTab[],
-        urlIndex: UrlIndex
+        urlIndex: UrlIndex,
+        saveSettings: () => Promise<void>
     ) {
         super(leaf);
         this.getSettingsFn = getSettings;
         this.onRefreshFn = onRefresh;
         this.getTabsFn = getTabs;
         this.getVirtualTabsFn = getVirtualTabs;
+        this.saveSettingsFn = saveSettings;
         this.settings = getSettings();
         this.urlIndex = urlIndex;
 
@@ -159,18 +165,49 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         setIcon(expandBtn, 'unfold-vertical');
         expandBtn.onclick = () => this.handleExpandToggle(expandBtn);
 
-        // Sort button  
-        const sortBtn = buttonContainer.createEl('div', {
+        // Sort button - cycles through: focus -> title -> manual -> focus
+        const getSortIcon = (order: string) => {
+            switch (order) {
+                case 'focus': return 'clock';
+                case 'title': return 'arrow-down-az';
+                case 'manual': return 'grip-vertical';
+                default: return 'clock';
+            }
+        };
+        const getNextSortLabel = (order: string) => {
+            switch (order) {
+                case 'focus': return 'Sort by title';
+                case 'title': return 'Sort manually';
+                case 'manual': return 'Sort by recent';
+                default: return 'Sort by title';
+            }
+        };
+        const getNextSortOrder = (order: string): 'focus' | 'title' | 'manual' => {
+            switch (order) {
+                case 'focus': return 'title';
+                case 'title': return 'manual';
+                case 'manual': return 'focus';
+                default: return 'title';
+            }
+        };
+
+        this.sortBtn = buttonContainer.createEl('div', {
             cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': `Sort by ${this.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}` }
+            attr: { 'aria-label': getNextSortLabel(this.settings.tabSortOrder) }
         });
-        setIcon(sortBtn, this.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
-        sortBtn.onclick = () => {
+        setIcon(this.sortBtn, getSortIcon(this.settings.tabSortOrder));
+        this.sortBtn.onclick = async () => {
             this.isManualRefresh = true;
-            this.settings.tabSortOrder = this.settings.tabSortOrder === 'focus' ? 'title' : 'focus';
-            setIcon(sortBtn, this.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
-            sortBtn.setAttribute('aria-label', `Sort by ${this.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`);
-            this.onRefresh();
+            const newOrder = getNextSortOrder(this.settings.tabSortOrder);
+            this.settings.tabSortOrder = newOrder;
+
+            // ALWAYS capture current visual order when entering manual mode
+            if (newOrder === 'manual') {
+                this.settings.manualTabOrder = this.trackedTabs.map(t => t.leafId);
+            }
+
+            this.updateSortButtonIcon();
+            await this.saveSettingsFn();
         };
 
         // Refresh button
@@ -231,6 +268,34 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Force re-render to populate content
         this.isManualRefresh = true;
         this.onRefresh();
+    }
+
+    /**
+     * Update the sort button icon to reflect current tabSortOrder
+     * Called when sort mode changes (either via button click or drag-drop)
+     */
+    private updateSortButtonIcon(): void {
+        if (!this.sortBtn) return;
+
+        const getSortIcon = (order: string) => {
+            switch (order) {
+                case 'focus': return 'clock';
+                case 'title': return 'arrow-down-az';
+                case 'manual': return 'grip-vertical';
+                default: return 'clock';
+            }
+        };
+        const getNextSortLabel = (order: string) => {
+            switch (order) {
+                case 'focus': return 'Sort by title';
+                case 'title': return 'Sort manually';
+                case 'manual': return 'Sort by recent';
+                default: return 'Sort by title';
+            }
+        };
+
+        setIcon(this.sortBtn, getSortIcon(this.settings.tabSortOrder));
+        this.sortBtn.setAttribute('aria-label', getNextSortLabel(this.settings.tabSortOrder));
     }
 
     // Interface implementation methods
@@ -307,6 +372,46 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     async openNewWebViewer(): Promise<void> {
         await this.navigationService.openNewWebViewer();
+    }
+
+    async saveManualTabOrder(orderedLeafIds: string[]): Promise<void> {
+        this.settings.manualTabOrder = orderedLeafIds;
+        await this.saveSettingsFn();
+    }
+
+    handleTabDrop(draggedLeafId: string, targetLeafId: string): void {
+        // Auto-switch to manual mode if not already
+        if (this.settings.tabSortOrder !== 'manual') {
+            this.settings.tabSortOrder = 'manual';
+            // Update the nav-header icon to show we're in manual mode
+            this.updateSortButtonIcon();
+        }
+
+        // Initialize order from current visible order if empty
+        let currentOrder = [...this.settings.manualTabOrder];
+        if (currentOrder.length === 0) {
+            currentOrder = this.trackedTabs.map(t => t.leafId);
+        }
+
+        // Remove dragged item
+        const draggedIdx = currentOrder.indexOf(draggedLeafId);
+        if (draggedIdx > -1) {
+            currentOrder.splice(draggedIdx, 1);
+        } else {
+            // If dragged item not in order yet, it's a new tab - add it
+        }
+
+        // Insert before target
+        const targetIdx = currentOrder.indexOf(targetLeafId);
+        if (targetIdx > -1) {
+            currentOrder.splice(targetIdx, 0, draggedLeafId);
+        } else {
+            currentOrder.push(draggedLeafId);
+        }
+
+        // CRITICAL: Force re-render even if user is interacting
+        this.isManualRefresh = true;
+        this.saveManualTabOrder(currentOrder);
     }
 
     openCreateNoteModal(url: string): void {

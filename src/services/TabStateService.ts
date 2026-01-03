@@ -107,6 +107,18 @@ export class TabStateService {
         switch (settings.tabSortOrder) {
             case 'title':
                 return tabs.sort((a, b) => a.title.localeCompare(b.title));
+            case 'manual':
+                // Sort by position in manualTabOrder, new tabs go to end
+                const order = settings.manualTabOrder;
+                return tabs.sort((a, b) => {
+                    const aIdx = order.indexOf(a.leafId);
+                    const bIdx = order.indexOf(b.leafId);
+                    // Items not in manual order go to the end
+                    if (aIdx === -1 && bIdx === -1) return 0;
+                    if (aIdx === -1) return 1;
+                    if (bIdx === -1) return -1;
+                    return aIdx - bIdx;
+                });
             case 'focus':
             default:
                 return tabs.sort((a, b) => b.lastFocused - a.lastFocused);

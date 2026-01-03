@@ -913,3 +913,18 @@
 .web-sidecar-hidden {
   display: none !important;
 }
+
+/* ============================================
+   MANUAL SORT - DRAG AND DROP STYLES
+   ============================================ */
+
+/* Dragging state */
+.web-sidecar-browser-tab.is-dragging {
+  opacity: 0.5;
+}
+
+/* Drop target indicator */
+.web-sidecar-browser-tab.drag-over {
+  border-top: 2px solid var(--interactive-accent);
+  margin-top: -2px;
+}

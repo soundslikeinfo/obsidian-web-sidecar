@@ -201,6 +201,37 @@ export class BrowserTabItemRenderer {
             tabWrapper.insertBefore(tabRow, notesContainer);
         }
 
+        // Drag-and-drop - always enabled, auto-switches to manual mode when used
+        tabWrapper.setAttribute('draggable', 'true');
+        tabWrapper.setAttribute('data-leaf-id', tab.leafId);
+
+        tabWrapper.ondragstart = (e) => {
+            e.dataTransfer?.setData('text/plain', tab.leafId);
+            tabWrapper.addClass('is-dragging');
+        };
+
+        tabWrapper.ondragend = () => {
+            tabWrapper.removeClass('is-dragging');
+        };
+
+        tabWrapper.ondragover = (e) => {
+            e.preventDefault();
+            tabWrapper.addClass('drag-over');
+        };
+
+        tabWrapper.ondragleave = () => {
+            tabWrapper.removeClass('drag-over');
+        };
+
+        tabWrapper.ondrop = (e) => {
+            e.preventDefault();
+            tabWrapper.removeClass('drag-over');
+            const draggedLeafId = e.dataTransfer?.getData('text/plain');
+            if (draggedLeafId && draggedLeafId !== tab.leafId) {
+                this.view.handleTabDrop(draggedLeafId, tab.leafId);
+            }
+        };
+
         // Helper function to toggle expand state
         const toggleExpand = () => {
             if (!notesContainer || !expandBtn) return;

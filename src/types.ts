@@ -24,6 +24,8 @@ export interface IWebSidecarView {
     openCreateNoteModal(url: string): void;
 
     openNewWebViewer(): Promise<void>;
+    saveManualTabOrder(orderedLeafIds: string[]): Promise<void>;
+    handleTabDrop(draggedLeafId: string, targetLeafId: string): void;
     focusWebViewer(leafId: string): void;
     focusTab(tab: TrackedWebViewer): void;
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void;
@@ -71,6 +73,8 @@ export interface WebSidecarSettings {
     recentNotesCount: number;
     /** Sort order for web viewer tabs */
     tabSortOrder: TabSortOrder;
+    /** Manual ordering of tabs by leafId (only used when tabSortOrder = 'manual') */
+    manualTabOrder: string[];
     /** Sidebar tab appearance mode */
     tabAppearance: TabAppearance;
     /** Enable experimental web viewer header actions (may break with Obsidian updates) */
@@ -98,7 +102,7 @@ export interface WebSidecarSettings {
 /**
  * Sort order options for web viewer tabs
  */
-export type TabSortOrder = 'focus' | 'title';
+export type TabSortOrder = 'focus' | 'title' | 'manual';
 
 /**
  * Tab appearance mode for sidebar
@@ -120,6 +124,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     newNoteFolderPath: '',
     recentNotesCount: 10,
     tabSortOrder: 'focus',
+    manualTabOrder: [],
     tabAppearance: 'browser',
     enableWebViewerActions: false,
     showWebViewerHeaderButton: true,
