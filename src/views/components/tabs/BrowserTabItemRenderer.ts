@@ -20,8 +20,16 @@ export class BrowserTabItemRenderer {
     }
 
     updateBrowserTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
-        tabEl.empty();
-        this.populateBrowserTab(tabEl, tab, allTabs);
+        // Preserve the notes container and its expanded state
+        const existingNotesContainer = tabEl.querySelector('.web-sidecar-browser-notes') as HTMLElement | null;
+        const wasExpanded = !!(existingNotesContainer && !existingNotesContainer.hasClass('hidden'));
+
+        // Remove only the tab row, keep notes container if it exists
+        const existingRow = tabEl.querySelector('.web-sidecar-browser-tab-row');
+        if (existingRow) existingRow.remove();
+
+        // Rebuild the tab content, passing preserved state
+        this.populateBrowserTab(tabEl, tab, allTabs, existingNotesContainer, wasExpanded);
     }
 
     renderVirtualTab(container: HTMLElement, virtualTab: VirtualTab): void {
@@ -119,14 +127,78 @@ export class BrowserTabItemRenderer {
         }
     }
 
-    private populateBrowserTab(tabWrapper: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
+    private populateBrowserTab(
+        tabWrapper: HTMLElement,
+        tab: TrackedWebViewer,
+        allTabs?: TrackedWebViewer[],
+        existingNotesContainer?: HTMLElement | null,
+        wasExpanded?: boolean
+    ): void {
         const isDeduped = allTabs && allTabs.length > 1;
 
-        // Main tab row
+        // Check if this tab is the currently active/focused one
+        const activeLeaf = this.view.app.workspace.activeLeaf;
+        const isActive = tab.leaf && activeLeaf === tab.leaf;
+
+        // Apply active class to wrapper
+        tabWrapper.removeClass('is-active');
+        if (isActive) {
+            tabWrapper.addClass('is-active');
+        }
+
+        // Matches - compute early so we know if expandable
+        const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
+        const exactCount = matches.exactMatches.length;
+        const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
+        const hasExpandableContent = exactCount > 0 || hasSameDomain;
+
+        // Notes container - create/reuse early so onclick can reference it
+        let notesContainer: HTMLElement | null = null;
+        let expandBtn: HTMLElement | null = null;
+
+        if (hasExpandableContent) {
+            if (existingNotesContainer) {
+                notesContainer = existingNotesContainer;
+            } else {
+                notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes hidden' });
+            }
+        }
+
+        // Main tab row - insert at beginning so it's before the notes container
         const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+        if (notesContainer) {
+            // Insert row before the notes container to maintain order
+            tabWrapper.insertBefore(tabRow, notesContainer);
+        }
+
+        // Helper function to toggle expand state
+        const toggleExpand = () => {
+            if (!notesContainer || !expandBtn) return;
+            const isExpanded = !notesContainer.hasClass('hidden');
+            notesContainer.toggleClass('hidden', isExpanded);
+            expandBtn.empty();
+            setIcon(expandBtn, isExpanded ? 'chevron-right' : 'chevron-down');
+
+            if (!isExpanded && notesContainer.children.length === 0) {
+                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+            }
+        };
 
         tabRow.onclick = (e) => {
             if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
+            if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
+
+            // Check if tab is already focused - if so, toggle expand instead
+            if (hasExpandableContent && tab.leaf) {
+                const activeLeaf = this.view.app.workspace.activeLeaf;
+                if (activeLeaf === tab.leaf) {
+                    // Already focused, toggle expand
+                    toggleExpand();
+                    return;
+                }
+            }
+
+            // Not focused - focus the tab
             if (isDeduped && allTabs) {
                 this.view.focusNextInstance(tab.url, allTabs);
             } else {
@@ -161,11 +233,6 @@ export class BrowserTabItemRenderer {
             text: tab.title || domain || 'Untitled',
             cls: 'web-sidecar-browser-tab-title'
         });
-
-        // Matches
-        const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
-        const exactCount = matches.exactMatches.length;
-        const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
 
         // Pop-out icon
         const showPopout = isDeduped ? allTabs!.some(t => t.isPopout) : tab.isPopout;
@@ -212,23 +279,20 @@ export class BrowserTabItemRenderer {
             };
         }
 
-        // Expand
-        if (exactCount > 0 || hasSameDomain) {
-            const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
-            setIcon(expandBtn, 'chevron-right');
+        // Expand button - now just needs to set up the button since container already exists
+        if (hasExpandableContent && notesContainer) {
+            expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
-            const notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes hidden' });
+            // Set icon based on preserved state
+            if (existingNotesContainer && wasExpanded) {
+                setIcon(expandBtn, 'chevron-down');
+            } else {
+                setIcon(expandBtn, 'chevron-right');
+            }
 
             expandBtn.onclick = (e) => {
                 e.stopPropagation();
-                const isExpanded = !notesContainer.hasClass('hidden');
-                notesContainer.toggleClass('hidden', isExpanded);
-                expandBtn.empty();
-                setIcon(expandBtn, isExpanded ? 'chevron-right' : 'chevron-down');
-
-                if (!isExpanded && notesContainer.children.length === 0) {
-                    this.renderBrowserTabNotes(notesContainer, tab.url, matches);
-                }
+                toggleExpand();
             };
         }
     }
@@ -262,24 +326,23 @@ export class BrowserTabItemRenderer {
             this.view.openCreateNoteModal(url);
         });
 
-        // 3. Same domain notes (if enabled)
+        // 3. Same domain notes (if enabled) - collapsible section
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            container.createEl('div', { cls: 'web-sidecar-browser-separator' });
-
-            let headerText = 'More from this domain';
+            const domain = extractDomain(url);
+            let headerText = `More web notes (${domain || 'this domain'})`;
             if (this.view.settings.enableSubredditFilter) {
                 const subreddit = extractSubreddit(url);
                 if (subreddit) {
-                    headerText = `More from ${subreddit}`;
+                    headerText = `More web notes (${subreddit})`;
                 }
             }
 
-            container.createEl('h6', {
-                text: headerText,
-                cls: 'web-sidecar-browser-subtitle'
-            });
+            // Create collapsible details element
+            const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
+            const summary = details.createEl('summary', { cls: 'web-sidecar-browser-subtitle' });
+            summary.createSpan({ text: headerText });
 
-            const domainList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
                 const link = li.createEl('a', {

@@ -87,8 +87,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.setName('Tab appearance')
 			.setDesc('Choose how tabs are displayed in the sidebar')
 			.addDropdown(dropdown => dropdown
-				.addOption('notes', 'Notes mode (detailed, shows URLs)')
 				.addOption('browser', 'Browser mode (compact, favicon + title)')
+				.addOption('notes', 'Notes mode (detailed, shows URLs)')
 				.setValue(this.plugin.settings.tabAppearance)
 				.onChange(async (value) => {
 					this.plugin.settings.tabAppearance = value as 'notes' | 'browser';

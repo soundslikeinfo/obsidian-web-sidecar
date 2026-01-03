@@ -117,7 +117,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     newNoteFolderPath: '',
     recentNotesCount: 10,
     tabSortOrder: 'focus',
-    tabAppearance: 'notes',
+    tabAppearance: 'browser',
     enableWebViewerActions: false,
     showWebViewerHeaderButton: true,
     showWebViewerNewNoteButton: true,

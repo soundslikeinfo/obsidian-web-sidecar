@@ -39,6 +39,7 @@ export class NavigationService {
             const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
                 this.app.workspace.revealLeaf(leaf);
+                this.app.workspace.setActiveLeaf(leaf, { focus: true });
                 return;
             }
         }
@@ -52,6 +53,7 @@ export class NavigationService {
             // Verify leaf is still valid/attached
             if (tab.leaf.view && tab.leaf.parent) {
                 this.app.workspace.revealLeaf(tab.leaf);
+                this.app.workspace.setActiveLeaf(tab.leaf, { focus: true });
                 return;
             }
         }
@@ -99,6 +101,7 @@ export class NavigationService {
             if (viewFile && viewFile.path === file.path) {
                 // Already open, just focus it
                 this.app.workspace.revealLeaf(leaf);
+                this.app.workspace.setActiveLeaf(leaf, { focus: true });
                 return;
             }
         }

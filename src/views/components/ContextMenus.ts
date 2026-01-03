@@ -88,7 +88,7 @@ export class ContextMenus {
         // Simplified:
         menu.addItem((item) => {
             item
-                .setTitle('Close all web views for this page')
+                .setTitle('Close all linked web views')
                 .setIcon('x-circle')
                 .onClick(() => {
                     this.view.closeAllLeavesForUrl(tab.url);
@@ -135,7 +135,7 @@ export class ContextMenus {
         // Open in new tab
         menu.addItem((item) => {
             item
-                .setTitle('Open in new web viewer')
+                .setTitle('Open note in new tab')
                 .setIcon('file-plus')
                 .onClick(() => {
                     const leaf = this.view.app.workspace.getLeaf('tab');
@@ -146,7 +146,7 @@ export class ContextMenus {
         // Open in new window
         menu.addItem((item) => {
             item
-                .setTitle('Open in new window')
+                .setTitle('Open note in new window')
                 .setIcon('picture-in-picture-2')
                 .onClick(() => {
                     const leaf = this.view.app.workspace.openPopoutLeaf();
@@ -157,7 +157,7 @@ export class ContextMenus {
         // Open to the right
         menu.addItem((item) => {
             item
-                .setTitle('Open to the right')
+                .setTitle('Open note to the right')
                 .setIcon('separator-vertical')
                 .onClick(() => {
                     const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
@@ -193,6 +193,65 @@ export class ContextMenus {
                 .setIcon('copy')
                 .onClick(() => {
                     navigator.clipboard.writeText(file.path);
+                });
+        });
+
+        menu.addSeparator();
+
+        // Close this note (if open)
+        const markdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
+        const openLeaf = markdownLeaves.find(leaf => {
+            const viewFile = (leaf.view as any).file;
+            return viewFile && viewFile.path === file.path;
+        });
+
+        if (openLeaf) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close this note')
+                    .setIcon('x')
+                    .onClick(() => {
+                        openLeaf.detach();
+                    });
+            });
+        }
+
+        // Close all linked notes for this URL
+        menu.addItem((item) => {
+            item
+                .setTitle('Close all linked notes')
+                .setIcon('file-minus')
+                .onClick(() => {
+                    this.view.closeLinkedNoteLeaves(url);
+                });
+        });
+
+        // Close linked web view (if URL is open in a web viewer)
+        const webLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));
+        const openWebLeaf = webLeaves.find(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === url;
+        });
+
+        if (openWebLeaf) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close linked web view')
+                    .setIcon('x')
+                    .onClick(() => {
+                        openWebLeaf.detach();
+                    });
+            });
+        }
+
+        // Close all linked web views
+        menu.addItem((item) => {
+            item
+                .setTitle('Close all linked web views')
+                .setIcon('x-circle')
+                .onClick(() => {
+                    this.view.closeAllLeavesForUrl(url);
                 });
         });
 

@@ -151,14 +151,21 @@ export class BrowserTabRenderer {
             virtualSection.remove(); // Remove section if no virtual tabs
         }
 
-        // "+ New web viewer" button
-        const newTabBtn = container.createDiv({ cls: 'web-sidecar-new-tab-btn' });
-        const plusIcon = newTabBtn.createSpan({ cls: 'web-sidecar-new-tab-icon' });
-        setIcon(plusIcon, 'plus');
-        newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
-        newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
+        // "+ New web viewer" button - reuse if exists
+        let newTabBtn = container.querySelector('.web-sidecar-new-tab-btn') as HTMLElement;
+        if (!newTabBtn) {
+            newTabBtn = container.createDiv({ cls: 'web-sidecar-new-tab-btn' });
+            const plusIcon = newTabBtn.createSpan({ cls: 'web-sidecar-new-tab-icon' });
+            setIcon(plusIcon, 'plus');
+            newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
+            newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
+        }
 
-        // "Recent web notes" collapsible section at bottom
+        // "Recent web notes" collapsible section at bottom - remove and re-add to preserve order
+        let recentSection = container.querySelector('.web-sidecar-recent-section') as HTMLElement;
+        if (recentSection) {
+            recentSection.remove();
+        }
         this.sectionRenderer.renderRecentWebNotesSection(container);
     }
 

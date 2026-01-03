@@ -180,11 +180,10 @@
 
 .web-sidecar-section h5 {
   margin: 0 0 8px 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
 }
 
 .web-sidecar-list {
@@ -245,11 +244,10 @@
 .web-sidecar-collapsible summary {
   cursor: pointer;
   padding: 8px 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   list-style: none;
   display: flex;
   align-items: center;
@@ -366,6 +364,18 @@
   background-color: var(--background-modifier-hover);
 }
 
+/* Active tab indicator - theme agnostic styling */
+.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+  background-color: var(--background-modifier-active-hover);
+  border-left: 2px solid var(--interactive-accent);
+  margin-left: -2px;
+}
+
+.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-title {
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
 /* Favicon container */
 .web-sidecar-browser-favicon {
   flex-shrink: 0;
@@ -463,6 +473,47 @@
 
 .web-sidecar-browser-tld summary:hover {
   color: var(--text-normal);
+}
+
+/* Browser mode "More web notes" subtitle */
+.web-sidecar-browser-subtitle {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+  margin: 4px 0 2px 0;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Collapsible "More web notes" section */
+.web-sidecar-tld-section {
+  margin-top: 4px;
+}
+
+.web-sidecar-tld-section summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.web-sidecar-tld-section summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.web-sidecar-tld-section[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.web-sidecar-tld-section summary::-webkit-details-marker {
+  display: none;
 }
 
 .web-sidecar-tld-icon {
@@ -731,11 +782,10 @@
 }
 
 .web-sidecar-section-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   margin: 0 0 4px 0;
   padding-left: 8px;
 }

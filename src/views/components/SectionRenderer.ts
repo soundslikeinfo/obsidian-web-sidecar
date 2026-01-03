@@ -93,6 +93,10 @@ export class SectionRenderer {
 
         if (recentNotes.length === 0) return;
 
+        // Remove existing recent section before creating new one
+        const existingRecent = container.querySelector('.web-sidecar-recent-section');
+        if (existingRecent) existingRecent.remove();
+
         const details = container.createEl('details', { cls: 'web-sidecar-recent-section' });
         // Preserve open state
         if (this.view.isRecentNotesOpen) {
@@ -113,9 +117,9 @@ export class SectionRenderer {
             this.noteRenderer.renderNoteItem(list, note.file, note.url);
         }
 
-        // Add domain grouping section below
+        // Add domain grouping section below (it handles its own cleanup)
         this.renderDomainGroupingSection(container);
-        // Add subreddit explorer section below that
+        // Add subreddit explorer section below that (it handles its own cleanup)
         this.renderSubredditExplorerSection(container);
     }
 
@@ -128,7 +132,12 @@ export class SectionRenderer {
         const subredditMap = getAllRedditNotes(this.view.app, this.view.settings, this.view.urlIndex);
         if (subredditMap.size === 0) return;
 
+        // Remove existing subreddit section before creating new one
+        const existingSection = container.querySelector('[data-section-type="subreddit-explorer"]');
+        if (existingSection) existingSection.remove();
+
         const details = container.createEl('details', { cls: 'web-sidecar-domain-section' });
+        details.setAttribute('data-section-type', 'subreddit-explorer');
         // Preserve open state
         if (this.view.isSubredditExplorerOpen) {
             details.setAttribute('open', '');
@@ -260,7 +269,12 @@ export class SectionRenderer {
         // Only show if we have domains
         if (domainMap.size === 0) return;
 
+        // Remove existing domain section before creating new one
+        const existingSection = container.querySelector('[data-section-type="domain-groups"]');
+        if (existingSection) existingSection.remove();
+
         const details = container.createEl('details', { cls: 'web-sidecar-domain-section' });
+        details.setAttribute('data-section-type', 'domain-groups');
         // Preserve open state
         if (this.view.isDomainGroupOpen) {
             details.setAttribute('open', '');

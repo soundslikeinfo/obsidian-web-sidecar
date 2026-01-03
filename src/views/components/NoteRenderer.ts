@@ -20,6 +20,9 @@ export class NoteRenderer {
     renderNoteItem(list: HTMLElement, file: TFile, url: string, pairedOpen: boolean = false): void {
         const li = list.createEl('li', { cls: 'web-sidecar-item' });
 
+        // Context menu on the entire item, not just the link
+        li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, file, url));
+
         const link = li.createEl('div', {
             text: file.basename,
             cls: 'web-sidecar-link clickable',
@@ -34,7 +37,6 @@ export class NoteRenderer {
                 this.view.openNoteSmartly(file, e);
             }
         });
-        link.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, file, url));
 
         // Show URL snippet - always just opens web viewer (not paired)
         const urlSnippet = li.createEl('div', {
@@ -48,6 +50,5 @@ export class NoteRenderer {
             e.stopPropagation();
             this.view.openUrlSmartly(url, e);
         });
-        urlSnippet.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, file, url));
     }
 }

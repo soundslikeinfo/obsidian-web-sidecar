@@ -222,9 +222,14 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         container.addClass('web-sidecar-container');
 
+        // Track mode changes
+        const wasBrowserMode = container.hasClass('web-sidecar-browser-mode');
+        const isBrowserMode = this.settings.tabAppearance === 'browser';
+        const modeChanged = wasBrowserMode !== isBrowserMode;
+
         // Add mode-specific class
         container.removeClass('web-sidecar-notes-mode', 'web-sidecar-browser-mode');
-        container.addClass(this.settings.tabAppearance === 'browser'
+        container.addClass(isBrowserMode
             ? 'web-sidecar-browser-mode'
             : 'web-sidecar-notes-mode');
 
@@ -238,11 +243,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Show full view if we have web tabs OR virtual tabs
         const hasContent = this.trackedTabs.length > 0 || this.virtualTabs.length > 0;
 
-        container.empty();
+        // Only empty container when:
+        // 1. Mode changed
+        // 2. No content (empty state)
+        // 3. Notes mode (doesn't have DOM reconciliation)
+        // Browser mode with content uses DOM reconciliation to preserve expanded states
+        if (modeChanged || !hasContent || !isBrowserMode) {
+            container.empty();
+        }
 
         if (!hasContent) {
             this.sectionRenderer.renderEmptyState(container);
-        } else if (this.settings.tabAppearance === 'browser') {
+        } else if (isBrowserMode) {
             this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs);
         } else {
             this.tabListRenderer.renderTabList(container, this.trackedTabs, this.virtualTabs);
