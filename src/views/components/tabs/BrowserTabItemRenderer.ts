@@ -334,6 +334,13 @@ export class BrowserTabItemRenderer {
                 e.stopPropagation();
                 toggleExpand();
             };
+
+            // Auto-populate content if container is expanded but empty
+            // This handles bulk expand and preserved expanded state
+            const isExpanded = notesContainer && !notesContainer.hasClass('hidden');
+            if (isExpanded && notesContainer.children.length === 0) {
+                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+            }
         }
     }
 
@@ -343,16 +350,41 @@ export class BrowserTabItemRenderer {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
+
+                // Check if this note is the currently focused leaf
+                let activeLeaf = this.view.app.workspace.activeLeaf;
+                if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+                    activeLeaf = this.view.lastActiveLeaf;
+                }
+                const isNoteFocused = activeLeaf?.view?.getViewType() === 'markdown'
+                    && (activeLeaf.view as any)?.file?.path === match.file.path;
+
+                if (isNoteFocused) {
+                    li.addClass('is-focused');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
                     cls: 'web-sidecar-browser-note-link',
                     attr: { href: '#' }
                 });
+
+                // Check if note has multiple open instances for cycling
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    this.view.openNoteSmartly(match.file, e);
+                    const openLeaves = this.view.app.workspace.getLeavesOfType('markdown')
+                        .filter(leaf => (leaf.view as any).file?.path === match.file.path);
+
+                    if (openLeaves.length > 1) {
+                        // Multiple instances - use cycling
+                        this.view.focusNextNoteInstance(match.file.path);
+                    } else {
+                        // No cycle needed, open smartly
+                        this.view.openNoteSmartly(match.file, e);
+                    }
                 });
-                link.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, match.file, match.url));
+
+                li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, match.file, match.url));
             }
         }
 

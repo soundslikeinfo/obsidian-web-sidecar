@@ -27,6 +27,7 @@ export interface IWebSidecarView {
     focusWebViewer(leafId: string): void;
     focusTab(tab: TrackedWebViewer): void;
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void;
+    focusNextNoteInstance(filePath: string): void;
 
     // State updates
     onRefresh(): void;

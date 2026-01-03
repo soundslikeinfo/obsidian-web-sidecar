@@ -1,8 +1,9 @@
 /* Web Sidecar Plugin Styles */
 
+
 .web-sidecar-container {
   padding: 0 8px 4px 8px;
-  /* Reduced top padding to be flush */
+  /* Reduced top padding to be flush - container starts immediately */
 }
 
 .web-sidecar-header {
@@ -330,9 +331,10 @@
 /* Browser mode header */
 .web-sidecar-browser-header {
   display: flex;
-  justify-content: flex-end;
-  padding: 4px 0 2px;
-  /* Reduced padding, removed side padding */
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 0 4px;
+  /* Centered icons with minimal top padding */
 }
 
 /* Browser tabs container */
@@ -440,6 +442,20 @@
 
 .web-sidecar-browser-note-list li {
   padding: 3px 8px;
+  position: relative;
+}
+
+/* Blue dot focus indicator for notes (when note is active but web viewer isn't) */
+.web-sidecar-browser-note-list li.is-focused::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--interactive-accent);
 }
 
 .web-sidecar-browser-note-link {

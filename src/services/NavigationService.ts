@@ -77,6 +77,34 @@ export class NavigationService {
         }
     }
 
+    /** Cycle index for note instances */
+    private noteCycleIndex: Map<string, number> = new Map();
+
+    /**
+     * Focus the next instance of a note file (cycle through multiple open tabs)
+     */
+    focusNextNoteInstance(filePath: string): void {
+        const leaves = this.app.workspace.getLeavesOfType('markdown')
+            .filter(leaf => (leaf.view as any).file?.path === filePath);
+
+        if (leaves.length === 0) return;
+
+        if (leaves.length === 1) {
+            // Single instance - just focus it
+            this.app.workspace.revealLeaf(leaves[0]!);
+            this.app.workspace.setActiveLeaf(leaves[0]!, { focus: true });
+            return;
+        }
+
+        // Cycle through multiple instances
+        const currentIndex = this.noteCycleIndex.get(filePath) || 0;
+        const nextIndex = (currentIndex + 1) % leaves.length;
+        this.noteCycleIndex.set(filePath, nextIndex);
+
+        this.app.workspace.revealLeaf(leaves[nextIndex]!);
+        this.app.workspace.setActiveLeaf(leaves[nextIndex]!, { focus: true });
+    }
+
     /**
      * Smart note opening: focus existing, shift=new tab, command=popout
      */

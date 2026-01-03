@@ -128,6 +128,22 @@ Follow Obsidian's **Developer Policies** and **Plugin Guidelines**. In particula
 - Batch disk access and avoid excessive vault scans.
 - Debounce/throttle expensive operations in response to file system events.
 
+## CSS Scoping
+
+**All CSS rules must be scoped to this plugin to prevent affecting other parts of Obsidian.**
+
+- **Prefix all custom classes** with `web-sidecar-` (e.g., `.web-sidecar-container`, `.web-sidecar-tab-entry`).
+- **Never style global Obsidian classes directly** (e.g., `.nav-header`, `.view-content`, `.workspace-leaf`) without a plugin-specific parent selector.
+- If you must style Obsidian native elements, scope them using `[data-type="web-sidecar-view"]`:
+  ```css
+  /* CORRECT: Scoped to our plugin */
+  .workspace-leaf-content[data-type="web-sidecar-view"] .some-element { ... }
+  
+  /* WRONG: Affects all Obsidian elements */
+  .some-element { ... }
+  ```
+- The `data-type` attribute on `workspace-leaf-content` automatically matches our view type (`web-sidecar-view`).
+
 ## Coding conventions
 
 - TypeScript with `"strict": true` preferred.

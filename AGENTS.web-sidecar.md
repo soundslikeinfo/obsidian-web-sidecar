@@ -182,6 +182,30 @@ updateTabs(trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[]): void {
 - Track `lastActiveLeaf` as a fallback when sidebar gains focus
 - Ignore `active-leaf-change` events where `leaf === this.leaf` (sidebar itself)
 
+### 6a. Note Focus Indicator (Blue Dot)
+
+**Expected behavior:**
+- When a note (linked to a web viewer URL) is focused in the editor, a blue dot appears to its left in the sidecar
+- Only shows for exact-match notes in the expanded notes list
+- Uses `is-focused` class with CSS `::before` pseudo-element
+
+**Implementation notes:**
+- In `renderBrowserTabNotes()`, check if each note's file path matches the active leaf's file
+- Uses `lastActiveLeaf` fallback when sidecar itself is focused
+- CSS: `.web-sidecar-browser-note-list li.is-focused::before` with accent-colored dot
+
+### 6b. Note Tab Cycling
+
+**Expected behavior:**
+- When clicking a note that has multiple open tabs, cycling through each instance
+- Similar pattern to `focusNextInstance` for web viewer tabs
+- First click focuses first instance, subsequent clicks cycle to next
+
+**Implementation notes:**
+- `NavigationService.focusNextNoteInstance(filePath: string)` handles cycling
+- Uses `noteCycleIndex: Map<string, number>` to track position
+- If only one instance exists, just focuses it (no cycling)
+
 ### 7. Immediate UI Refresh After Actions
 
 **Expected behavior:**
@@ -310,12 +334,19 @@ for (const [key, el] of currentElements) {
 
 ### Header Controls
 
-**Layout:** `[Sort] [Refresh]` (right-aligned)
+**Location:** Native Obsidian action bar (top-right of pane, next to close/popout buttons)
 
 | Button | Icon | Action |
 |--------|------|--------|
+| Expand/Collapse Toggle | `unfold-vertical` / `fold-vertical` | Toggle expand/collapse all tab notes |
+| New Web Viewer | `plus` | Open new blank web viewer |
 | Sort | `clock` / `arrow-down-az` | Toggle between focus-time and alphabetical |
 | Refresh | `refresh-cw` | Force rescan all web viewers |
+
+**Implementation notes:**
+- Uses `this.addAction()` in `onOpen()` to add buttons to native header
+- Expand/collapse is a single toggle button (swaps icon in place)
+- All buttons work in both Browser and Notes mode
 
 ### Click Behaviors
 

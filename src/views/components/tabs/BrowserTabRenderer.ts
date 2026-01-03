@@ -26,50 +26,10 @@ export class BrowserTabRenderer {
      * Render browser-style tab list with favicon + title (compact mode)
      */
     renderBrowserModeTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[]): void {
-        // Reuse header if exists
-        let header = container.querySelector('.web-sidecar-browser-header') as HTMLElement;
-        if (!header) {
-            header = container.createDiv({ cls: 'web-sidecar-browser-header' });
-            const controls = header.createDiv({ cls: 'web-sidecar-controls' });
-
-            // Sort toggle
-            const sortBtn = controls.createEl('button', {
-                cls: 'web-sidecar-sort-btn clickable-icon',
-                attr: {
-                    'aria-label': `Sort by ${this.view.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`
-                }
-            });
-            setIcon(sortBtn, this.view.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
-            // Use onclick for idempotency
-            sortBtn.onclick = async () => {
-                this.view.setManualRefresh(true);
-                this.view.settings.tabSortOrder = this.view.settings.tabSortOrder === 'focus' ? 'title' : 'focus';
-                this.view.onRefresh();
-            };
-
-            // Refresh button
-            const refreshBtn = controls.createEl('button', {
-                cls: 'web-sidecar-refresh-btn clickable-icon',
-                attr: { 'aria-label': 'Refresh' }
-            });
-            setIcon(refreshBtn, 'refresh-cw');
-            refreshBtn.onclick = () => {
-                this.view.setManualRefresh(true);
-                this.view.onRefresh();
-            };
-        } else {
-            // Update sort icon if exists
-            const sortBtn = header.querySelector('.web-sidecar-sort-btn') as HTMLElement;
-            if (sortBtn) {
-                sortBtn.setAttribute('aria-label', `Sort by ${this.view.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`);
-                setIcon(sortBtn, this.view.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
-                // Ensure onclick is fresh
-                sortBtn.onclick = async () => {
-                    this.view.setManualRefresh(true);
-                    this.view.settings.tabSortOrder = this.view.settings.tabSortOrder === 'focus' ? 'title' : 'focus';
-                    this.view.onRefresh();
-                };
-            }
+        // Remove any legacy inline header if it exists (nav-header is now in WebSidecarView)
+        const legacyHeader = container.querySelector('.web-sidecar-browser-header');
+        if (legacyHeader) {
+            legacyHeader.remove();
         }
 
         // Tab list container - reuse if exists

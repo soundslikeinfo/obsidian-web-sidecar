@@ -1,5 +1,5 @@
 
-import { ItemView, WorkspaceLeaf, TFile } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
@@ -44,6 +44,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     /** Track if user is interacting with the sidebar (prevents re-render) */
     private isInteracting: boolean = false;
+
+    /** Track expand state for toggle */
+    private allExpanded: boolean = false;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -94,6 +97,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.settings = this.getSettingsFn();
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();
+
+        // Create nav-header toolbar
+        this.createNavHeader();
+
         this.render();
 
         // Listen for active leaf changes to update "active" highlighting immediately
@@ -117,6 +124,105 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     async onClose(): Promise<void> {
         // Cleanup
+    }
+
+    /**
+     * Create navigation header with action buttons as its own row
+     * Structure: nav-header > nav-buttons-container > nav-action-button
+     * nav-header is SIBLING of contentEl (view-content), not a child
+     */
+    private createNavHeader(): void {
+        // Check if our nav-header already exists at containerEl level
+        if (this.containerEl.querySelector(':scope > .nav-header.web-sidecar-toolbar')) return;
+
+        // contentEl is view-content, we insert nav-header BEFORE it as sibling
+        const contentEl = this.contentEl;
+        if (!contentEl) return;
+
+        // Create nav-header
+        const navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
+        const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
+
+        // Expand/Collapse button
+        const expandBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Expand all' }
+        });
+        setIcon(expandBtn, 'unfold-vertical');
+        expandBtn.onclick = () => this.handleExpandToggle(expandBtn);
+
+        // Sort button  
+        const sortBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': `Sort by ${this.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}` }
+        });
+        setIcon(sortBtn, this.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
+        sortBtn.onclick = () => {
+            this.isManualRefresh = true;
+            this.settings.tabSortOrder = this.settings.tabSortOrder === 'focus' ? 'title' : 'focus';
+            setIcon(sortBtn, this.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
+            sortBtn.setAttribute('aria-label', `Sort by ${this.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`);
+            this.onRefresh();
+        };
+
+        // Refresh button
+        const refreshBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Refresh' }
+        });
+        setIcon(refreshBtn, 'refresh-cw');
+        refreshBtn.onclick = () => {
+            this.isManualRefresh = true;
+            this.onRefresh();
+        };
+
+        // Insert nav-header into containerEl BEFORE contentEl (making it a sibling)
+        this.containerEl.insertBefore(navHeader, contentEl);
+    }
+
+    private handleExpandToggle(btn: HTMLElement): void {
+        this.allExpanded = !this.allExpanded;
+
+        // Use contentEl directly (not children[1] which may be nav-header)
+        const contentEl = this.contentEl;
+        if (!contentEl) return;
+
+        // Update button icon
+        setIcon(btn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
+        btn.setAttribute('aria-label', this.allExpanded ? 'Collapse all' : 'Expand all');
+
+        // Toggle tab notes containers
+        contentEl.querySelectorAll('.web-sidecar-browser-notes').forEach(el => {
+            if (this.allExpanded) {
+                el.removeClass('hidden');
+            } else {
+                el.addClass('hidden');
+            }
+        });
+
+        // Toggle expand button icons
+        contentEl.querySelectorAll('.web-sidecar-expand-btn').forEach(expandBtn => {
+            expandBtn.empty();
+            setIcon(expandBtn as HTMLElement, this.allExpanded ? 'chevron-down' : 'chevron-right');
+        });
+
+        // Toggle all details sections
+        contentEl.querySelectorAll('details').forEach(details => {
+            if (this.allExpanded) {
+                details.setAttribute('open', '');
+            } else {
+                details.removeAttribute('open');
+            }
+        });
+
+        // Update state tracking
+        this.setRecentNotesOpen(this.allExpanded);
+        this.setDomainGroupOpen(this.allExpanded);
+        this.setSubredditExplorerOpen(this.allExpanded);
+
+        // Force re-render to populate content
+        this.isManualRefresh = true;
+        this.onRefresh();
     }
 
     // Interface implementation methods
@@ -179,6 +285,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.navigationService.focusNextInstance(url, allTabs);
     }
 
+    focusNextNoteInstance(filePath: string): void {
+        this.navigationService.focusNextNoteInstance(filePath);
+    }
+
     async openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent): Promise<void> {
         await this.navigationService.openNoteSmartly(file, e);
     }
@@ -230,7 +340,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
-        const container = this.containerEl.children[1] as HTMLElement;
+        // Use contentEl (view-content) directly, not children[1] which may be nav-header
+        const container = this.contentEl;
 
         // Prevent re-rendering while user is interacting, unless forced
         if (this.isInteracting && !this.isManualRefresh && !force) {
@@ -269,6 +380,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         if (modeChanged || !hasContent || !isBrowserMode) {
             container.empty();
         }
+
+        // Ensure nav-header buttons exist in view-header (not affected by container.empty)
+        this.createNavHeader();
 
         if (!hasContent) {
             this.sectionRenderer.renderEmptyState(container);
