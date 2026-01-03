@@ -95,7 +95,25 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();
         this.render();
+
+        // Listen for active leaf changes to update "active" highlighting immediately
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', (leaf) => {
+                // Track last active non-sidecar leaf
+                if (leaf && leaf !== this.leaf) {
+                    this.lastActiveLeaf = leaf;
+                }
+
+                // Should not re-render if the sidecar itself became active, 
+                // as this happens on mousedown and destroying DOM prevents 'click' events
+                if (leaf === this.leaf) return;
+                this.render(true);
+            })
+        );
     }
+
+    // Track the last active leaf that wasn't this sidecar
+    public lastActiveLeaf: WorkspaceLeaf | null = null;
 
     async onClose(): Promise<void> {
         // Cleanup
@@ -211,11 +229,11 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     /**
      * Main render method
      */
-    render(): void {
+    render(force?: boolean): void {
         const container = this.containerEl.children[1] as HTMLElement;
 
         // Prevent re-rendering while user is interacting, unless forced
-        if (this.isInteracting && !this.isManualRefresh) {
+        if (this.isInteracting && !this.isManualRefresh && !force) {
             return;
         }
         this.isManualRefresh = false;

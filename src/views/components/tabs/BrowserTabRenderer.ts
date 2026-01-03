@@ -36,8 +36,7 @@ export class BrowserTabRenderer {
             const sortBtn = controls.createEl('button', {
                 cls: 'web-sidecar-sort-btn clickable-icon',
                 attr: {
-                    'aria-label': `Sort by ${this.view.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`,
-                    'title': `Currently: ${this.view.settings.tabSortOrder === 'focus' ? 'Recent first' : 'Alphabetical'}`
+                    'aria-label': `Sort by ${this.view.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`
                 }
             });
             setIcon(sortBtn, this.view.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
@@ -63,7 +62,6 @@ export class BrowserTabRenderer {
             const sortBtn = header.querySelector('.web-sidecar-sort-btn') as HTMLElement;
             if (sortBtn) {
                 sortBtn.setAttribute('aria-label', `Sort by ${this.view.settings.tabSortOrder === 'focus' ? 'title' : 'recent'}`);
-                sortBtn.setAttribute('title', `Currently: ${this.view.settings.tabSortOrder === 'focus' ? 'Recent first' : 'Alphabetical'}`);
                 setIcon(sortBtn, this.view.settings.tabSortOrder === 'focus' ? 'clock' : 'arrow-down-az');
                 // Ensure onclick is fresh
                 sortBtn.onclick = async () => {

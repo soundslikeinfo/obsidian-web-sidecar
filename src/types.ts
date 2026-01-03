@@ -9,6 +9,8 @@ export interface IWebSidecarView {
     app: App;
     settings: WebSidecarSettings;
     urlIndex: UrlIndex;
+    leaf: WorkspaceLeaf;
+    lastActiveLeaf: WorkspaceLeaf | null;
 
     // Actions
     closeLeaf(leafId: string): void;

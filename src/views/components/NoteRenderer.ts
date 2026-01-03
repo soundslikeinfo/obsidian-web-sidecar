@@ -41,7 +41,7 @@ export class NoteRenderer {
         // Show URL snippet - always just opens web viewer (not paired)
         const urlSnippet = li.createEl('div', {
             cls: 'web-sidecar-url-snippet clickable',
-            attr: { tabindex: '0', title: 'Open in web viewer' }
+            attr: { tabindex: '0', 'aria-label': 'Open in web viewer' }
         });
         const domain = extractDomain(url);
         urlSnippet.setText(domain || url);

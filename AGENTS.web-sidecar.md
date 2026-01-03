@@ -1,0 +1,545 @@
+# Web Sidecar Plugin — Developer Guide
+
+This document describes the expected behavior, UI patterns, and architectural decisions for the **Web Sidecar** Obsidian plugin. It is intended for senior developers maintaining or extending this plugin.
+
+> **See also:** `AGENTS.md` for general Obsidian plugin conventions, `AGENTS.web-sidecar.regression.md` for known regressions and their fixes.
+
+---
+
+## Conventions
+
+### Comment Style
+
+- **Keep comments concise.** Avoid verbose explanations of "thinking process" or alternative approaches considered.
+- Single-line TODOs are preferred: `// TODO: Fix the visual flash for default icons`
+- Multi-line explanatory comments should be reserved for genuinely complex logic.
+- Avoid leaving "notebook-style" reasoning in production code.
+
+### Terminology Consistency
+
+Always use these terms in UI strings, context menus, and settings:
+
+| Correct Term | Incorrect Alternatives |
+|--------------|------------------------|
+| "web viewer" | "browser tab", "web tab" |
+| "note" | "file", "document" |
+| "Open in new web viewer" | "Open in new tab" |
+| "Close linked web views" | "Close all web views for this page" |
+
+---
+
+## Plugin Overview
+
+**Web Sidecar** is a sidebar companion for Obsidian's web viewers. It:
+- Tracks all open web viewer tabs (native `webviewer` and Surfing plugin `surfing-view`)
+- Displays matching notes from the vault for each tracked URL
+- Shows "Virtual Tabs" for open notes with URL properties (but no active web viewer)
+- Provides quick actions: create notes, open URLs, focus tabs, open paired view
+- Injects experimental header buttons and menu items into web viewer panes
+
+---
+
+## Architecture
+
+```
+src/
+├── main.ts                       # Plugin lifecycle, event registration
+├── types.ts                      # Interfaces (TrackedWebViewer, IWebSidecarView, Settings)
+├── views/
+│   ├── webSidecarView.ts         # Main ItemView sidebar (implements IWebSidecarView)
+│   └── components/
+│       ├── ContextMenus.ts       # All context menu definitions
+│       ├── NoteRenderer.ts       # Renders note items in lists
+│       ├── SectionRenderer.ts    # Renders collapsible sections (Recent, Domain groups)
+│       └── tabs/
+│           ├── TabListRenderer.ts    # "Notes mode" tab list rendering
+│           └── BrowserTabRenderer.ts # "Browser mode" compact tab rendering
+├── services/
+│   ├── TabStateService.ts        # Tracks all web viewer tabs with focus timestamps
+│   ├── NavigationService.ts      # Handles opening notes/URLs, paired opening, focus
+│   ├── UrlIndex.ts               # Fast URL-to-note lookup index
+│   ├── noteMatcher.ts            # Searches vault metadata for URL matches
+│   └── urlUtils.ts               # URL normalization, domain extraction
+├── experimental/
+│   └── WebViewerManager.ts       # Injects header buttons and menu items into web viewers
+├── modals/                       # Modal dialogs (CreateNoteModal, etc.)
+└── settings/                     # Settings tab and configuration
+```
+
+---
+
+## Core Behaviors
+
+### 1. Tab Tracking
+
+**Expected behavior:**
+- All open `webviewer` and `surfing-view` leaves are tracked
+- Each tab stores: `leafId`, `url`, `title`, `lastFocused` timestamp, `isPopout`, `leaf` reference
+- Tabs sorted by `lastFocused` (most recent first) or alphabetically by title
+- Closed tabs are automatically removed on next poll cycle
+
+**Implementation notes:**
+- Use `workspace.getLeavesOfType()` to scan for web viewers
+- Store tabs in `Map<string, TrackedWebViewer>` keyed by leaf ID
+- Update `lastFocused` on every `active-leaf-change` event
+
+### 2. Virtual Tabs (Open Notes with URLs)
+
+**Expected behavior:**
+- Notes that are open in the editor AND have a URL property appear as "virtual tabs"
+- Virtual tabs are italicized and show a link icon
+- Clicking a virtual tab opens the URL in a new web viewer
+- Virtual tabs disappear once the URL is opened in a web viewer (they become real tabs)
+
+**Implementation notes:**
+- Check all markdown leaves for files with frontmatter URL properties
+- Cross-reference against already-open web viewer URLs to avoid duplicates
+- Cache page titles from previous web viewer sessions for display
+
+### 3. URL Detection & Polling
+
+**Expected behavior:**
+- URLs update automatically when navigation occurs within a web viewer
+- No user action required to refresh — polling handles it
+- Polling does NOT re-render the DOM unless tab data actually changed
+
+**Implementation notes:**
+- Poll interval: 500ms
+- Use change detection (hash of tab URLs + titles) to prevent unnecessary re-renders
+- Unnecessary re-renders cause: collapsible sections to collapse, hover states to flicker
+
+```typescript
+// CRITICAL: Only update if tabs changed
+const previousHash = this.getTabsHash();
+this.scanAllWebViewers();
+const newHash = this.getTabsHash();
+if (previousHash !== newHash) {
+    this.view?.updateTabs(this.getTrackedTabs(), this.getVirtualTabs());
+}
+```
+
+### 4. URL Property Handling (Array Support)
+
+**Expected behavior:**
+- URL properties can be single strings OR arrays of strings
+- If array, first valid URL is used for matching
+- Both formats are supported: `source: https://...` and `source: [https://..., https://...]`
+
+```typescript
+const values = Array.isArray(propValue) ? propValue : [propValue];
+for (const val of values) {
+    if (typeof val !== 'string') continue;
+    if (!isValidUrl(val)) continue;
+    // Process URL...
+}
+```
+
+### 5. Title Filtering
+
+**Expected behavior:**
+- Invalid or placeholder titles are NOT displayed (show domain instead)
+- Filtered titles: `data:text/...`, `about:blank`, `about:newtab`, `New Tab`, `Loading...`
+
+```typescript
+private isValidTitle(title: string | undefined): boolean {
+    if (!title || title.trim() === '') return false;
+    if (/^data:[a-z]+\//.test(title)) return false;
+    if (/^about:(blank|newtab|srcdoc)/.test(title)) return false;
+    if (title === 'New Tab' || title === 'Loading...') return false;
+    return true;
+}
+```
+
+### 5. Sidebar Focus Bug Prevention
+
+**Expected behavior:**
+- Clicking sidebar elements should work on the FIRST click
+- No "double-click required" behavior due to Electron focus issues
+
+**Implementation notes:**
+- Track `isInteracting` flag via `mouseenter`/`mouseleave` on container
+- Skip `render()` calls while `isInteracting === true` (unless manual refresh)
+- Prevents polling from destroying DOM mid-interaction
+
+```typescript
+updateTabs(trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[]): void {
+    this.trackedTabs = trackedTabs;
+    this.virtualTabs = virtualTabs;
+    // Skip render if user is interacting
+    if (!this.isInteracting && !this.isManualRefresh) {
+        this.render();
+    }
+}
+```
+
+### 6. Active Tab Highlighting
+
+**Expected behavior:**
+- The currently focused web viewer tab is visually highlighted in the sidebar
+- Highlighting uses `is-active` class with accent border and bolder text
+
+**Key fixes:**
+- Track `lastActiveLeaf` as a fallback when sidebar gains focus
+- Ignore `active-leaf-change` events where `leaf === this.leaf` (sidebar itself)
+
+### 7. Immediate UI Refresh After Actions
+
+**Expected behavior:**
+- The sidecar MUST update immediately after ANY action that changes tab/leaf state
+- No "stale" UI where closed tabs persist or new tabs don't appear
+
+**Implementation notes:**
+- ALL methods in `NavigationService` that modify leaves must call:
+```typescript
+this.isManualRefreshCallback(true);
+this.onRefreshCallback();
+```
+- This includes: `openNoteSmartly`, `openUrlSmartly`, `openNewWebViewer`, `closeLeaf`, `closeAllLeavesForUrl`, `closeLinkedNoteLeaves`
+- For create actions, add a small delay (50ms) before refresh to allow Obsidian to register the new leaf
+
+### 8. State Persistence for Collapsible Sections
+
+**Expected behavior:**
+- Expanded sections remain expanded after refresh/sort operations
+- Individual domain/subreddit groups maintain their expanded state
+- Sort buttons do NOT collapse everything
+
+**Implementation notes:**
+- Store expanded state in `WebSidecarView`: `isRecentNotesOpen`, `isDomainGroupOpen`, `isSubredditExplorerOpen`, `expandedGroupIds: Set<string>`
+- Apply `details.setAttribute('open', '')` on render if state is true
+- Listen to `details.addEventListener('toggle', ...)` to track state changes
+- Use unique IDs like `domain:example.com` or `subreddit:r/obsidianmd` for group tracking
+
+### 9. Section Cleanup Before Re-render
+
+**Expected behavior:**
+- No duplicate sections appear after refresh
+- Collapsible sections are cleanly replaced, not appended
+
+**Implementation notes:**
+- Before creating a section, check for and remove existing:
+```typescript
+const existingSection = container.querySelector('[data-section-type="domain-groups"]');
+if (existingSection) existingSection.remove();
+```
+- Use `data-section-type` attributes to identify sections uniquely
+
+---
+
+## Experimental Features (Header Actions)
+
+Controlled by `enableWebViewerActions` setting. These inject UI into web viewer panes.
+
+### Header Buttons
+
+| Button | Setting | Icon | Condition | Action |
+|--------|---------|------|-----------|--------|
+| New Web Viewer | `showWebViewerHeaderButton` | `plus-circle` | Always | Opens new blank web viewer |
+| New Note | `showWebViewerNewNoteButton` | `file-plus` | Always | Opens CreateNoteModal for current URL |
+| Open Note | `showWebViewerOpenNoteButton` | `split-square-horizontal` or `history` | **Only if linked notes exist** | Opens note to the right |
+
+### Open Note Button (Dynamic)
+
+**Expected behavior:**
+- Button only appears when the current URL has linked notes in the vault
+- If multiple notes link to the URL, show `history` icon with tooltip "Open most recent note to the right"
+- Button state is refreshed during polling loop
+
+**Implementation notes (CRITICAL):**
+- Use `data-note-path` attribute to prevent button recreation when state unchanged
+- Without this check, button "pulses" on every poll cycle
+
+```typescript
+// Prevent pulsing: check if button already points to correct note
+if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.path) {
+    return; // DO NOT rebuild button
+}
+```
+
+### More Options Menu Items
+
+| Item | Setting | Condition | Action |
+|------|---------|-----------|--------|
+| New web view tab | `showWebViewerMenuOption` | Always | Opens new web viewer |
+| Open note to the right | `showWebViewerOpenNoteOption` | **Only if linked notes exist** | Opens linked note |
+
+---
+
+## UI Patterns
+
+### Display Modes
+
+**Browser Mode** (default, `tabAppearance: 'browser'`):
+- Compact favicon + title display
+- Expandable cards for matching notes
+- "More web notes" collapsible sections
+- **Uses DOM reconciliation to preserve expanded state and minimize flashing**
+
+**Notes Mode** (`tabAppearance: 'notes'`):
+- Detailed cards with URL display
+- Full note matching results inline
+- Full re-render on each update (simpler, no reconciliation)
+
+### DOM Reconciliation (Browser Mode)
+
+**Expected behavior:**
+- Browser mode preserves expanded/collapsed states during updates
+- Only changed elements are modified; unchanged tabs are left in place
+- Tab elements are keyed by `data-tab-key` attribute (`group:<url>` or `leaf:<leafId>`)
+
+**Known limitation:**
+- Favicon icons may briefly flash when new tabs are created. This is a visual artifact of DOM creation, not reconciliation failure.
+- TODO exists in `BrowserTabRenderer.ts` for future optimization.
+
+```typescript
+// Reconciliation loop pattern
+for (const group of groups) {
+    let tabEl = currentElements.get(key);
+    if (tabEl) {
+        this.updateBrowserTab(tabEl, firstTab, group.all); // Update in place
+        tabListContainer.appendChild(tabEl);               // Preserve order
+    } else {
+        this.renderBrowserTab(tabListContainer, firstTab, group.all); // Create new
+    }
+}
+// Remove stale elements
+for (const [key, el] of currentElements) {
+    if (!newKeys.has(key)) el.remove();
+}
+```
+
+### Header Controls
+
+**Layout:** `[Sort] [Refresh]` (right-aligned)
+
+| Button | Icon | Action |
+|--------|------|--------|
+| Sort | `clock` / `arrow-down-az` | Toggle between focus-time and alphabetical |
+| Refresh | `refresh-cw` | Force rescan all web viewers |
+
+### Click Behaviors
+
+| Area | Regular Click | Shift+Click | Cmd/Ctrl+Click |
+|------|---------------|-------------|----------------|
+| Tab header | Focus that web viewer | — | — |
+| Note title | Open note (smart) | Force new tab | Open in popout window |
+| URL snippet | Open in web viewer (or focus existing) | Force new tab | Open in popout window |
+
+### Smart Note Opening (`openNoteSmartly`)
+
+1. Cmd/Ctrl+Click → popout window
+2. Shift+Click → force new tab
+3. Check if note already open → focus existing
+4. Otherwise → respect `noteOpenBehavior` setting (`split` or `tab`)
+
+### Paired Opening (`openPaired`)
+
+Opens web viewer + note side-by-side. **Available ONLY via right-click context menu.**
+
+**Logic:**
+1. Reuse existing blank web viewer if available
+2. Navigate web viewer to URL
+3. Open note per `noteOpenBehavior` setting (split right or new tab)
+4. If both already open, just focus the note
+
+---
+
+## Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `urlPropertyFields` | `string[]` | `['source', 'url', 'URL']` | Frontmatter properties to search for URLs |
+| `primaryUrlProperty` | `string` | `'source'` | Property used when creating new notes |
+| `enableTldSearch` | `boolean` | `true` | Show "Same domain" expanded matches |
+| `newNoteFolderPath` | `string` | `''` | Default folder for new notes |
+| `recentNotesCount` | `number` | `10` | Notes shown when no web viewer is active |
+| `tabSortOrder` | `'focus' \| 'title'` | `'focus'` | How to sort tracked tabs |
+| `tabAppearance` | `'browser' \| 'notes'` | `'browser'` | UI mode |
+| `noteOpenBehavior` | `'split' \| 'tab'` | `'split'` | How notes open from sidebar |
+| `collapseDuplicateUrls` | `boolean` | `false` | Collapse duplicate URL tabs |
+| `enableSubredditFilter` | `boolean` | `false` | Filter domain matches by subreddit |
+| `enableSubredditExplorer` | `boolean` | `false` | Show subreddit grouping section |
+
+### Experimental Settings
+
+| Setting | Description |
+|---------|-------------|
+| `enableWebViewerActions` | Master toggle for header injection features |
+| `showWebViewerHeaderButton` | New Web Viewer button in header |
+| `showWebViewerNewNoteButton` | New Note button in header |
+| `showWebViewerOpenNoteButton` | Open Note button (dynamic, conditional) |
+| `showWebViewerMenuOption` | New Web View Tab in More Options menu |
+| `showWebViewerOpenNoteOption` | Open Note in More Options menu (conditional) |
+
+---
+
+## CSS Guidelines
+
+### Avoid Visual Clutter
+
+- **No uppercase text** in section headers (user feedback: remove `text-transform: uppercase`)
+- Use `letter-spacing: 0.2px` instead of `0.5px`
+- Use 13px font size for section headers
+
+```css
+.web-sidecar-section h5 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.2px;
+    /* NO text-transform: uppercase */
+}
+```
+
+### Active Tab Highlighting
+
+```css
+.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+    background-color: var(--background-modifier-active-hover);
+    border-left: 2px solid var(--interactive-accent);
+    margin-left: -2px;
+}
+```
+
+### Avoid Title Attributes
+
+**User preference:** Do not use `title` attributes for tooltips. Use only `aria-label` for accessibility.
+
+```typescript
+// ✅ Correct
+badge.setAttribute('aria-label', '3 Notes');
+
+// ❌ Avoid
+badge.setAttribute('title', '3 Notes');
+```
+
+### Icon Hover Stability
+
+SVGs inside buttons must not capture pointer events:
+```css
+.web-sidecar-sort-btn svg,
+.web-sidecar-refresh-btn svg {
+    pointer-events: none;
+}
+```
+
+---
+
+## Common Pitfalls
+
+### ❌ Re-rendering on every poll
+**Problem:** Destroys DOM, causes collapsible sections to reset, breaks hover states.
+**Solution:** Implement change detection; only call `render()` when data changes.
+
+### ❌ Button pulsing in header
+**Problem:** Dynamic button (Open Note) flickers on every poll cycle.
+**Solution:** Check `data-note-path` attribute before rebuilding button.
+
+### ❌ Focus race conditions
+**Problem:** Clicking sidebar steals focus from web viewer.
+**Solution:** Track `isInteracting` flag, ignore self-focus events.
+
+### ❌ Type errors with view state
+**Problem:** `state.url` or `state.title` might not be strings.
+**Solution:** Always type-check: `typeof state?.url === 'string'`
+
+### ❌ Opening duplicate tabs
+**Problem:** Clicking URL opens new tab even if already open.
+**Solution:** Check all web viewer leaves for matching URL before creating new.
+
+### ❌ Invalid titles displayed
+**Problem:** Shows `data:text/plain,` as title.
+**Solution:** Filter titles with `isValidTitle()` before display.
+
+---
+
+## Context Menu Items
+
+### Web Viewer Tab Context Menu
+- Open in new web viewer
+- Open in new window
+- Open to the right
+- Close web view
+- Close all linked web views
+- Copy URL
+
+### Note Context Menu
+
+**IMPORTANT:** Context menu must be attached to the entire `<li>` item, not just the link or URL snippet. This ensures consistent right-click behavior everywhere on the row.
+
+```typescript
+li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, file, url));
+```
+
+**Menu items:**
+- Open note in new tab
+- Open note in new window
+- Open note to the right
+- Reveal note in navigation
+- Copy full path
+- *(separator)*
+- Close this note (if open)
+- Close all linked notes
+- Close linked web view (if URL open)
+- Close all linked web views
+- *(separator)*
+- Open URL in web viewer
+- **Open web view + note pair** ← Paired opening
+- Copy URL
+
+### Virtual Tab Context Menu
+
+**IMPORTANT:** Virtual tabs ("Opened web notes") MUST have a context menu. It differs from the regular tab menu by excluding "close tab" options (no tab exists).
+
+**Menu items:**
+- Open in new web viewer
+- Open in new window
+- Open to the right
+- Open web view + note pair
+- Copy URL
+- Reveal note in navigation
+
+**Implementation:** `ContextMenus.showVirtualTabContextMenu(event, url, file)`
+
+---
+
+## Testing Checklist
+
+- [ ] Open multiple web viewer tabs → all appear in sidebar
+- [ ] Navigate within a tab → URL updates without user action
+- [ ] Click tab header → focuses correct web viewer
+- [ ] Click "Same domain" → expands and stays expanded
+- [ ] Hover sort/refresh buttons → stable hover, no flicker
+- [ ] Click URL snippet → opens or focuses existing tab
+- [ ] Click note title + Cmd → opens in popout window
+- [ ] Virtual tabs display for open notes with URLs
+- [ ] Open Note header button appears only when linked notes exist
+- [ ] Open Note button does NOT pulse while hovering
+- [ ] Paired opening via context menu works correctly
+- [ ] Active tab is highlighted in sidebar
+- [ ] No uppercase text in section headers
+
+---
+
+## Future Considerations
+
+1. **New tab interception** — User requested intercepting Cmd+T when web viewer focused. Not feasible with current Obsidian API without monkey-patching.
+
+2. **Favicon caching** — Currently uses Google's favicon service. Consider caching locally for offline/privacy.
+
+3. **Tag-based filtering** — Show only notes with specific tags matching current domain.
+
+4. **Subreddit expansion** — Full subreddit note explorer with grouping by r/subreddit. *(Implemented)*
+
+5. **Icon flashing fix** — The default globe icon flashes when tabs are created/updated. The current DOM reconciliation reduces but doesn't eliminate this. A more granular update strategy for the favicon container could help.
+
+---
+
+## Code Quality Standards
+
+- **No verbose comments.** If a comment requires multiple paragraphs, consider whether the code itself can be clearer.
+- **Use `onclick` over `addEventListener`** for elements that may be updated in place. Easier to overwrite handlers.
+- **Always test click behavior** after render logic changes. Focus races and destroyed-DOM issues are common.
+- **Respect user interaction state.** Never re-render while `isInteracting` is true unless explicitly forced.
+- **Every action that modifies leaves must trigger a refresh.** This is the most common source of "stale UI" bugs.
+- **Test sort and refresh buttons** with expanded sections. They must not collapse.

@@ -136,9 +136,39 @@ export class BrowserTabItemRenderer {
     ): void {
         const isDeduped = allTabs && allTabs.length > 1;
 
-        // Check if this tab is the currently active/focused one
-        const activeLeaf = this.view.app.workspace.activeLeaf;
-        const isActive = tab.leaf && activeLeaf === tab.leaf;
+        // Check if this tab is the currently active/focused one OR if active note is linked
+        let activeLeaf = this.view.app.workspace.activeLeaf;
+
+        // If the sidecar itself is active (e.g. user clicked sort button), fall back to last active leaf
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+            activeLeaf = this.view.lastActiveLeaf;
+        }
+
+        let isActive = false;
+        if (activeLeaf) {
+            // 1. Direct match (Web Viewer is active)
+            // Use ID check if available for more robustness, fallback to object equality
+            const activeLeafId = (activeLeaf as any).id;
+            if (activeLeafId && tab.leafId === activeLeafId) {
+                isActive = true;
+            } else if (tab.leaf && activeLeaf === tab.leaf) {
+                isActive = true;
+            }
+
+            // 2. Linked Note match (Note is active)
+            if (!isActive && activeLeaf.view.getViewType() === 'markdown') {
+                // Matches - compute early so we know if expandable AND for active check checking
+                const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
+                const view = activeLeaf.view as any; // Cast to access file safely
+                if (view.file) {
+                    const activePath = view.file.path;
+                    // Check if active note is in our matches
+                    if (matches.exactMatches.some(m => m.file.path === activePath)) {
+                        isActive = true;
+                    }
+                }
+            }
+        }
 
         // Apply active class to wrapper
         tabWrapper.removeClass('is-active');
@@ -184,14 +214,25 @@ export class BrowserTabItemRenderer {
             }
         };
 
-        tabRow.onclick = (e) => {
+        tabRow.onclick = async (e) => {
             if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
             if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 
             // Check if tab is already focused - if so, toggle expand instead
             if (hasExpandableContent && tab.leaf) {
                 const activeLeaf = this.view.app.workspace.activeLeaf;
-                if (activeLeaf === tab.leaf) {
+                let isAlreadyActive = false;
+
+                if (activeLeaf) {
+                    const activeLeafId = (activeLeaf as any).id;
+                    if (activeLeafId && tab.leafId === activeLeafId) {
+                        isAlreadyActive = true;
+                    } else if (activeLeaf === tab.leaf) {
+                        isAlreadyActive = true;
+                    }
+                }
+
+                if (isAlreadyActive) {
                     // Already focused, toggle expand
                     toggleExpand();
                     return;
@@ -199,11 +240,14 @@ export class BrowserTabItemRenderer {
             }
 
             // Not focused - focus the tab
-            if (isDeduped && allTabs) {
-                this.view.focusNextInstance(tab.url, allTabs);
-            } else {
-                this.view.focusTab(tab);
-            }
+            // Wrap in setTimeout to ensure the click event finishes and focus isn't stolen back by the sidecar
+            setTimeout(() => {
+                if (isDeduped && allTabs) {
+                    this.view.focusNextInstance(tab.url, allTabs);
+                } else {
+                    this.view.focusTab(tab);
+                }
+            }, 50);
         };
         tabRow.oncontextmenu = (e) => this.contextMenus.showWebViewerContextMenu(e, tab);
 
@@ -240,7 +284,6 @@ export class BrowserTabItemRenderer {
             const popoutIcon = tabRow.createSpan({ cls: 'web-sidecar-popout-icon' });
             setIcon(popoutIcon, 'picture-in-picture-2');
             popoutIcon.setAttribute('aria-label', 'In popout window');
-            popoutIcon.setAttribute('title', 'In popout window');
         }
 
         // Tab count
@@ -249,8 +292,7 @@ export class BrowserTabItemRenderer {
                 text: `${allTabs.length}`,
                 cls: 'web-sidecar-tab-count-badge',
                 attr: {
-                    'aria-label': `${allTabs.length} tabs`,
-                    'title': `${allTabs.length} tabs open (click to cycle)`
+                    'aria-label': `${allTabs.length} tabs`
                 }
             });
         }
@@ -261,8 +303,7 @@ export class BrowserTabItemRenderer {
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
                 attr: {
-                    'aria-label': exactCount === 1 ? '1 Note' : `${exactCount} Notes`,
-                    'title': exactCount === 1 ? '1 Note' : `${exactCount} Notes`
+                    'aria-label': exactCount === 1 ? '1 Note' : `${exactCount} Notes`
                 }
             });
         }
@@ -272,7 +313,6 @@ export class BrowserTabItemRenderer {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.setAttribute('aria-label', 'New Note');
-            newNoteBtn.setAttribute('title', 'New Note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.view.openCreateNoteModal(tab.url);
