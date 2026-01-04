@@ -539,6 +539,25 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.navigationService.closeLinkedNoteLeaves(url);
     }
 
+    // --- Redirect Detection Implementations ---
+
+    hasRedirectedUrl(leafId: string): boolean {
+        return this.tabStateService.hasRedirectedUrl(leafId);
+    }
+
+    async updateTrackedTabNotes(leafId: string): Promise<void> {
+        await this.tabStateService.updateTrackedTabNotes(leafId);
+        this.render(true);
+    }
+
+    setTabOriginalUrl(leafId: string, url: string): void {
+        this.tabStateService.setTabOriginalUrl(leafId, url);
+    }
+
+    setPendingOriginalUrl(url: string): void {
+        this.tabStateService.setPendingOriginalUrl(url);
+    }
+
     focusWebViewer(leafId: string): void {
         this.navigationService.focusWebViewer(leafId);
     }

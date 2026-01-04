@@ -1098,7 +1098,8 @@
 
 .web-sidecar-pinned-section {
   padding: 0;
-  margin-bottom: 8px;
+  margin: 0 -8px 8px -8px;
+  /* Match .web-sidecar-browser-tabs margin for consistent width */
   min-height: 4px;
   /* Ensure drop target exists */
   transition: all 0.2s ease;
@@ -1217,4 +1218,14 @@
 
 .web-sidecar-pinned-tab.drag-over {
   border-top: 2px solid var(--interactive-accent);
+}
+
+/* Notes container for pinned tabs - match browser-notes padding */
+.web-sidecar-pinned-notes {
+  padding-left: 24px;
+  padding-bottom: 4px;
+}
+
+.web-sidecar-pinned-notes.hidden {
+  display: none;
 }

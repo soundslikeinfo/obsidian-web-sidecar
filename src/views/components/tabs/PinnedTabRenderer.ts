@@ -308,6 +308,7 @@ export class PinnedTabRenderer {
 
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
                     this.view.openNoteSmartly(match.file, e);
                 });
 
@@ -354,6 +355,7 @@ export class PinnedTabRenderer {
                 });
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
                     this.view.openNoteSmartly(match.file, e);
                 });
                 link.addEventListener('contextmenu', (e) => {

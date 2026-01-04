@@ -79,6 +79,12 @@ export interface IWebSidecarView {
 
     isSelectedTagGroupOpen: boolean;
     setSelectedTagGroupOpen(open: boolean): void;
+
+    // Redirect detection (for linked note URL updates)
+    hasRedirectedUrl(leafId: string): boolean;
+    updateTrackedTabNotes(leafId: string): Promise<void>;
+    setTabOriginalUrl(leafId: string, url: string): void;
+    setPendingOriginalUrl(url: string): void;
 }
 
 /**
@@ -147,11 +153,16 @@ export interface WebSidecarSettings {
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
 
-    // Pinned Tabs Settings
     enablePinnedTabs: boolean;
     pinnedPropertyKey: string;
     pinnedPropertyValue: string;
     pinnedTabs: PinnedTab[];
+
+    // Tab Group Placement Preferences
+    /** Prefer to open new web viewers in the left tab group */
+    preferWebViewerLeft: boolean;
+    /** Prefer to open notes in the right tab group */
+    preferNotesRight: boolean;
 }
 
 /**
@@ -214,6 +225,10 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     pinnedPropertyKey: 'tags',
     pinnedPropertyValue: 'pinned',
     pinnedTabs: [],
+
+    // Tab Group Placement Defaults
+    preferWebViewerLeft: true,
+    preferNotesRight: true,
 };
 
 /**
@@ -274,6 +289,8 @@ export interface TrackedWebViewer {
     isPopout: boolean;
     /** Direct reference to the leaf (more robust than ID) */
     leaf?: WorkspaceLeaf;
+    /** Original URL when tab was opened from a linked note (before any redirects) */
+    originalUrl?: string;
 }
 
 /**

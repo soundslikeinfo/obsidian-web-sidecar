@@ -126,12 +126,39 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.setDesc('How to open notes when clicked from the sidebar')
 			.addDropdown(dropdown => dropdown
 				.addOption('split', 'Open to the right')
-				.addOption('tab', 'Open in new web viewer')
+				.addOption('tab', 'Open in tab group with focus')
 				.setValue(this.plugin.settings.noteOpenBehavior)
 				.onChange(async (value) => {
 					this.plugin.settings.noteOpenBehavior = value as 'split' | 'tab';
 					await this.plugin.saveSettings();
+					// Re-render to show/hide tab group placement options
+					this.display();
 				}));
+
+		// Opening Behavior for Tab Groups (only show when notes open to the right)
+		if (this.plugin.settings.noteOpenBehavior === 'split') {
+			containerEl.createEl('h3', { text: 'Opening behavior for tab groups' });
+
+			new Setting(containerEl)
+				.setName('Prefer to open web viewers in the left tab group')
+				.setDesc('When opening new web viewers, place them alongside existing web viewers (left side in paired layouts)')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.preferWebViewerLeft)
+					.onChange(async (value) => {
+						this.plugin.settings.preferWebViewerLeft = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Prefer to open notes in the right tab group')
+				.setDesc('When opening notes, place them alongside existing notes (right side in paired layouts)')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.preferNotesRight)
+					.onChange(async (value) => {
+						this.plugin.settings.preferNotesRight = value;
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		// Domain Rules Section
 		containerEl.createEl('h3', { text: 'Domain Rules' });

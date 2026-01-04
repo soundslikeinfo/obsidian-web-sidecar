@@ -130,6 +130,19 @@ export class ContextMenus {
             });
         }
 
+        // Redirect detection: Show option to update linked notes if URL has changed from original
+        if (this.view.hasRedirectedUrl(tab.leafId)) {
+            menu.addSeparator();
+            menu.addItem((item) => {
+                item
+                    .setTitle('Update linked note(s) url to current view')
+                    .setIcon('file-symlink')
+                    .onClick(async () => {
+                        await this.view.updateTrackedTabNotes(tab.leafId);
+                    });
+            });
+        }
+
         menu.addSeparator();
 
         // Copy URL
@@ -366,6 +379,19 @@ export class ContextMenus {
                 });
         });
 
+        // Pin (create pinned tab from virtual tab / note URL)
+        if (this.view.settings.enablePinnedTabs) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Pin web view')
+                    .setIcon('pin')
+                    .onClick(() => {
+                        // Create a VirtualTab-like object to pass to pinTab
+                        this.view.pinTab({ file, url, propertyName: '', cachedTitle: file.basename });
+                    });
+            });
+        }
+
         menu.addSeparator();
 
         // Open web view + note pair
@@ -591,11 +617,15 @@ export class ContextMenus {
                 item.setTitle('Update linked notes to current URL')
                     .setIcon('file-symlink')
                     .onClick(async () => {
-                        // We need to call the service method. 
-                        // View needs to expose it or we cast.
+                        // FIX: Re-fetch fresh pin from settings to ensure currentUrl is up-to-date
+                        const freshPin = this.view.settings.pinnedTabs.find(p => p.id === pin.id);
+                        if (!freshPin) return;
+
                         if ('updatePinnedTabNotes' in (this.view as any).tabStateService) {
-                            await (this.view as any).tabStateService.updatePinnedTabNotes(pin.id);
+                            await (this.view as any).tabStateService.updatePinnedTabNotes(freshPin.id);
                         }
+                        // Force UI refresh after update
+                        this.view.render(true);
                     });
             });
 

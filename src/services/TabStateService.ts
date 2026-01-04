@@ -23,6 +23,9 @@ export class TabStateService {
     private urlTitleCache: Map<string, string> = new Map();
     private pollIntervalId: number | null = null;
 
+    /** Pending original URL to apply to the next new tab (for redirect detection) */
+    private pendingOriginalUrl: string | undefined;
+
     constructor(
         plugin: WebSidecarPlugin,
         getSettings: () => WebSidecarSettings,
@@ -171,6 +174,13 @@ export class TabStateService {
         const openUrls = new Set(Array.from(this.trackedTabs.values()).map(t => t.url));
         const settings = this.getSettings();
 
+        // Also track pinned tab URLs (both home and current) to exclude from virtual tabs
+        const pinnedUrls = new Set<string>();
+        for (const pin of settings.pinnedTabs) {
+            pinnedUrls.add(pin.url);
+            if (pin.currentUrl) pinnedUrls.add(pin.currentUrl);
+        }
+
         // Track files we've already processed to deduplicate
         const processedFilePaths = new Set<string>();
 
@@ -199,6 +209,9 @@ export class TabStateService {
                 if (typeof propValue === 'string' && propValue.startsWith('http')) {
                     // Skip if URL is already open in a web viewer
                     if (openUrls.has(propValue)) continue;
+
+                    // Skip if URL belongs to a pinned tab (shown in pinned section instead)
+                    if (pinnedUrls.has(propValue)) continue;
 
                     virtualTabs.push({
                         file,
@@ -256,9 +269,19 @@ export class TabStateService {
                             isPopout,
                             leaf: leaf,
                         });
+
+                        // Auto-sync pinned tab currentUrl when navigation/redirect detected
+                        if (existing.url !== info.url) {
+                            this.syncPinnedTabCurrentUrl(leafId, info.url);
+                        }
                     }
                 } else {
-                    // New tab
+                    // New tab - apply pending original URL if set (for redirect tracking)
+                    const originalUrl = this.pendingOriginalUrl;
+                    if (this.pendingOriginalUrl) {
+                        this.pendingOriginalUrl = undefined; // Clear after use
+                    }
+
                     this.trackedTabs.set(leafId, {
                         leafId,
                         url: info.url,
@@ -266,6 +289,7 @@ export class TabStateService {
                         lastFocused: Date.now(),
                         isPopout,
                         leaf: leaf,
+                        originalUrl, // Will be undefined for tabs not opened from linked notes
                     });
                 }
             }
@@ -489,6 +513,28 @@ export class TabStateService {
         this.refreshState();
     }
 
+    /**
+     * Sync a pinned tab's currentUrl when its leaf navigates/redirects.
+     * Called from scanAllWebViewers when URL change detected on a tracked tab.
+     */
+    private syncPinnedTabCurrentUrl(leafId: string, newUrl: string): void {
+        const settings = this.getSettings();
+        const pin = settings.pinnedTabs.find(p => p.leafId === leafId);
+        if (!pin) return;
+
+        // If back to home url, clear currentUrl
+        if (newUrl === pin.url) {
+            if (pin.currentUrl !== undefined) {
+                pin.currentUrl = undefined;
+                this.plugin.saveSettings(); // Async but we don't await
+            }
+        } else if (pin.currentUrl !== newUrl) {
+            // URL changed - update currentUrl
+            pin.currentUrl = newUrl;
+            this.plugin.saveSettings(); // Async but we don't await
+        }
+    }
+
     async resetPinnedTabUrl(pinId: string): Promise<void> {
         await this.updatePinnedTabCurrentUrl(pinId, ''); // Clear it (logic handles empty check/undefined)
     }
@@ -709,6 +755,74 @@ export class TabStateService {
         }
 
         await this.plugin.saveSettings();
+        this.refreshState();
+    }
+
+    // --- Redirect Detection Logic ---
+
+    /**
+     * Set a pending original URL to be applied to the next new tab.
+     * Call this BEFORE opening a URL from a linked note to enable redirect detection.
+     */
+    setPendingOriginalUrl(url: string): void {
+        this.pendingOriginalUrl = url;
+    }
+
+    /**
+     * Set the original URL for a tracked tab (used when opening from a linked note)
+     * This allows us to detect when the page has auto-redirected
+     */
+    setTabOriginalUrl(leafId: string, url: string): void {
+        const tab = this.trackedTabs.get(leafId);
+        if (tab) {
+            tab.originalUrl = url;
+        }
+    }
+
+    /**
+     * Check if a tracked tab has redirected from its original URL
+     */
+    hasRedirectedUrl(leafId: string): boolean {
+        const tab = this.trackedTabs.get(leafId);
+        return !!(tab?.originalUrl && tab.originalUrl !== tab.url);
+    }
+
+    /**
+     * Update all notes linked to the original URL of a tracked tab to the new (current) URL.
+     * Clears the originalUrl after update.
+     */
+    async updateTrackedTabNotes(leafId: string): Promise<void> {
+        const tab = this.trackedTabs.get(leafId);
+        if (!tab || !tab.originalUrl || tab.originalUrl === tab.url) return;
+
+        const oldUrl = tab.originalUrl;
+        const newUrl = tab.url;
+        const settings = this.getSettings();
+
+        // Find all files linking to oldUrl and update them
+        const files = this.plugin.app.vault.getMarkdownFiles();
+
+        for (const file of files) {
+            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                for (const field of settings.urlPropertyFields) {
+                    const val = frontmatter[field];
+                    if (!val) continue;
+
+                    if (Array.isArray(val)) {
+                        const idx = val.indexOf(oldUrl);
+                        if (idx > -1) {
+                            val[idx] = newUrl;
+                        }
+                    } else if (val === oldUrl) {
+                        frontmatter[field] = newUrl;
+                    }
+                }
+            });
+        }
+
+        // Clear the originalUrl since we've updated notes to match current
+        tab.originalUrl = undefined;
+
         this.refreshState();
     }
 }

@@ -83,6 +83,71 @@ src/
 - Store tabs in `Map<string, TrackedWebViewer>` keyed by leaf ID
 - Update `lastFocused` on every `active-leaf-change` event
 
+### 1a. Pinned Tabs
+
+**Expected behavior:**
+- Pinned tabs persist across sessions (stored in settings)
+- Each pinned tab has a `url` (home URL) and optional `currentUrl` (navigated/redirected URL)
+- Pinned tabs appear in their own section above regular tabs
+- Clicking a pinned tab opens or focuses its associated web viewer
+- Notes linked to pinned URLs should NOT appear as virtual tabs
+
+**Key properties (PinnedTab interface):**
+- `id`: Unique identifier
+- `url`: Home/base URL (user pinned this)
+- `currentUrl`: Actual URL in web viewer after navigation/redirect
+- `title`: Display title
+- `leafId`: Associated web viewer leaf (undefined if closed)
+- `isNote`, `notePath`: If pinned from a note
+
+**Context menu options (when redirect detected):**
+- "Reset to pinned URL" — navigates back to `pin.url`
+- "Update linked notes to current URL" — updates notes AND `pin.url`
+- "Save current URL as pinned" — only updates `pin.url`
+
+### 1b. Redirect Detection & Recovery
+
+**Problem:** When a web viewer auto-redirects (e.g., deleted Reddit post → "deleted by user" page), the association between the original note and the web viewer breaks.
+
+**Solution Architecture:**
+
+For **regular web viewers (TrackedWebViewer)**:
+- `originalUrl` field stores URL when opened from a linked note (virtual tab)
+- `setPendingOriginalUrl()` sets URL **BEFORE** opening web viewer
+- `scanAllWebViewers()` applies pending URL when new tab is registered
+- Context menu shows "Update linked note(s) url to current view" when redirect detected
+
+For **pinned tabs**:
+- `syncPinnedTabCurrentUrl()` automatically syncs `pin.currentUrl` when navigation detected
+- Called from `scanAllWebViewers()` when URL change detected on pinned leaf
+- Existing context menu handles the update
+
+**Critical timing (race condition fix):**
+```typescript
+// BEFORE opening URL, set pending original URL
+this.view.setPendingOriginalUrl(virtualTab.url);
+await this.view.openUrlSmartly(virtualTab.url, e);
+// Original URL is applied when new tab is registered in scanAllWebViewers
+```
+
+### 1c. Virtual Tab Filtering
+
+**Expected behavior:**
+- Notes with URLs already open in a web viewer → NO virtual tab
+- Notes with URLs matching a pinned tab → NO virtual tab (shown under pin instead)
+- Only notes with URLs not open anywhere appear as virtual tabs
+
+**Implementation:**
+```typescript
+// In getVirtualTabs():
+const pinnedUrls = new Set<string>();
+for (const pin of settings.pinnedTabs) {
+    pinnedUrls.add(pin.url);
+    if (pin.currentUrl) pinnedUrls.add(pin.currentUrl);
+}
+// Later: if (pinnedUrls.has(propValue)) continue;
+```
+
 ### 2. Virtual Tabs (Open Notes with URLs)
 
 **Expected behavior:**
@@ -564,6 +629,27 @@ Without explicit save, the order reverts on reload (or sometimes instantly).
 }
 ```
 
+### Pinned Tabs Width Consistency (CRITICAL)
+
+Pinned tabs MUST match the width of regular browser tabs. Both sections use negative margins to extend edge-to-edge:
+
+```css
+/* Both browser tabs and pinned section use same margin for consistent width */
+.web-sidecar-browser-tabs {
+    margin: 0 -8px 8px -8px;
+}
+
+.web-sidecar-pinned-section {
+    margin: 0 -8px 8px -8px; /* Must match browser-tabs */
+}
+
+/* Pinned notes container matches browser notes container */
+.web-sidecar-pinned-notes {
+    padding-left: 24px; /* Same as .web-sidecar-browser-notes */
+    padding-bottom: 4px;
+}
+```
+
 ### Avoid Title Attributes
 
 **User preference:** Do not use `title` attributes for tooltips. Use only `aria-label` for accessibility.
@@ -685,6 +771,7 @@ li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(
 - Open in new web viewer
 - Open in new window
 - Open to the right
+- **Pin web view** *(if pinned tabs enabled)* — Creates a pinned tab from this note's URL
 - Open web view + note pair
 - Copy URL
 - Reveal note in navigation
