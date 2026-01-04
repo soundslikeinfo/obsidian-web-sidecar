@@ -95,7 +95,9 @@ export interface WebSidecarSettings {
     urlPropertyFields: string[];
     /** Primary property name used when creating new notes (default: "source") */
     primaryUrlProperty: string;
-    /** Enable expanded search for notes with same top-level domain */
+    /** Enable Recent web notes auxiliary section */
+    enableRecentNotes: boolean;
+    /** Enable grouped by domain auxiliary section */
     enableTldSearch: boolean;
     /** Default folder path for new notes (empty = vault root) */
     newNoteFolderPath: string;
@@ -186,6 +188,7 @@ export type NoteOpenBehavior = 'split' | 'tab';
 export const DEFAULT_SETTINGS: WebSidecarSettings = {
     urlPropertyFields: ['source', 'url', 'URL'],
     primaryUrlProperty: 'source',
+    enableRecentNotes: true,
     enableTldSearch: true,
     newNoteFolderPath: '',
     recentNotesCount: 10,

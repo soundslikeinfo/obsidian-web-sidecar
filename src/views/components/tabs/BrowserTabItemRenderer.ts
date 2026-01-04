@@ -294,12 +294,11 @@ export class BrowserTabItemRenderer {
             }
 
             // 3-state click behavior:
-            // 1. If NOT focused → focus the tab
-            // 2. If focused AND has expandable content → toggle expand/collapse
-            // 3. For grouped tabs: cycle through instances first, then toggle on the last one
+            // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
+            // - Grouped tabs: always cycle through instances (expand button handles expand/collapse)
 
             if (!isAlreadyActive) {
-                // Not focused - focus the tab (or cycle for grouped)
+                // Not focused - focus the tab (or start cycling for grouped)
                 setTimeout(() => {
                     if (isDeduped && allTabs) {
                         this.view.focusNextInstance(tab.url, allTabs);
@@ -310,11 +309,16 @@ export class BrowserTabItemRenderer {
                 return;
             }
 
-            // Already focused - toggle expand/collapse if we have expandable content
-            if (hasExpandableContent) {
+            // Already focused
+            if (isDeduped && allTabs) {
+                // Grouped tabs: cycle to next instance
+                setTimeout(() => {
+                    this.view.focusNextInstance(tab.url, allTabs);
+                }, 50);
+            } else if (hasExpandableContent) {
+                // Single tab: toggle expand/collapse
                 toggleExpand();
             }
-            // If no expandable content, clicking focused tab does nothing (or could cycle for grouped)
         };
         tabRow.oncontextmenu = (e) => this.contextMenus.showWebViewerContextMenu(e, tab);
 

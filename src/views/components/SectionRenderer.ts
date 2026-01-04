@@ -148,10 +148,14 @@ export class SectionRenderer {
         for (const sectionId of this.view.settings.sectionOrder) {
             switch (sectionId) {
                 case 'recent':
-                    this.renderRecentWebNotesSection(auxContainer);
+                    if (this.view.settings.enableRecentNotes) {
+                        this.renderRecentWebNotesSection(auxContainer);
+                    }
                     break;
                 case 'domain':
-                    this.renderDomainGroupingSection(auxContainer);
+                    if (this.view.settings.enableTldSearch) {
+                        this.renderDomainGroupingSection(auxContainer);
+                    }
                     break;
                 case 'subreddit':
                     if (this.view.settings.enableSubredditExplorer) {

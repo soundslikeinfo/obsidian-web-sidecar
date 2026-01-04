@@ -46,16 +46,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Enable TLD Search
-		new Setting(containerEl)
-			.setName('Enable domain search')
-			.setDesc('Show expanded section with notes from the same domain')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableTldSearch)
-				.onChange(async (value) => {
-					this.plugin.settings.enableTldSearch = value;
-					await this.plugin.saveSettings();
-				}));
+
 
 		// New Note Folder Path
 		new Setting(containerEl)
@@ -160,39 +151,35 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 		}
 
-		// Domain Rules Section
-		containerEl.createEl('h3', { text: 'Domain Rules' });
+		// ============================================
+		// AUX SECTIONS
+		// ============================================
+		const auxSectionsContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
+		auxSectionsContainer.createEl('div', { text: 'Aux Sections', cls: 'web-sidecar-settings-group-title' });
 
-		containerEl.createEl('h4', { text: 'reddit.com', cls: 'web-sidecar-sub-heading' });
-
-		new Setting(containerEl)
-			.setName('Reveal other notes from the same subreddit')
-			.setDesc('Filter "More notes from this domain" to show only notes from the same subreddit as the current page.')
-			.setClass('web-sidecar-sub-setting')
+		new Setting(auxSectionsContainer)
+			.setName('Recent web notes')
+			.setDesc('Show section with recently modified notes that have URLs')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSubredditFilter)
+				.setValue(this.plugin.settings.enableRecentNotes)
 				.onChange(async (value) => {
-					this.plugin.settings.enableSubredditFilter = value;
+					this.plugin.settings.enableRecentNotes = value;
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
-			.setName('Turn on subreddit notes explorer')
-			.setDesc('Add new section of notes grouped by subreddit (e.g., r/macApps)')
-			.setClass('web-sidecar-sub-setting')
+		new Setting(auxSectionsContainer)
+			.setName('Grouped by domain')
+			.setDesc('Show section with notes grouped by their domain')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSubredditExplorer)
+				.setValue(this.plugin.settings.enableTldSearch)
 				.onChange(async (value) => {
-					this.plugin.settings.enableSubredditExplorer = value;
+					this.plugin.settings.enableTldSearch = value;
 					await this.plugin.saveSettings();
 				}));
 
-		// Tag Rules Section
-		containerEl.createEl('h3', { text: 'Tag Rules' });
-
-		new Setting(containerEl)
-			.setName('Group all web notes by tags')
-			.setDesc('Add new section of notes grouped by their tags')
+		new Setting(auxSectionsContainer)
+			.setName('All Tags')
+			.setDesc('Show section with notes grouped by their tags')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableTagGrouping)
 				.onChange(async (value) => {
@@ -200,9 +187,9 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
-			.setName('Group web notes from selected tags')
-			.setDesc('Add new section of notes grouped by specific tags')
+		new Setting(auxSectionsContainer)
+			.setName('Tag selection')
+			.setDesc('Show section with notes grouped by specific tags')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSelectedTagGrouping)
 				.onChange(async (value) => {
@@ -213,7 +200,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		if (this.plugin.settings.enableSelectedTagGrouping) {
-			new Setting(containerEl)
+			new Setting(auxSectionsContainer)
 				.setName('Selected tags allowlist')
 				.setDesc('Enter tags to group by, separated by commas (e.g. #todo, #research)')
 				.setClass('web-sidecar-sub-setting')
@@ -225,6 +212,41 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 		}
+
+		new Setting(auxSectionsContainer)
+			.setName('Subreddit notes explorer')
+			.setDesc('Show section with notes grouped by subreddit (e.g., r/macApps)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSubredditExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableSubredditExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// ============================================
+		// DOMAIN RULES
+		// ============================================
+		const domainRulesContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
+		domainRulesContainer.createEl('div', { text: 'Domain Rules', cls: 'web-sidecar-settings-group-title' });
+
+		domainRulesContainer.createEl('h4', { text: 'reddit.com', cls: 'web-sidecar-sub-heading' });
+
+		new Setting(domainRulesContainer)
+			.setName('Reveal other notes from the same subreddit')
+			.setDesc('Filter "More notes from this domain" to show only notes from the same subreddit as the current page.')
+			.setClass('web-sidecar-sub-setting')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSubredditFilter)
+				.onChange(async (value) => {
+					this.plugin.settings.enableSubredditFilter = value;
+					await this.plugin.saveSettings();
+				}));
+
+		domainRulesContainer.createEl('div', {
+			text: 'More coming soon...',
+			cls: 'setting-item-description',
+			attr: { style: 'font-style: italic; padding-left: 14px; margin-top: 8px;' }
+		});
 
 		// Experimental Section
 		containerEl.createEl('h3', { text: 'Experimental' });
@@ -289,7 +311,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Sub-options (only show if main toggle is enabled)
 		if (this.plugin.settings.enableWebViewerActions) {
 			// Header buttons section
-			containerEl.createEl('h4', { text: 'Header Buttons', cls: 'web-sidecar-sub-heading' });
+			containerEl.createEl('h4', { text: 'Action row', cls: 'web-sidecar-sub-heading' });
 
 			new Setting(containerEl)
 				.setName('New web viewer button')
@@ -323,10 +345,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 
 			// Menu options section
-			new Setting(containerEl)
-				.setName('More options menu')
-				.setDesc('Add items to the web viewer context menu (3 dots)')
-				.setClass('web-sidecar-sub-heading')
+			containerEl.createEl('h4', { text: 'More options menu', cls: 'web-sidecar-sub-heading' });
 
 			new Setting(containerEl)
 				.setName('New web view tab')

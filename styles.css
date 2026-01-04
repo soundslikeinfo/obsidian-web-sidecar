@@ -324,6 +324,21 @@
   margin-left: 12px;
 }
 
+/* Settings group container (bordered box for Aux Sections) */
+.web-sidecar-settings-group {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 12px 16px;
+  margin: 8px 0 16px 0;
+}
+
+.web-sidecar-settings-group-title {
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--text-normal);
+}
+
 /* ============================================
    BROWSER MODE STYLES
    ============================================ */

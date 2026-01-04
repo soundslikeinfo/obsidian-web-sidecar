@@ -30,7 +30,7 @@ export class WebViewerManager {
         // Listen for layout changes to inject buttons into new web viewers
         const layoutRef = this.app.workspace.on('layout-change', () => {
             const settings = this.getSettings();
-            if (settings.enableWebViewerActions && settings.showWebViewerHeaderButton) {
+            if (settings.enableWebViewerActions) {
                 this.ui.injectButtonsIntoAllWebViewers();
             }
         });
@@ -40,9 +40,7 @@ export class WebViewerManager {
         const leafRef = this.app.workspace.on('active-leaf-change', (leaf) => {
             const settings = this.getSettings();
             if (settings.enableWebViewerActions && leaf) {
-                if (settings.showWebViewerHeaderButton) {
-                    this.ui.maybeInjectButton(leaf);
-                }
+                this.ui.maybeInjectButton(leaf);
                 // Track current web viewer for menu injection
                 const viewType = leaf.view.getViewType();
                 if (WEB_VIEW_TYPES.includes(viewType)) {
@@ -57,7 +55,7 @@ export class WebViewerManager {
 
         // Initial injection for existing web viewers
         const settings = this.getSettings();
-        if (settings.enableWebViewerActions && settings.showWebViewerHeaderButton) {
+        if (settings.enableWebViewerActions) {
             this.ui.injectButtonsIntoAllWebViewers();
         }
     }
@@ -107,7 +105,7 @@ export class WebViewerManager {
      */
     onSettingsChanged(): void {
         const settings = this.getSettings();
-        if (settings.enableWebViewerActions && settings.showWebViewerHeaderButton) {
+        if (settings.enableWebViewerActions) {
             this.ui.injectButtonsIntoAllWebViewers();
         } else {
             this.ui.removeAllButtons();
