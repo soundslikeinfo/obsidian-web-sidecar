@@ -171,7 +171,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     showWebViewerMenuOption: true,
     showWebViewerOpenNoteOption: false,
     showWebViewerOpenNoteButton: false,
-    collapseDuplicateUrls: false,
+    collapseDuplicateUrls: true,
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
