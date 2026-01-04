@@ -29,6 +29,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     isRecentNotesOpen: boolean = false;
     isTagGroupOpen: boolean = false;
     isSelectedTagGroupOpen: boolean = false;
+    isYouTubeChannelExplorerOpen: boolean = false;
+    youtubeChannelSort: 'alpha' | 'count' | 'recent' = 'alpha';
     expandedGroupIds: Set<string> = new Set();
     isManualRefresh: boolean = false;
     urlIndex: UrlIndex;
@@ -124,6 +126,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isSubredditExplorerOpen = this.settings.isSubredditExplorerOpen;
         this.isTagGroupOpen = this.settings.isTagGroupOpen;
         this.isSelectedTagGroupOpen = this.settings.isSelectedTagGroupOpen;
+        this.isYouTubeChannelExplorerOpen = this.settings.isYouTubeChannelExplorerOpen;
+        this.youtubeChannelSort = this.settings.youtubeChannelSortOrder || 'alpha';
         this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
 
         // Create nav-header toolbar
@@ -280,6 +284,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isSelectedTagGroupOpen = newState;
         this.settings.isSelectedTagGroupOpen = newState;
 
+        this.isYouTubeChannelExplorerOpen = newState;
+        this.settings.isYouTubeChannelExplorerOpen = newState;
+
         // Persist changes
         this.saveSettingsFn();
 
@@ -361,6 +368,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     setSelectedTagGroupOpen(open: boolean): void {
         this.isSelectedTagGroupOpen = open;
         this.settings.isSelectedTagGroupOpen = open;
+        this.saveSettingsFn();
+    }
+
+    setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.youtubeChannelSort = sort;
+        this.settings.youtubeChannelSortOrder = sort;
+        this.saveSettingsFn();
+    }
+
+    setYouTubeChannelExplorerOpen(open: boolean): void {
+        this.isYouTubeChannelExplorerOpen = open;
+        this.settings.isYouTubeChannelExplorerOpen = open;
         this.saveSettingsFn();
     }
 

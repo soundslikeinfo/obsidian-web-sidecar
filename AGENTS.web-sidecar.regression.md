@@ -2,6 +2,28 @@
 
 This document details the recurring regression regarding **Active Tab Highlighting** in the Web Sidecar and the specific architectural fixes required to prevent it.
 
+---
+
+## Pinned Tabs Setting Toggle Regression
+
+**Symptom:** When disabling pinned tabs in settings, the pinned tabs section stays visible. When re-enabling, tabs don't move back to the pinned section.
+
+**Cause:** Two issues:
+1. `PinnedTabRenderer.render()` returned early when disabled but didn't clean up the existing DOM
+2. `TabStateService.getTrackedTabs()` filtered out pinned tab URLs regardless of whether the feature was enabled
+
+**Fix (2026-01-04):**
+1. `PinnedTabRenderer.render()` now removes the `.web-sidecar-pinned-section` element when disabled
+2. `TabStateService.getTrackedTabs()` only filters out pinned tabs when `enablePinnedTabs` is `true`
+3. `TabStateService.getVirtualTabs()` only excludes pinned URLs when `enablePinnedTabs` is `true`
+
+**Checklist:**
+- [ ] Does `PinnedTabRenderer.render()` remove the pinned section when disabled?
+- [ ] Does `getTrackedTabs()` check `enablePinnedTabs` before filtering?
+- [ ] Does `getVirtualTabs()` check `enablePinnedTabs` before filtering?
+
+---
+
 ## The Problem
 The active tab indicator in the sidecar frequently breaks due to the complex interaction between Obsidian's focus management, DOM events, and the Sidecar's own update logic.
 

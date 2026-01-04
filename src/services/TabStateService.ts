@@ -115,12 +115,16 @@ export class TabStateService {
      * Get tracked tabs sorted according to settings
      */
     getTrackedTabs(): TrackedWebViewer[] {
+        const settings = this.getSettings();
+
+        // If pinned tabs feature is disabled, return all tabs without filtering
+        if (!settings.enablePinnedTabs) {
+            return this.getSortedTabs(Array.from(this.trackedTabs.values()), settings);
+        }
+
         // Filter out tabs that are currently active as a Pinned Tab to avoid duplication in the UI
         // A tab is "active as pinned" if its current URL matches a pinned tab's URL (or saved currentUrl)
-        // AND getting 2 tabs for same URL is weird.
-        // The User said: "I also don't want a pinned tab to show up in the pinned tab area + the normal web tab area. but i know there will be edge cases... as long as the pinned tab saved url is different"
-
-        const settings = this.getSettings();
+        // The User said: "I also don't want a pinned tab to show up in the pinned tab area + the normal web tab area."
         const pinnedTabs = settings.pinnedTabs;
         const pinnedLeafIds = new Set(pinnedTabs.map(p => p.leafId).filter(id => !!id));
         const pinnedUrls = new Set(pinnedTabs.map(p => p.currentUrl || p.url));
@@ -141,9 +145,13 @@ export class TabStateService {
             return true;
         });
 
-        // const tabs = Array.from(this.trackedTabs.values());
-        // settings already declared above
+        return this.getSortedTabs(tabs, settings);
+    }
 
+    /**
+     * Sort tabs according to settings
+     */
+    private getSortedTabs(tabs: TrackedWebViewer[], settings: WebSidecarSettings): TrackedWebViewer[] {
         switch (settings.tabSortOrder) {
             case 'title':
                 return tabs.sort((a, b) => a.title.localeCompare(b.title));
@@ -175,10 +183,13 @@ export class TabStateService {
         const settings = this.getSettings();
 
         // Also track pinned tab URLs (both home and current) to exclude from virtual tabs
+        // Only filter if pinned tabs feature is enabled
         const pinnedUrls = new Set<string>();
-        for (const pin of settings.pinnedTabs) {
-            pinnedUrls.add(pin.url);
-            if (pin.currentUrl) pinnedUrls.add(pin.currentUrl);
+        if (settings.enablePinnedTabs) {
+            for (const pin of settings.pinnedTabs) {
+                pinnedUrls.add(pin.url);
+                if (pin.currentUrl) pinnedUrls.add(pin.currentUrl);
+            }
         }
 
         // Track files we've already processed to deduplicate

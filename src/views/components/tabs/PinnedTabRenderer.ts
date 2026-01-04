@@ -17,7 +17,12 @@ export class PinnedTabRenderer {
     }
 
     render(container: HTMLElement, pinnedTabs: PinnedTab[]): void {
-        if (!this.view.settings.enablePinnedTabs) return;
+        // Clean up pinned section if feature is disabled
+        if (!this.view.settings.enablePinnedTabs) {
+            const existingSection = container.querySelector('.web-sidecar-pinned-section');
+            if (existingSection) existingSection.remove();
+            return;
+        }
 
         // Pinned tabs container
         let pinnedSection = container.querySelector('.web-sidecar-pinned-section') as HTMLElement;

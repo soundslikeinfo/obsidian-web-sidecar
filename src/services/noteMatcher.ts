@@ -21,6 +21,42 @@ export function extractSubreddit(url: string): string | null {
 }
 
 /**
+ * Check if URL belongs to a YouTube domain (all variants)
+ */
+export function isYouTubeDomain(url: string): boolean {
+    // Match: youtube.com, youtu.be, m.youtube.com, mobile.youtube.com
+    // Also matches: youtube-nocookie.com, youtube.co.uk, etc.
+    const regex = /^https?:\/\/(?:(?:www\.|m\.|mobile\.)?youtube(?:-nocookie)?\.(?:com|[a-z]{2}(?:\.[a-z]{2})?)|youtu\.be)/i;
+    return regex.test(url);
+}
+
+/**
+ * Extract YouTube channel name from note frontmatter
+ * Uses configured property fields in priority order (first match wins)
+ */
+export function extractYouTubeChannel(
+    frontmatter: Record<string, unknown>,
+    propertyFields: string[]
+): string | null {
+    for (const propName of propertyFields) {
+        const value = frontmatter[propName];
+
+        if (typeof value === 'string' && value.trim()) {
+            return value.trim().replace(/^\[\[|\]\]$/g, '');
+        }
+
+        // Handle array values (take first string)
+        if (Array.isArray(value) && value.length > 0) {
+            const first = value[0];
+            if (typeof first === 'string' && first.trim()) {
+                return first.trim().replace(/^\[\[|\]\]$/g, '');
+            }
+        }
+    }
+    return null;
+}
+
+/**
  * Find notes that match the given URL based on configured property fields
  */
 export function findMatchingNotes(
@@ -109,7 +145,9 @@ export function findMatchingNotes(
                 }
 
                 // Check for TLD match (if enabled and not already an exact match)
-                if (settings.enableTldSearch && isSameDomain(val, url)) {
+                // Treat all YouTube domains as the same domain
+                const bothYouTube = isYouTubeDomain(val) && isYouTubeDomain(url);
+                if (settings.enableTldSearch && (isSameDomain(val, url) || bothYouTube)) {
                     // Avoid duplicates - check if this file is already in tldMatches
                     const alreadyMatched = tldMatches.some(m => m.file.path === file.path);
 
@@ -158,7 +196,37 @@ export function findMatchingNotes(
     const exactPaths = new Set(exactMatches.map(m => m.file.path));
 
     // Filter TLD matches
-    const filteredTldMatches = tldMatches.filter(m => !exactPaths.has(m.file.path));
+    let filteredTldMatches = tldMatches.filter(m => !exactPaths.has(m.file.path));
+
+    // YouTube Channel Filter Logic
+    let matchedChannel: string | undefined;
+
+    if (settings.enableYouTubeChannelFilter && isYouTubeDomain(url) && exactMatches.length > 0) {
+        // Try to get channel from the first exact match
+        const exactMatch = exactMatches[0];
+        if (exactMatch) {
+            const exactMatchFile = exactMatch.file;
+            const cache = app.metadataCache.getFileCache(exactMatchFile);
+            const frontmatter = cache?.frontmatter;
+
+            if (frontmatter) {
+                const currentChannel = extractYouTubeChannel(frontmatter, settings.youtubeChannelPropertyFields);
+
+                if (currentChannel) {
+                    matchedChannel = currentChannel;
+                    // Filter TLD matches to only those with the same channel
+                    filteredTldMatches = filteredTldMatches.filter(m => {
+                        const mCache = app.metadataCache.getFileCache(m.file);
+                        const mFrontmatter = mCache?.frontmatter;
+                        if (!mFrontmatter) return false;
+
+                        const mChannel = extractYouTubeChannel(mFrontmatter, settings.youtubeChannelPropertyFields);
+                        return mChannel === currentChannel;
+                    });
+                }
+            }
+        }
+    }
 
     // Filter Subreddit matches map
     if (settings.enableSubredditExplorer) {
@@ -175,7 +243,8 @@ export function findMatchingNotes(
     return {
         exactMatches,
         tldMatches: filteredTldMatches,
-        subredditMatches: subredditMatches.size > 0 ? subredditMatches : undefined
+        subredditMatches: subredditMatches.size > 0 ? subredditMatches : undefined,
+        matchedChannel
     };
 }
 
@@ -300,6 +369,83 @@ export function getAllRedditNotes(
     }
 
     return subredditMap;
+}
+
+/**
+ * Get all notes that link to YouTube, grouped by channel name
+ * Channel name is extracted from frontmatter properties (not URL)
+ */
+export function getAllYouTubeNotes(
+    app: App,
+    settings: WebSidecarSettings,
+    urlIndex?: UrlIndex
+): Map<string, MatchedNote[]> {
+    const channelMap = new Map<string, MatchedNote[]>();
+    const propertyFields = settings.youtubeChannelPropertyFields || [];
+
+    if (propertyFields.length === 0) return channelMap;
+
+    // Get all files with URLs
+    let filesToCheck: TFile[] | ReadonlyArray<TFile>;
+    if (urlIndex) {
+        filesToCheck = urlIndex.getAllFilesWithUrls();
+    } else {
+        filesToCheck = app.vault.getMarkdownFiles();
+    }
+
+
+
+    for (const file of filesToCheck) {
+        const cache = app.metadataCache.getFileCache(file);
+        const frontmatter = cache?.frontmatter;
+        if (!frontmatter) continue;
+
+        // Check each configured property field for a URL
+        for (const propName of settings.urlPropertyFields) {
+            const propValue = frontmatter[propName];
+            if (!propValue) continue;
+
+            const values = Array.isArray(propValue) ? propValue : [propValue];
+
+            for (const val of values) {
+                if (typeof val !== 'string') continue;
+
+                // Fast check for YouTube
+                if (!isYouTubeDomain(val)) continue;
+
+                // Get channel name from frontmatter
+                const channel = extractYouTubeChannel(frontmatter, propertyFields);
+
+
+
+                if (!channel) continue;
+
+                if (!channelMap.has(channel)) {
+                    channelMap.set(channel, []);
+                }
+
+                // Avoid duplicates per channel
+                const existing = channelMap.get(channel)!;
+                if (!existing.some(m => m.file.path === file.path)) {
+                    existing.push({
+                        file,
+                        matchType: 'tld',
+                        url: val,
+                        propertyName: propName
+                    });
+                }
+            }
+        }
+    }
+
+
+
+    // Sort notes within each channel by recency
+    for (const notes of channelMap.values()) {
+        notes.sort((a, b) => b.file.stat.mtime - a.file.stat.mtime);
+    }
+
+    return channelMap;
 }
 
 /**

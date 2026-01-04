@@ -223,6 +223,16 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(auxSectionsContainer)
+			.setName('Group YouTube Channels')
+			.setDesc('Show section with notes grouped by YouTube channel. Configure channel property fields in Domain Rules → youtube.com.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableYouTubeChannelExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableYouTubeChannelExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// ============================================
 		// DOMAIN RULES
 		// ============================================
@@ -239,6 +249,34 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.enableSubredditFilter)
 				.onChange(async (value) => {
 					this.plugin.settings.enableSubredditFilter = value;
+					await this.plugin.saveSettings();
+				}));
+
+		domainRulesContainer.createEl('h4', { text: 'youtube.com', cls: 'web-sidecar-sub-heading' });
+
+		new Setting(domainRulesContainer)
+			.setName('Reveal other notes from the same YouTube channel')
+			.setDesc('Filter "More notes from this domain" to show only notes from the same channel.')
+			.setClass('web-sidecar-sub-setting')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableYouTubeChannelFilter)
+				.onChange(async (value) => {
+					this.plugin.settings.enableYouTubeChannelFilter = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(domainRulesContainer)
+			.setName('Channel name property fields')
+			.setDesc('Frontmatter properties containing channel name, in priority order (first match wins)')
+			.setClass('web-sidecar-sub-setting')
+			.addText(text => text
+				.setPlaceholder('channel_name, author')
+				.setValue(this.plugin.settings.youtubeChannelPropertyFields.join(', '))
+				.onChange(async (value) => {
+					this.plugin.settings.youtubeChannelPropertyFields = value
+						.split(',')
+						.map(s => s.trim())
+						.filter(s => s.length > 0);
 					await this.plugin.saveSettings();
 				}));
 

@@ -528,7 +528,11 @@ export class BrowserTabItemRenderer {
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
             const domain = extractDomain(url);
             let headerText = `More web notes (${domain || 'this domain'})`;
-            if (this.view.settings.enableSubredditFilter) {
+
+            // Priority: YouTube Channel > Subreddit > Domain
+            if (matches.matchedChannel) {
+                headerText = `More from ${matches.matchedChannel}`;
+            } else if (this.view.settings.enableSubredditFilter) {
                 const subreddit = extractSubreddit(url);
                 if (subreddit) {
                     headerText = `More web notes (${subreddit})`;

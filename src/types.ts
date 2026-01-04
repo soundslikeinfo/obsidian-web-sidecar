@@ -50,8 +50,15 @@ export interface IWebSidecarView {
     setSubredditSort(sort: 'alpha' | 'count' | 'recent'): void;
     setDomainSort(sort: 'alpha' | 'count' | 'recent'): void;
 
+    // YouTube Channel grouping
+    youtubeChannelSort: 'alpha' | 'count' | 'recent';
+    setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void;
+
     isSubredditExplorerOpen: boolean;
     setSubredditExplorerOpen(open: boolean): void;
+
+    isYouTubeChannelExplorerOpen: boolean;
+    setYouTubeChannelExplorerOpen(open: boolean): void;
 
     isDomainGroupOpen: boolean;
     setDomainGroupOpen(open: boolean): void;
@@ -135,6 +142,14 @@ export interface WebSidecarSettings {
     domainSortOrder: 'alpha' | 'count' | 'recent';
     /** Sort order for subreddit explorer section */
     subredditSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable YouTube channel grouping auxiliary section */
+    enableYouTubeChannelExplorer: boolean;
+    /** Filter 'More notes from this domain' to same YouTube channel */
+    enableYouTubeChannelFilter: boolean;
+    /** Property fields to check for YouTube channel name, in priority order */
+    youtubeChannelPropertyFields: string[];
+    /** Sort order for YouTube channel explorer section */
+    youtubeChannelSortOrder: 'alpha' | 'count' | 'recent';
     /** Enable grouping all web notes by tags */
     enableTagGrouping: boolean;
     /** Enable grouping web notes by selected tags */
@@ -152,6 +167,7 @@ export interface WebSidecarSettings {
     isSubredditExplorerOpen: boolean;
     isTagGroupOpen: boolean;
     isSelectedTagGroupOpen: boolean;
+    isYouTubeChannelExplorerOpen: boolean;
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
 
@@ -205,7 +221,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
-    sectionOrder: ['recent', 'domain', 'subreddit', 'tag', 'selected-tag'],
+    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'tag', 'selected-tag'],
     domainSortOrder: 'alpha',
     subredditSortOrder: 'alpha',
     enableTagGrouping: false,
@@ -220,6 +236,13 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     isSubredditExplorerOpen: false,
     isTagGroupOpen: false,
     isSelectedTagGroupOpen: false,
+    isYouTubeChannelExplorerOpen: false,
+
+    // YouTube Channel Explorer
+    enableYouTubeChannelExplorer: false,
+    enableYouTubeChannelFilter: false,
+    youtubeChannelPropertyFields: ['channel_name', 'author'],
+    youtubeChannelSortOrder: 'alpha',
 
     expandedGroupIds: [],
 
@@ -256,6 +279,7 @@ export interface MatchResult {
     exactMatches: MatchedNote[];
     tldMatches: MatchedNote[];
     subredditMatches?: Map<string, MatchedNote[]>;
+    matchedChannel?: string;
 }
 
 /**
