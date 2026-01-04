@@ -36,6 +36,14 @@ export class UrlIndex extends Events {
         });
         this.listeners.push(deleteRef);
 
+        // Listen for file creation
+        const createRef = this.app.vault.on('create', (file) => {
+            if (file instanceof TFile && file.extension === 'md') {
+                this.updateFileIndex(file);
+            }
+        });
+        this.listeners.push(createRef);
+
         // Listen for file rename (path changes, but we track by TFile which might be same obj, 
         // strictly speaking we use path in fileToUrls map key)
         const renameRef = this.app.vault.on('rename', (file, oldPath) => {

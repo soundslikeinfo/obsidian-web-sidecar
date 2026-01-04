@@ -1,4 +1,5 @@
 
+
 import { ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { ContextMenus } from './components/ContextMenus';
@@ -6,8 +7,10 @@ import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
 import { TabListRenderer } from './components/tabs/TabListRenderer';
 import { BrowserTabRenderer } from './components/tabs/BrowserTabRenderer';
+import { PinnedTabRenderer } from './components/tabs/PinnedTabRenderer';
 import { NavigationService } from '../services/NavigationService';
-import type { UrlIndex } from '../services/UrlIndex';
+import { TabStateService } from '../services/TabStateService';
+import { UrlIndex } from '../services/UrlIndex';
 
 export const VIEW_TYPE_WEB_SIDECAR = 'web-sidecar-view';
 
@@ -45,6 +48,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private sectionRenderer: SectionRenderer;
     private tabListRenderer: TabListRenderer;
     private browserTabRenderer: BrowserTabRenderer;
+    private pinnedTabRenderer: PinnedTabRenderer;
+    private tabStateService: TabStateService;
     public saveSettingsFn: () => Promise<void>;
 
     /** Track if user is interacting with the sidebar (prevents re-render) */
@@ -63,6 +68,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         getTabs: () => TrackedWebViewer[],
         getVirtualTabs: () => VirtualTab[],
         urlIndex: UrlIndex,
+        tabStateService: TabStateService,
         saveSettings: () => Promise<void>
     ) {
         super(leaf);
@@ -73,6 +79,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.saveSettingsFn = saveSettings;
         this.settings = getSettings();
         this.urlIndex = urlIndex;
+        this.tabStateService = tabStateService;
 
         // Initialize Service
         this.navigationService = new NavigationService(
@@ -82,6 +89,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             (val) => { this.isManualRefresh = val; },
             onRefresh
         );
+        // this.tabStateService provided via injection now
+
 
         // Initialize components
         this.contextMenus = new ContextMenus(this);
@@ -89,6 +98,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.sectionRenderer = new SectionRenderer(this, this.noteRenderer, this.contextMenus);
         this.tabListRenderer = new TabListRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.browserTabRenderer = new BrowserTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
+        this.pinnedTabRenderer = new PinnedTabRenderer(this, this.contextMenus);
     }
 
     getViewType(): string {
@@ -446,7 +456,17 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // CRITICAL: Force re-render even if user is interacting
         this.isManualRefresh = true;
         this.saveManualTabOrder(currentOrder);
-        this.onRefresh();
+        this.onRefresh(); // onRefresh calls render? No onRefreshFn calls View.updateTabs calls render.
+        // But onRefreshFn might be debounced or dependent on other things.
+        // Let's force render directly locally if possible, but trackedTabs needs update?
+        // NavigationService/TabStateService updates trackedTabs usually.
+        // Actually handleTabDrop just updates ORDER in settings.
+        // We need to re-sort trackedTabs based on this new order visually.
+        // The render loop does: const tabs = this.trackedTabs.
+        // If we don't update this.trackedTabs order in memory, render will show old order until polling.
+        // But we just updated settings.manualTabOrder.
+        // We should trigger a full refresh cycle.
+        this.render(true);
     }
 
     handleSectionDrop(draggedId: string, targetId: string): void {
@@ -477,8 +497,34 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.navigationService.openCreateNoteModal(url);
     }
 
-    async openPaired(file: TFile, url: string, e: MouseEvent): Promise<void> {
-        await this.navigationService.openPaired(file, url, e);
+    async openPaired(file: TFile, url: string, evt: MouseEvent): Promise<void> {
+        await this.navigationService.openPaired(file, url, evt);
+    }
+
+    // --- Pinned Tab Implementations ---
+
+    async pinTab(tab: TrackedWebViewer | VirtualTab): Promise<void> {
+        // Just delegate to service
+        await this.tabStateService.addPinnedTab(tab);
+        this.render(true);
+    }
+
+    async unpinTab(pinId: string): Promise<void> {
+        await this.tabStateService.removePinnedTab(pinId);
+        // Ensure refresh (service calls it, but just in case)
+        this.render(true);
+    }
+
+    async reorderPinnedTabs(movedPinId: string, targetPinId: string): Promise<void> {
+        await this.tabStateService.reorderPinnedTabs(movedPinId, targetPinId);
+    }
+
+    async resetPinnedTab(pinId: string): Promise<void> {
+        await this.tabStateService.resetPinnedTabUrl(pinId);
+    }
+
+    async updatePinnedTabHomeUrl(pinId: string, newUrl: string): Promise<void> {
+        await this.tabStateService.savePinnedTabNewHomeUrl(pinId, newUrl);
     }
 
     closeLeaf(leafId: string): void {
@@ -516,7 +562,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
-        // Use contentEl (view-content) directly, not children[1] which may be nav-header
         const container = this.contentEl;
 
         // Prevent re-rendering while user is interacting, unless forced
@@ -529,6 +574,32 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // Track mode changes
         const wasBrowserMode = container.hasClass('web-sidecar-browser-mode');
+        // Drop Target for Main Container (Unpinning)
+        // If a pinned tab is dropped anywhere outside the pinned section (i.e. on the main list), unpin it.
+        container.ondragover = (e) => {
+            if (e.dataTransfer?.types.includes('text/pin-id')) {
+                // Ensure we are NOT over the pinned section?
+                // The pinned section handles its own drop (reorder).
+                // If event bubbles here, it means it wasn't handled (or we need stopPropagation there).
+                // We should check target.
+                if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
+                    e.preventDefault();
+                    // styling?
+                }
+            }
+        };
+
+        container.ondrop = (e) => {
+            const pinId = e.dataTransfer?.getData('text/pin-id');
+            if (pinId) {
+                // Check if dropped outside pinned section
+                if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
+                    e.preventDefault();
+                    this.unpinTab(pinId);
+                }
+            }
+        };
+
         const isBrowserMode = this.settings.tabAppearance === 'browser';
         const modeChanged = wasBrowserMode !== isBrowserMode;
 
@@ -545,11 +616,15 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             container.setAttribute('data-events-bound', 'true');
         }
 
-        // Show full view if we have web tabs OR virtual tabs
-        const hasContent = this.trackedTabs.length > 0 || this.virtualTabs.length > 0;
+        // Get Pinned Tabs
+        const pinnedTabs = this.tabStateService.getPinnedTabs();
+        const hasPinnedTabs = pinnedTabs.length > 0;
 
-        // Track content state transition (empty <-> has content)
-        // Check VALUE, because hasAttribute is true if value is "false"
+        // Show full view if we have web tabs O R virtual tabs OR pinned tabs
+        // Pinned tabs are content too.
+        const hasContent = this.trackedTabs.length > 0 || this.virtualTabs.length > 0 || hasPinnedTabs;
+
+        // Track content state transition
         const hadContent = container.getAttribute('data-has-content') === 'true';
         const contentStateChanged = hasContent !== hadContent;
         container.setAttribute('data-has-content', hasContent ? 'true' : 'false');
@@ -558,21 +633,34 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // 1. Mode changed
         // 2. No content (empty state)
         // 3. Notes mode (doesn't have DOM reconciliation)
-        // 4. Content state changed (transitioning from empty to content or vice versa)
-        // Browser mode with content uses DOM reconciliation to preserve expanded states
+        // 4. Content state changed
         if (modeChanged || !hasContent || !isBrowserMode || contentStateChanged) {
             container.empty();
         }
 
-        // Ensure nav-header buttons exist in view-header (not affected by container.empty)
+        // Ensure nav-header buttons exist
         this.createNavHeader();
 
         if (!hasContent) {
             this.sectionRenderer.renderEmptyState(container);
-        } else if (isBrowserMode) {
+            return;
+        }
+
+        // --- Render Pinned Tabs (Always first) ---
+        // We render inside container. 
+        // If container was cleared, this creates the section. 
+        // If not cleared (DOM reconciliation), it updates in place.
+        this.pinnedTabRenderer.render(container, pinnedTabs);
+
+
+        // Filter out pinned tabs from trackedTabs if they are "active" as pins?
+        // TabStateService.getTrackedTabs() ALREADY does this filtering!
+
+        if (isBrowserMode) {
             this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs);
         } else {
             this.tabListRenderer.renderTabList(container, this.trackedTabs, this.virtualTabs);
         }
     }
 }
+

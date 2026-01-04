@@ -415,14 +415,16 @@ export class BrowserTabItemRenderer {
                 toggleExpand();
             };
 
-            // Auto-populate content if container is expanded but empty
-            // This handles bulk expand, preserved expanded state, and auto-expand for focused notes
-            if (isCurrentlyExpanded && notesContainer.children.length === 0) {
+            // Auto-populate content if container is expanded
+            // We must ALWAYS re-render if it's expanded to ensure new notes appear
+            // (clearing and rebuilding is fast enough and ensures consistency)
+            if (isCurrentlyExpanded) {
+                notesContainer.empty();
                 this.renderBrowserTabNotes(notesContainer, tab.url, matches);
             }
 
             // CRITICAL: Update is-focused class on existing note items when focus changes
-            // This runs every time the view updates, ensuring the blue dot follows focus
+            // (renderBrowserTabNotes handled this, but we leave this here if we later optimize to not full re-render)
             if (isCurrentlyExpanded && notesContainer.children.length > 0) {
                 this.updateNoteFocusState(notesContainer, focusedNotePath);
             }

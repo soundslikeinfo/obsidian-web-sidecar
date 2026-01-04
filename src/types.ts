@@ -17,6 +17,13 @@ export interface IWebSidecarView {
     closeAllLeavesForUrl(url: string): void;
     closeLinkedNoteLeaves(url: string): void;
 
+    // Pinned Tabs Management
+    pinTab(tab: TrackedWebViewer | VirtualTab): Promise<void>;
+    unpinTab(pinId: string): Promise<void>;
+    reorderPinnedTabs(movedPinId: string, targetPinId: string): Promise<void>;
+    resetPinnedTab(pinId: string): Promise<void>;
+    updatePinnedTabHomeUrl(pinId: string, newUrl: string): Promise<void>;
+
     // Opening/Focusing
     openPaired(file: TFile, url: string, e: MouseEvent): Promise<void>;
     openNoteSmartly(file: TFile, e: MouseEvent): Promise<void>;
@@ -35,7 +42,7 @@ export interface IWebSidecarView {
 
     // State updates
     onRefresh(): void;
-    render(): void; // To trigger re-render from components (e.g. sort)
+    render(force?: boolean): void; // To trigger re-render from components (e.g. sort)
 
     // State Access
     subredditSort: 'alpha' | 'count' | 'recent';
@@ -139,6 +146,12 @@ export interface WebSidecarSettings {
     isSelectedTagGroupOpen: boolean;
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
+
+    // Pinned Tabs Settings
+    enablePinnedTabs: boolean;
+    pinnedPropertyKey: string;
+    pinnedPropertyValue: string;
+    pinnedTabs: PinnedTab[];
 }
 
 /**
@@ -193,7 +206,14 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     isSubredditExplorerOpen: false,
     isTagGroupOpen: false,
     isSelectedTagGroupOpen: false,
+
     expandedGroupIds: [],
+
+    // Pinned Tabs Defaults
+    enablePinnedTabs: true,
+    pinnedPropertyKey: 'tags',
+    pinnedPropertyValue: 'pinned',
+    pinnedTabs: [],
 };
 
 /**
@@ -268,4 +288,24 @@ export interface VirtualTab {
     propertyName: string;
     /** Cached title from previous web viewer load */
     cachedTitle?: string;
+}
+
+/**
+ * Pinned web viewer tab
+ */
+export interface PinnedTab {
+    /** Unique ID for the pin (for drag/drop) */
+    id: string;
+    /** The URL that is pinned (home URL) */
+    url: string;
+    /** Current URL if the user has navigated away (session state) */
+    currentUrl?: string;
+    /** Display title */
+    title: string;
+    /** Whether this pin originated from a Note property */
+    isNote: boolean;
+    /** Path to the note if it is a note-based pin */
+    notePath?: string;
+    /** ID of the active web viewer leaf if one is currently open for this pin */
+    leafId?: string;
 }

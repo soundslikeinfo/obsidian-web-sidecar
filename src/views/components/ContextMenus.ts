@@ -1,6 +1,6 @@
 
 import { Menu, TFile } from 'obsidian';
-import { IWebSidecarView, TrackedWebViewer } from '../../types';
+import { IWebSidecarView, TrackedWebViewer, PinnedTab } from '../../types';
 import { findMatchingNotes } from '../../services/noteMatcher';
 
 export class ContextMenus {
@@ -60,6 +60,26 @@ export class ContextMenus {
                     this.view.app.workspace.revealLeaf(leaf);
                 });
         });
+
+
+
+        // Pin web view
+        // Show "Pin" if not already pinned (implied by this context menu appearing on a normal tab)
+        // But double check logic: what if it IS pinned but showing here? 
+        // We assume we are in "Normal Tab" list so it is NOT pinned (hidden by filter)
+        // UNLESS duplications are allowed.
+        // Safe to show "Pin" always? If duplicates allowed, yes. 
+        // If not, it shouldn't be here.
+        if (this.view.settings.enablePinnedTabs) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Pin web view')
+                    .setIcon('pin')
+                    .onClick(() => {
+                        this.view.pinTab(tab);
+                    });
+            });
+        }
 
         menu.addSeparator();
 
@@ -526,4 +546,76 @@ export class ContextMenus {
 
         menu.showAtMouseEvent(event);
     }
+
+    /**
+     * Show context menu for a Pinned Tab
+     */
+    showPinnedTabContextMenu(event: MouseEvent, pin: PinnedTab): void {
+        event.preventDefault();
+        const menu = new Menu();
+
+        // Open options (New Window, Right)
+        menu.addItem((item) => {
+            item.setTitle('Open in new window')
+                .setIcon('picture-in-picture-2')
+                .onClick(() => {
+                    const leaf = this.view.app.workspace.openPopoutLeaf();
+                    leaf.setViewState({ type: 'webviewer', state: { url: pin.currentUrl || pin.url } });
+                });
+        });
+
+        menu.addSeparator();
+
+        // Unpin
+        menu.addItem((item) => {
+            item.setTitle('Unpin web view')
+                .setIcon('pin-off')
+                .onClick(() => {
+                    this.view.unpinTab(pin.id);
+                });
+        });
+
+        menu.addSeparator();
+
+        // Reset URL (if currentUrl exists)
+        if (pin.currentUrl && pin.currentUrl !== pin.url) {
+            menu.addItem((item) => {
+                item.setTitle('Reset to pinned URL')
+                    .setIcon('rotate-ccw')
+                    .onClick(() => {
+                        this.view.resetPinnedTab(pin.id);
+                    });
+            });
+
+            menu.addItem((item) => {
+                item.setTitle('Update linked notes to current URL')
+                    .setIcon('file-symlink')
+                    .onClick(async () => {
+                        // We need to call the service method. 
+                        // View needs to expose it or we cast.
+                        if ('updatePinnedTabNotes' in (this.view as any).tabStateService) {
+                            await (this.view as any).tabStateService.updatePinnedTabNotes(pin.id);
+                        }
+                    });
+            });
+
+            menu.addItem((item) => {
+                item.setTitle('Save current URL as pinned')
+                    .setIcon('save')
+                    .onClick(() => {
+                        this.view.updatePinnedTabHomeUrl(pin.id, pin.currentUrl!);
+                    });
+            });
+        }
+
+        // Copy URL
+        menu.addItem((item) => {
+            item.setTitle('Copy pinned URL')
+                .setIcon('copy')
+                .onClick(() => navigator.clipboard.writeText(pin.url));
+        });
+
+        menu.showAtMouseEvent(event);
+    }
 }
+

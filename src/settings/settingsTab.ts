@@ -202,6 +202,51 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Experimental Section
 		containerEl.createEl('h3', { text: 'Experimental' });
 
+		containerEl.createEl('div', {
+			text: '⚠️ Disclaimer: Experimental features may be unstable or break with Obsidian updates. Use with caution.',
+			cls: 'setting-item-description'
+		});
+
+		// Pinned Tabs Section (Moved)
+		containerEl.createEl('h4', { text: 'Pinned Tabs', cls: 'web-sidecar-sub-heading' });
+
+		new Setting(containerEl)
+			.setName('Enable Pinned Web View Tabs')
+			.setDesc('Allow pinning web views to the top of the sidecar')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enablePinnedTabs)
+				.onChange(async (value) => {
+					this.plugin.settings.enablePinnedTabs = value;
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		if (this.plugin.settings.enablePinnedTabs) {
+			new Setting(containerEl)
+				.setName('Pinned property key')
+				.setDesc('Frontmatter property used to identify notes linked to pins (e.g. pinned-status)')
+				.setClass('web-sidecar-sub-setting')
+				.addText(text => text
+					.setPlaceholder('pinned-status')
+					.setValue(this.plugin.settings.pinnedPropertyKey)
+					.onChange(async (value) => {
+						this.plugin.settings.pinnedPropertyKey = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Pinned property value')
+				.setDesc('Value for the property that marks a note as pinned source (e.g. sidecar)')
+				.setClass('web-sidecar-sub-setting')
+				.addText(text => text
+					.setPlaceholder('sidecar')
+					.setValue(this.plugin.settings.pinnedPropertyValue)
+					.onChange(async (value) => {
+						this.plugin.settings.pinnedPropertyValue = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
 		new Setting(containerEl)
 			.setName('Web viewer header actions')
 			.setDesc('Add a "New web view tab" button to web viewer headers and menus. May break with Obsidian updates.')

@@ -60,6 +60,7 @@ export default class WebSidecarPlugin extends Plugin {
 					() => this.tabStateService.getTrackedTabs(),
 					() => this.tabStateService.getVirtualTabs(),
 					this.urlIndex,
+					this.tabStateService,
 					async () => { await this.saveData(this.settings); } // saveSettings callback - LIGHTWEIGHT (no rebuild/refresh)
 				);
 				return this.view;
