@@ -1064,3 +1064,29 @@
   margin-bottom: 4px;
   /* Pull content back up slightly */
 }
+/* Extracted inline styles - Refactoring */
+
+/* For BrowserTabRenderer.ts - New Web Viewer button positioning */
+.web-sidecar-browser-new-tab {
+  width: 100%;
+  position: relative;
+  z-index: 20;
+}
+
+/* For BrowserTabRenderer.ts - Hidden spacer for height matching */
+.web-sidecar-spacer-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* For BrowserTabItemRenderer.ts - Virtual tab title styling */
+.web-sidecar-virtual-tab-title {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* For SectionRenderer.ts - Scaled tag icon */
+.web-sidecar-tag-icon-scaled {
+  transform: scale(0.8);
+  display: inline-block;
+}

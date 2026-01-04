@@ -784,10 +784,8 @@ export class SectionRenderer {
         // Icon
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         // Use tag icon instead of favicon
-        const iconSpan = faviconContainer.createSpan();
+        const iconSpan = faviconContainer.createSpan({ cls: 'web-sidecar-tag-icon-scaled' });
         setIcon(iconSpan, 'tag');
-        // make it small like favicon
-        iconSpan.style.transform = 'scale(0.8)';
 
         // Tag name
         summary.createSpan({ text: tag, cls: 'web-sidecar-domain-name' });

@@ -73,10 +73,8 @@ export class BrowserTabItemRenderer {
         const displayTitle = virtualTab.cachedTitle || domain || virtualTab.url;
         const titleSpan = tabRow.createSpan({
             text: displayTitle,
-            cls: 'web-sidecar-browser-tab-title'
+            cls: 'web-sidecar-browser-tab-title web-sidecar-virtual-tab-title'
         });
-        titleSpan.style.fontStyle = 'italic';
-        titleSpan.style.opacity = '0.9'; // Slight visual differentiation
 
         // Match handling for counts and expand logic
         const matches = findMatchingNotes(this.view.app, virtualTab.url, this.view.settings, this.view.urlIndex);

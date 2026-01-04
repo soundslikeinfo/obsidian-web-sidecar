@@ -93,27 +93,52 @@ export class BrowserTabRenderer {
             }
         }
 
-        // Add end-of-list drop zone for tabs (allows dragging tabs to last position)
+        // "+ New web viewer" button
+        // Must be inside tabListContainer to align correctly
+        // And MUST be after the drop zone so the "end of list" drop target is before the button
+
+        // Cleanup legacy button class if present (migration)
+        const legacyBtn = container.querySelector('.web-sidecar-new-tab-btn');
+        if (legacyBtn) legacyBtn.remove();
+
+        // Remove stray button from container scope if exists
+        const strayBtn = container.querySelector(':scope > .web-sidecar-browser-new-tab');
+        if (strayBtn) strayBtn.remove();
+
+        // 1. Ensure Drop Zone is added FIRST (so it sits after the last tab)
         this.addTabEndDropZone(tabListContainer);
 
-        // --- CRITICAL DOM ORDER ---
-        // Order MUST be: 1) Tab list, 2) New web viewer button, 3) Virtual tabs section, 4) Recent section
-        // This order is enforced by explicit insertBefore calls below.
-
-        // "+ New web viewer" button - MUST appear immediately AFTER web viewer tabs, BEFORE virtual section
-        let newTabBtn = container.querySelector('.web-sidecar-new-tab-btn') as HTMLElement;
+        // 2. Then add/move the New Web Viewer button (so it sits after the drop zone)
+        let newTabBtn = tabListContainer.querySelector('.web-sidecar-browser-new-tab') as HTMLElement;
         if (!newTabBtn) {
             newTabBtn = document.createElement('div');
-            newTabBtn.className = 'web-sidecar-new-tab-btn';
-            const plusIcon = newTabBtn.createSpan({ cls: 'web-sidecar-new-tab-icon' });
-            setIcon(plusIcon, 'plus');
-            newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
-            newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
+            newTabBtn.className = 'web-sidecar-browser-tab web-sidecar-browser-new-tab';
+            // Styles moved to CSS: .web-sidecar-browser-new-tab (width: 100%, relative, z-index: 20)
+
+            const row = newTabBtn.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+            // Click listener on ROW, matching standard tabs, ensures padding is clickable
+            row.addEventListener('click', () => this.view.openNewWebViewer());
+
+            const iconContainer = row.createDiv({ cls: 'web-sidecar-browser-favicon' });
+            setIcon(iconContainer, 'plus');
+
+            row.createSpan({
+                text: 'New web viewer',
+                cls: 'web-sidecar-browser-tab-title'
+            });
+
+            // Dummy spacer to match height of standard tabs (which have action buttons)
+            // This ensures consistent height across themes without hardcoding pixels
+            const spacer = row.createDiv({ cls: 'web-sidecar-inline-new-note web-sidecar-spacer-hidden' });
+            // We need an icon inside to give it the correct height
+            setIcon(spacer, 'file-plus');
         }
-        // Insert button right after tabListContainer
-        if (tabListContainer.nextSibling !== newTabBtn) {
-            tabListContainer.after(newTabBtn);
-        }
+
+        // Append button AFTER drop zone
+        tabListContainer.appendChild(newTabBtn);
+
+        // --- CRITICAL DOM ORDER ---
+        // Order MUST be: 1) Tab list (includes New Web Viewer), 2) Virtual tabs section, 3) Recent section
 
         // Render virtual tabs (from open notes with URLs) in browser style
         // Virtual section MUST come AFTER the New web viewer button
