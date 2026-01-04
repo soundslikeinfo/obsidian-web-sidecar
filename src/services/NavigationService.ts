@@ -553,7 +553,66 @@ export class NavigationService {
     }
 
     /**
+     * Get or create a leaf in the web viewer group (LEFT side in paired layout).
+     * This ensures new web viewers are created alongside existing web viewers,
+     * even when focus is on right-side notes.
+     */
+    getOrCreateWebViewerLeaf(): WorkspaceLeaf {
+        const workspace = this.app.workspace;
+        const mainLeaves = this.getMainAreaLeaves();
+
+        if (mainLeaves.length === 0) {
+            return workspace.getLeaf('tab');
+        }
+
+        // Find an existing web viewer to determine the "left" group
+        const webViewerLeaf = mainLeaves.find(l =>
+            l.view.getViewType() === 'webviewer' ||
+            l.view.getViewType() === 'surfing-view'
+        );
+
+        if (webViewerLeaf && webViewerLeaf.parent) {
+            // Create new tab in the same group as existing web viewers
+            return workspace.createLeafInParent(webViewerLeaf.parent, -1);
+        }
+
+        // No web viewers exist - check if we have multiple groups (paired layout)
+        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        for (const leaf of mainLeaves) {
+            if (!leaf.parent) continue;
+            if (!tabGroups.has(leaf.parent)) {
+                tabGroups.set(leaf.parent, []);
+            }
+            tabGroups.get(leaf.parent)!.push(leaf);
+        }
+
+        // If single group, just use getLeaf
+        if (tabGroups.size <= 1) {
+            return workspace.getLeaf('tab');
+        }
+
+        // Multiple groups exist - find the one WITHOUT markdown (likely the left/web group)
+        // Or if all have markdown, use the first one (typically left)
+        for (const [parent, leaves] of tabGroups.entries()) {
+            const hasMarkdown = leaves.some(l => l.view?.getViewType() === 'markdown');
+            if (!hasMarkdown) {
+                // This group has no markdown - it's likely the web viewer group
+                return workspace.createLeafInParent(parent, -1);
+            }
+        }
+
+        // Fallback: use first group (typically left)
+        const firstParent = tabGroups.keys().next().value;
+        if (firstParent) {
+            return workspace.createLeafInParent(firstParent, -1);
+        }
+
+        return workspace.getLeaf('tab');
+    }
+
+    /**
      * Open a URL - focus existing tab if already open, otherwise create new
+     * Creates new web viewers in the LEFT (web viewer) group for paired layouts
      */
     private async openUrlInWebViewer(url: string): Promise<void> {
         const leaves = this.app.workspace.getLeavesOfType('webviewer')
@@ -567,7 +626,11 @@ export class NavigationService {
             }
         }
 
-        const leaf = this.app.workspace.getLeaf('tab');
+        // Create new web viewer - respect preferWebViewerLeft setting
+        const settings = this.getSettings();
+        const leaf = settings.preferWebViewerLeft
+            ? this.getOrCreateWebViewerLeaf()
+            : this.app.workspace.getLeaf('tab');
         await leaf.setViewState({
             type: 'webviewer',
             state: { url, navigate: true }

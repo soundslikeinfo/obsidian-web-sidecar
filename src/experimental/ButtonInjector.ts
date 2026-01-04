@@ -42,6 +42,7 @@ export class ButtonInjector {
 
     /**
      * Maybe inject a button into a specific leaf if it's a web viewer
+     * Always calls injectButton to handle settings changes
      */
     maybeInjectButton(leaf: WorkspaceLeaf): void {
         const viewType = leaf.view.getViewType();
@@ -50,12 +51,6 @@ export class ButtonInjector {
         }
 
         const leafId = this.getLeafId(leaf);
-
-        // Already injected
-        if (this.injectedButtons.has(leafId)) {
-            return;
-        }
-
         this.injectButton(leaf, leafId);
     }
 
@@ -84,6 +79,7 @@ export class ButtonInjector {
 
     /**
      * Inject the header buttons (New Tab and/or New Note) into a web viewer's header
+     * This method handles both initial injection AND settings updates
      */
     private injectButton(leaf: WorkspaceLeaf, leafId: string): void {
         // Find the view actions container (where reader view and more options icons are)
@@ -99,61 +95,71 @@ export class ButtonInjector {
 
         const settings = this.getSettings();
         const lastChild = viewActions.lastElementChild;
-        let injectedAny = false;
 
-        // Inject New Note button first (so it appears left of New Tab)
-        if (settings.showWebViewerNewNoteButton && !viewActions.querySelector('.web-sidecar-new-note-header-btn')) {
-            const newNoteBtn = document.createElement('button');
-            newNoteBtn.className = 'clickable-icon view-action web-sidecar-new-note-header-btn';
-            newNoteBtn.setAttribute('aria-label', 'New note for this URL');
-            newNoteBtn.setAttribute('data-tooltip-position', 'bottom');
-            setIcon(newNoteBtn, 'file-plus');
+        // Handle New Note button - add or remove based on setting
+        const existingNewNoteBtn = viewActions.querySelector('.web-sidecar-new-note-header-btn');
+        if (settings.showWebViewerNewNoteButton) {
+            if (!existingNewNoteBtn) {
+                const newNoteBtn = document.createElement('button');
+                newNoteBtn.className = 'clickable-icon view-action web-sidecar-new-note-header-btn';
+                newNoteBtn.setAttribute('aria-label', 'New linked web note');
+                newNoteBtn.setAttribute('data-tooltip-position', 'bottom');
+                setIcon(newNoteBtn, 'file-plus');
 
-            newNoteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openCreateNoteModal(leaf);
-            });
+                newNoteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openCreateNoteModal(leaf);
+                });
 
-            if (lastChild) {
-                viewActions.insertBefore(newNoteBtn, lastChild);
-            } else {
-                viewActions.appendChild(newNoteBtn);
+                if (lastChild) {
+                    viewActions.insertBefore(newNoteBtn, lastChild);
+                } else {
+                    viewActions.appendChild(newNoteBtn);
+                }
             }
-            injectedAny = true;
+        } else {
+            // Remove if setting is off
+            existingNewNoteBtn?.remove();
         }
 
-        // Inject New Tab button
-        if (settings.showWebViewerHeaderButton && !viewActions.querySelector('.web-sidecar-new-tab-header-btn')) {
-            const newTabBtn = document.createElement('button');
-            newTabBtn.className = 'clickable-icon view-action web-sidecar-new-tab-header-btn';
-            newTabBtn.setAttribute('aria-label', 'New web viewer');
-            newTabBtn.setAttribute('data-tooltip-position', 'bottom');
-            setIcon(newTabBtn, 'plus-circle');
+        // Handle New Tab button - add or remove based on setting
+        const existingNewTabBtn = viewActions.querySelector('.web-sidecar-new-tab-header-btn');
+        if (settings.showWebViewerHeaderButton) {
+            if (!existingNewTabBtn) {
+                const newTabBtn = document.createElement('button');
+                newTabBtn.className = 'clickable-icon view-action web-sidecar-new-tab-header-btn';
+                newTabBtn.setAttribute('aria-label', 'New web viewer');
+                newTabBtn.setAttribute('data-tooltip-position', 'bottom');
+                setIcon(newTabBtn, 'plus-circle');
 
-            newTabBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openNewWebViewer();
-            });
+                newTabBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openNewWebViewer();
+                });
 
-            // Insert before more options (last element)
-            const insertBefore = viewActions.querySelector('.web-sidecar-new-note-header-btn') || lastChild;
-            if (insertBefore && insertBefore !== viewActions.querySelector('.web-sidecar-new-tab-header-btn')) {
-                viewActions.insertBefore(newTabBtn, insertBefore.nextSibling || lastChild);
-            } else if (lastChild) {
-                viewActions.insertBefore(newTabBtn, lastChild);
-            } else {
-                viewActions.appendChild(newTabBtn);
+                // Insert after New Note button if it exists, otherwise before lastChild
+                const newNoteBtnNow = viewActions.querySelector('.web-sidecar-new-note-header-btn');
+                if (newNoteBtnNow && newNoteBtnNow.nextSibling) {
+                    viewActions.insertBefore(newTabBtn, newNoteBtnNow.nextSibling);
+                } else if (lastChild) {
+                    viewActions.insertBefore(newTabBtn, lastChild);
+                } else {
+                    viewActions.appendChild(newTabBtn);
+                }
             }
-            injectedAny = true;
+        } else {
+            // Remove if setting is off
+            existingNewTabBtn?.remove();
         }
 
-        // Also run dynamic update
+        // Also run dynamic update for Open Note button
         this.updateOpenNoteButton(leaf);
 
-        if (injectedAny) {
-            // Track that we've injected into this leaf (using a marker element)
-            this.injectedButtons.set(leafId, viewActions.querySelector('.web-sidecar-new-tab-header-btn') ||
-                viewActions.querySelector('.web-sidecar-new-note-header-btn') as HTMLElement);
+        // Track that we've processed this leaf
+        const anyButton = viewActions.querySelector('.web-sidecar-new-tab-header-btn') ||
+            viewActions.querySelector('.web-sidecar-new-note-header-btn');
+        if (anyButton) {
+            this.injectedButtons.set(leafId, anyButton as HTMLElement);
         }
     }
 

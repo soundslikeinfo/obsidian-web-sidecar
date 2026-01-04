@@ -36,10 +36,14 @@ export class BrowserTabItemRenderer {
         const tabWrapper = container.createDiv({ cls: 'web-sidecar-browser-tab' });
         const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
 
-        // Click -> Open web viewer
-        // Click -> Open web viewer using smart handler (handles refresh logic)
-        tabRow.onclick = (e) => {
-            this.view.openUrlSmartly(virtualTab.url, e as MouseEvent);
+        // Click -> Open web viewer and track original URL for redirect detection
+        tabRow.onclick = async (e) => {
+            const originalUrl = virtualTab.url;
+
+            // Set pending original URL BEFORE opening - this gets applied when the new tab is registered
+            this.view.setPendingOriginalUrl(originalUrl);
+
+            await this.view.openUrlSmartly(originalUrl, e as MouseEvent);
         };
 
         // Context menu for virtual tab
@@ -261,49 +265,60 @@ export class BrowserTabItemRenderer {
             if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
             if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 
-            // Check if any tab in the group is already focused - if so, toggle expand instead of cycling
-            if (hasExpandableContent) {
-                const activeLeaf = this.view.app.workspace.activeLeaf;
-                let isAlreadyActive = false;
+            // Check if this tab (or any in group) is already the active/focused tab
+            // Use lastActiveLeaf fallback when sidecar itself is focused
+            let checkLeaf = this.view.app.workspace.activeLeaf;
+            if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+                checkLeaf = this.view.lastActiveLeaf;
+            }
+            let isAlreadyActive = false;
 
-                if (activeLeaf) {
-                    const activeLeafId = (activeLeaf as any).id;
+            if (checkLeaf) {
+                const checkLeafId = (checkLeaf as any).id;
 
-                    // For grouped tabs, check if ANY tab in the group is active
-                    if (isDeduped && allTabs) {
-                        isAlreadyActive = allTabs.some(t => {
-                            if (activeLeafId && t.leafId === activeLeafId) return true;
-                            if (t.leaf && activeLeaf === t.leaf) return true;
-                            return false;
-                        });
-                    } else {
-                        // Single tab - check just this one
-                        if (activeLeafId && tab.leafId === activeLeafId) {
-                            isAlreadyActive = true;
-                        } else if (tab.leaf && activeLeaf === tab.leaf) {
-                            isAlreadyActive = true;
-                        }
+                // For grouped tabs, check if ANY tab in the group is active
+                if (isDeduped && allTabs) {
+                    isAlreadyActive = allTabs.some(t => {
+                        if (checkLeafId && t.leafId === checkLeafId) return true;
+                        if (t.leaf && checkLeaf === t.leaf) return true;
+                        return false;
+                    });
+                } else {
+                    // Single tab - check just this one
+                    if (checkLeafId && tab.leafId === checkLeafId) {
+                        isAlreadyActive = true;
+                    } else if (tab.leaf && checkLeaf === tab.leaf) {
+                        isAlreadyActive = true;
                     }
-                }
-
-                // Only toggle expand if ALL tabs in the group have been focused
-                // For grouped tabs, we should cycle through them first
-                if (isAlreadyActive && !isDeduped) {
-                    // Single tab already focused, toggle expand
-                    toggleExpand();
-                    return;
                 }
             }
 
-            // Not focused - focus the tab
-            // Wrap in setTimeout to ensure the click event finishes and focus isn't stolen back by the sidecar
-            setTimeout(() => {
-                if (isDeduped && allTabs) {
+            // 3-state click behavior:
+            // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
+            // - Grouped tabs: always cycle through instances (expand button handles expand/collapse)
+
+            if (!isAlreadyActive) {
+                // Not focused - focus the tab (or start cycling for grouped)
+                setTimeout(() => {
+                    if (isDeduped && allTabs) {
+                        this.view.focusNextInstance(tab.url, allTabs);
+                    } else {
+                        this.view.focusTab(tab);
+                    }
+                }, 50);
+                return;
+            }
+
+            // Already focused
+            if (isDeduped && allTabs) {
+                // Grouped tabs: cycle to next instance
+                setTimeout(() => {
                     this.view.focusNextInstance(tab.url, allTabs);
-                } else {
-                    this.view.focusTab(tab);
-                }
-            }, 50);
+                }, 50);
+            } else if (hasExpandableContent) {
+                // Single tab: toggle expand/collapse
+                toggleExpand();
+            }
         };
         tabRow.oncontextmenu = (e) => this.contextMenus.showWebViewerContextMenu(e, tab);
 
@@ -415,14 +430,16 @@ export class BrowserTabItemRenderer {
                 toggleExpand();
             };
 
-            // Auto-populate content if container is expanded but empty
-            // This handles bulk expand, preserved expanded state, and auto-expand for focused notes
-            if (isCurrentlyExpanded && notesContainer.children.length === 0) {
+            // Auto-populate content if container is expanded
+            // We must ALWAYS re-render if it's expanded to ensure new notes appear
+            // (clearing and rebuilding is fast enough and ensures consistency)
+            if (isCurrentlyExpanded) {
+                notesContainer.empty();
                 this.renderBrowserTabNotes(notesContainer, tab.url, matches);
             }
 
             // CRITICAL: Update is-focused class on existing note items when focus changes
-            // This runs every time the view updates, ensuring the blue dot follows focus
+            // (renderBrowserTabNotes handled this, but we leave this here if we later optimize to not full re-render)
             if (isCurrentlyExpanded && notesContainer.children.length > 0) {
                 this.updateNoteFocusState(notesContainer, focusedNotePath);
             }
@@ -511,7 +528,11 @@ export class BrowserTabItemRenderer {
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
             const domain = extractDomain(url);
             let headerText = `More web notes (${domain || 'this domain'})`;
-            if (this.view.settings.enableSubredditFilter) {
+
+            // Priority: YouTube Channel > Subreddit > Domain
+            if (matches.matchedChannel) {
+                headerText = `More from ${matches.matchedChannel}`;
+            } else if (this.view.settings.enableSubredditFilter) {
                 const subreddit = extractSubreddit(url);
                 if (subreddit) {
                     headerText = `More web notes (${subreddit})`;

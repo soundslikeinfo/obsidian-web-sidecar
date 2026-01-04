@@ -60,6 +60,7 @@ export default class WebSidecarPlugin extends Plugin {
 					() => this.tabStateService.getTrackedTabs(),
 					() => this.tabStateService.getVirtualTabs(),
 					this.urlIndex,
+					this.tabStateService,
 					async () => { await this.saveData(this.settings); } // saveSettings callback - LIGHTWEIGHT (no rebuild/refresh)
 				);
 				return this.view;
@@ -131,7 +132,7 @@ export default class WebSidecarPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
 		// Migration: Ensure new sections are in sectionOrder
-		const allSections = ['recent', 'domain', 'subreddit', 'tag', 'selected-tag'];
+		const allSections = ['recent', 'domain', 'subreddit', 'youtube', 'tag', 'selected-tag'];
 		for (const sec of allSections) {
 			if (!this.settings.sectionOrder.includes(sec)) {
 				this.settings.sectionOrder.push(sec);

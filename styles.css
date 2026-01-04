@@ -324,6 +324,21 @@
   margin-left: 12px;
 }
 
+/* Settings group container (bordered box for Aux Sections) */
+.web-sidecar-settings-group {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 12px 16px;
+  margin: 8px 0 16px 0;
+}
+
+.web-sidecar-settings-group-title {
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--text-normal);
+}
+
 /* ============================================
    BROWSER MODE STYLES
    ============================================ */
@@ -1064,6 +1079,7 @@
   margin-bottom: 4px;
   /* Pull content back up slightly */
 }
+
 /* Extracted inline styles - Refactoring */
 
 /* For BrowserTabRenderer.ts - New Web Viewer button positioning */
@@ -1089,4 +1105,142 @@
 .web-sidecar-tag-icon-scaled {
   transform: scale(0.8);
   display: inline-block;
+}
+
+/* ============================================
+   PINNED TABS STYLES
+   ============================================ */
+
+.web-sidecar-pinned-section {
+  padding: 0;
+  margin: 0 -8px 8px -8px;
+  /* Match .web-sidecar-browser-tabs margin for consistent width */
+  min-height: 4px;
+  /* Ensure drop target exists */
+  transition: all 0.2s ease;
+}
+
+.web-sidecar-pinned-section.is-empty-state {
+  /* Only show if dragging? No, we can't detect dragging in CSS easily without parent class.
+       But we added 'drag-over-area' class in JS.
+       So normally it can be invisible/small. */
+  min-height: 10px;
+  /* Small drop target at top */
+  margin-bottom: 0;
+  opacity: 0;
+  /* Hidden visually but exists */
+}
+
+/* When dragging over the empty section, make it visible/highlighted */
+.web-sidecar-pinned-section.is-empty-state.drag-over-area {
+  opacity: 1;
+  height: 40px;
+  background-color: var(--background-modifier-hover);
+  border: 1px dashed var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-pinned-section.is-empty-state.drag-over-area::after {
+  content: 'Drop to pin';
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Divider line when pins exist */
+.web-sidecar-pinned-section.has-divider {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+/* Drag over area for new pins */
+.web-sidecar-pinned-section.drag-over-area {
+  background-color: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  min-height: 40px;
+  /* Ensure visible drop target */
+}
+
+/* Individual Pinned Tab */
+.web-sidecar-pinned-tab {
+  border-radius: var(--radius-s);
+  margin-bottom: 2px;
+}
+
+.web-sidecar-pinned-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.web-sidecar-pinned-tab:hover .web-sidecar-pinned-tab-row {
+  background-color: var(--background-modifier-hover);
+}
+
+.web-sidecar-pinned-tab.is-active .web-sidecar-pinned-tab-row {
+  background-color: var(--background-modifier-active-hover);
+  border-left: 2px solid var(--interactive-accent);
+  margin-left: -2px;
+}
+
+.web-sidecar-pinned-favicon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-pinned-favicon img {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.web-sidecar-pinned-favicon svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.web-sidecar-pinned-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+/* Closed state styling */
+.web-sidecar-pinned-tab.is-closed .web-sidecar-pinned-title {
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* Dragging state */
+.web-sidecar-pinned-tab.is-dragging {
+  opacity: 0.5;
+}
+
+.web-sidecar-pinned-tab.drag-over {
+  border-top: 2px solid var(--interactive-accent);
+}
+
+/* Notes container for pinned tabs - match browser-notes padding */
+.web-sidecar-pinned-notes {
+  padding-left: 24px;
+  padding-bottom: 4px;
+}
+
+.web-sidecar-pinned-notes.hidden {
+  display: none;
 }

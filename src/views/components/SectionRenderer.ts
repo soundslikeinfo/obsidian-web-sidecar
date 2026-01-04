@@ -1,7 +1,7 @@
 
 import { setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
-import { getRecentNotesWithUrls, getAllRedditNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
+import { getRecentNotesWithUrls, getAllRedditNotes, getAllYouTubeNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
 import { IWebSidecarView } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
 import { ContextMenus } from './ContextMenus';
@@ -148,10 +148,14 @@ export class SectionRenderer {
         for (const sectionId of this.view.settings.sectionOrder) {
             switch (sectionId) {
                 case 'recent':
-                    this.renderRecentWebNotesSection(auxContainer);
+                    if (this.view.settings.enableRecentNotes) {
+                        this.renderRecentWebNotesSection(auxContainer);
+                    }
                     break;
                 case 'domain':
-                    this.renderDomainGroupingSection(auxContainer);
+                    if (this.view.settings.enableTldSearch) {
+                        this.renderDomainGroupingSection(auxContainer);
+                    }
                     break;
                 case 'subreddit':
                     if (this.view.settings.enableSubredditExplorer) {
@@ -166,6 +170,11 @@ export class SectionRenderer {
                 case 'selected-tag':
                     if (this.view.settings.enableSelectedTagGrouping) {
                         this.renderSelectedTagGroupingSection(auxContainer);
+                    }
+                    break;
+                case 'youtube':
+                    if (this.view.settings.enableYouTubeChannelExplorer) {
+                        this.renderYouTubeChannelExplorerSection(auxContainer);
                     }
                     break;
             }
@@ -801,6 +810,141 @@ export class SectionRenderer {
 
         // Notes list
         const notesList = details.createEl('ul', { cls: 'web-sidecar-list web-sidecar-domain-notes' });
+        for (const note of notes) {
+            this.noteRenderer.renderNoteItem(notesList, note.file, note.url);
+        }
+    }
+
+    /**
+     * Render "YouTube channel notes explorer" collapsible section
+     */
+    renderYouTubeChannelExplorerSection(container: HTMLElement): void {
+        if (!this.view.settings.enableYouTubeChannelExplorer) return;
+
+        const channelMap = getAllYouTubeNotes(
+            this.view.app, this.view.settings, this.view.urlIndex
+        );
+        if (channelMap.size === 0) return;
+
+        // Remove existing section before creating new one
+        const existingSection = container.querySelector('[data-section-id="youtube"]');
+        if (existingSection) existingSection.remove();
+
+        const details = container.createEl('details', {
+            cls: 'web-sidecar-domain-section web-sidecar-aux-section'
+        });
+        details.setAttribute('data-section-id', 'youtube');
+        details.setAttribute('draggable', 'true');
+
+        this.addSectionDragHandlers(details, 'youtube');
+
+        // Preserve open state
+        if (this.view.isYouTubeChannelExplorerOpen) {
+            details.setAttribute('open', '');
+        }
+        details.addEventListener('toggle', () => {
+            this.view.setYouTubeChannelExplorerOpen(details.hasAttribute('open'));
+        });
+
+        const summary = details.createEl('summary', { cls: 'web-sidecar-domain-summary' });
+        const summaryIcon = summary.createSpan({ cls: 'web-sidecar-domain-icon' });
+
+        // YouTube favicon
+        summaryIcon.createEl('img', {
+            cls: 'web-sidecar-favicon-small',
+            attr: {
+                src: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=16',
+                alt: 'YouTube',
+                width: '14',
+                height: '14'
+            }
+        });
+
+        summary.createSpan({ text: `YouTube channels (${channelMap.size})` });
+
+        // Sort button
+        this.renderSortButton(summary, this.view.youtubeChannelSort, (sort) => {
+            this.view.setYouTubeChannelSort(sort);
+            this.view.setManualRefresh(true);
+            this.view.onRefresh();
+        });
+
+        const groupList = details.createDiv({ cls: 'web-sidecar-domain-list' });
+        const sortedChannels = this.sortGroups(channelMap, this.view.youtubeChannelSort);
+
+        for (const [channel, notes] of sortedChannels) {
+            this.renderYouTubeChannelGroup(groupList, channel, notes);
+        }
+    }
+
+    /**
+     * Render a single YouTube channel group
+     */
+    private renderYouTubeChannelGroup(
+        container: HTMLElement,
+        channel: string,
+        notes: import('../../types').MatchedNote[]
+    ): void {
+        const details = container.createEl('details', { cls: 'web-sidecar-domain-group' });
+
+        // State persistence
+        const groupId = `youtube:${channel}`;
+        if (this.view.expandedGroupIds.has(groupId)) {
+            details.setAttribute('open', '');
+        }
+        details.addEventListener('toggle', () => {
+            this.view.setGroupExpanded(groupId, details.hasAttribute('open'));
+        });
+
+        const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
+
+        // YouTube favicon
+        const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
+        faviconContainer.createEl('img', {
+            attr: {
+                src: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=16',
+                alt: '',
+                width: '14',
+                height: '14'
+            }
+        });
+
+        // Channel name
+        summary.createSpan({ text: channel, cls: 'web-sidecar-domain-name' });
+
+        // Link to note if exists
+        const channelNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(channel, '');
+        if (channelNoteFile) {
+            const linkSpan = summary.createSpan({ cls: 'web-sidecar-channel-link' });
+            setIcon(linkSpan, 'external-link');
+            // Inline styles for now, should move to CSS eventually but keeping it simple as per previous pattern
+            linkSpan.style.marginLeft = '6px';
+            linkSpan.style.cursor = 'pointer';
+            linkSpan.style.opacity = '0.6';
+            linkSpan.style.display = 'inline-flex';
+            linkSpan.style.verticalAlign = 'middle';
+
+            linkSpan.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.view.app.workspace.getLeaf(false).openFile(channelNoteFile);
+            });
+
+            linkSpan.addEventListener('mouseenter', () => { linkSpan.style.opacity = '1'; });
+            linkSpan.addEventListener('mouseleave', () => { linkSpan.style.opacity = '0.6'; });
+        }
+
+        // Count badge
+        summary.createSpan({
+            text: notes.length.toString(),
+            cls: 'web-sidecar-domain-count',
+            attr: { 'title': notes.length === 1 ? '1 Note' : `${notes.length} Notes` }
+        });
+
+        // Notes list
+        const notesList = details.createEl('ul', {
+            cls: 'web-sidecar-list web-sidecar-domain-notes'
+        });
         for (const note of notes) {
             this.noteRenderer.renderNoteItem(notesList, note.file, note.url);
         }
