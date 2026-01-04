@@ -248,9 +248,86 @@ export class ButtonInjector {
 
         newBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const newLeaf = this.app.workspace.createLeafBySplit(leaf, 'vertical');
+            // Reuse existing right split instead of always creating new
+            const newLeaf = this.getOrCreateRightLeaf(leaf);
             await newLeaf.openFile(noteToOpen);
         });
+    }
+
+    /**
+     * Get an existing right-side leaf in the same window, or create a new split.
+     * Prefers groups with markdown notes (the right pane).
+     */
+    private getOrCreateRightLeaf(referenceLeaf: WorkspaceLeaf): WorkspaceLeaf {
+        const workspace = this.app.workspace;
+        const mainLeaves = this.getMainAreaLeaves();
+
+        if (mainLeaves.length === 0) {
+            return workspace.getLeaf('split', 'vertical');
+        }
+
+        let sourceLeaf = referenceLeaf;
+        if (!this.isInMainArea(sourceLeaf)) {
+            sourceLeaf = mainLeaves[0]!;
+        }
+
+        const sourceParent = sourceLeaf.parent;
+        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+
+        for (const leaf of mainLeaves) {
+            if (!leaf.parent) continue;
+            if (!tabGroups.has(leaf.parent)) {
+                tabGroups.set(leaf.parent, []);
+            }
+            tabGroups.get(leaf.parent)!.push(leaf);
+        }
+
+        let targetParent: any = null;
+        let fallbackParent: any = null;
+
+        for (const [parent, leaves] of tabGroups.entries()) {
+            if (parent === sourceParent) continue;
+
+            // Prefer markdown groups (the right pane where notes live)
+            const hasMarkdown = leaves.some(l => l.view?.getViewType() === 'markdown');
+
+            if (hasMarkdown) {
+                targetParent = parent;
+                break;
+            } else if (!fallbackParent) {
+                fallbackParent = parent;
+            }
+        }
+
+        const chosenParent = targetParent || fallbackParent;
+        if (chosenParent) {
+            return workspace.createLeafInParent(chosenParent, -1);
+        }
+
+        return workspace.getLeaf('split', 'vertical');
+    }
+
+    private isInMainArea(leaf: WorkspaceLeaf): boolean {
+        let current: any = leaf.parent;
+        const rootSplit = this.app.workspace.rootSplit;
+
+        while (current) {
+            if (current === rootSplit) {
+                return true;
+            }
+            current = current.parent;
+        }
+        return false;
+    }
+
+    private getMainAreaLeaves(): WorkspaceLeaf[] {
+        const workspace = this.app.workspace;
+        const allLeaves = workspace.getLeavesOfType('markdown')
+            .concat(workspace.getLeavesOfType('webviewer'))
+            .concat(workspace.getLeavesOfType('surfing-view'))
+            .concat(workspace.getLeavesOfType('empty'));
+
+        return allLeaves.filter(leaf => this.isInMainArea(leaf));
     }
 
     private openCreateNoteModal(leaf: WorkspaceLeaf): void {

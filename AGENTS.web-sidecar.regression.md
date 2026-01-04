@@ -207,6 +207,9 @@ this.urlIndex.on('index-updated', () => {
 });
 ```
 
+> [!NOTE]
+> **2026-01-03**: Fixed - `SectionRenderer.renderEmptyState()` was only calling `renderRecentWebNotesSection()`. Changed to call `renderAuxiliarySections()` which renders all sections (recent, domain, subreddit, tags).
+
 ---
 
 ## Infinite Refresh Loop (Expand/Collapse & Toggle)
@@ -234,3 +237,62 @@ this.view = new WebSidecarView(
 **Checklist:**
 - [ ] Does `WebSidecarView` use a lightweight save callback?
 - [ ] Are `onRefresh()` calls removed from simple toggle setters (letting CSS/details element handle it)?
+
+---
+
+## Split Direction Logic Inversion
+
+**Symptom:** "Open to the right" sometimes opens the note to the LEFT of the Web Viewer.
+**Cause:** `getOrCreateRightLeaf` defaulted to using the first leaf in the main area as the "Source" reference. Obsidian often sorts Markdown leaves before WebViewer leaves in its internal tracking, so the Markdown note became the "Source". The Web Viewer was then identified as the "Target" (different group), so the new note opened *next to* the Web Viewer, effectively appearing on the Left.
+**Fix:** Explicitly prioritize finding a `webviewer` leaf to use as the Source reference.
+```typescript
+// NavigationService.ts
+const webViewerLeaf = mainLeaves.find(l => l.view.getViewType() === 'webviewer');
+sourceLeaf = webViewerLeaf || mainLeaves[0]!;
+```
+
+---
+
+## Inconsistent Pair Opening ("The Toggle Bug")
+
+**Symptom:** Opening sequential Web+Note pairs results in alternating layouts (Web|Note → Note|Web → Web|Note).
+**Cause:** `openPaired` created the new Web Viewer in the *currently active* leaf. If the user just focused a Note in the Right group, the new Web Viewer appeared in the Right group. Then `getOrCreateRightLeaf` correctly found the Left group as "Different", putting the new Note there.
+**Fix:** Strictly enforce that new Web Viewers are created in the "Left" (Web Viewer) group if it exists.
+```typescript
+// NavigationService.ts
+if (mainLeaves.length > 0) {
+     const webGroupLeaf = mainLeaves.find(l => l.view.getViewType() === 'webviewer');
+     if (webGroupLeaf) {
+         parentLeaf = webGroupLeaf; // FORCE Left group
+     }
+}
+webLeaf = this.app.workspace.createLeafInParent(parentLeaf.parent, -1);
+```
+
+---
+
+## Duplicate Refresh Icons
+
+**Symptom:** Refresh icons appear in multiple places (empty states, section headers) AND the main nav-header.
+**Fix:** Removed all localized refresh buttons. The nav-header refresh button is the single source of truth.
+
+---
+
+## Drag-and-Drop Cross-Contamination
+
+**Symptom:** Dragging a Web Viewer tab highlights Auxiliary Section drop zones (and vice versa).
+**Cause:** HTML5 `ondragover` cannot access `dataTransfer.getData()`, so generic drop zones couldn't verify the item type.
+**Fix:** Use distinctive MIME types in `setData` during `dragstart`.
+*   Tabs: `text/tab-id`
+*   Sections: `text/section-id`
+*   `ondragover` checks `e.dataTransfer.types.includes('text/tab-id')`.
+
+---
+
+## Drop Zone Usability (End of List)
+
+**Symptom:** Hard to drop items at the very end of the list; UI looks "janky" with large visible gaps.
+**Fix:** Implemented "Magic Overlay" drop zones.
+*   **Visual:** `height: 4px`, `background: transparent` (looks like standard gap).
+*   **Interaction:** `::after` pseudo-element with `top: -12px; bottom: -12px` creates a large invisible hit target.
+*   **Feedback:** collapsing to `height: 0` + `border-top` on drag-over mimics standard insertion line.

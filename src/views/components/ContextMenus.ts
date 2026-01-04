@@ -52,7 +52,7 @@ export class ContextMenus {
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
                 .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    const leaf = this.view.getOrCreateRightLeaf();
                     await leaf.setViewState({
                         type: 'webviewer',
                         state: { url: tab.url, navigate: true }
@@ -160,7 +160,7 @@ export class ContextMenus {
                 .setTitle('Open note to the right')
                 .setIcon('separator-vertical')
                 .onClick(() => {
-                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    const leaf = this.view.getOrCreateRightLeaf();
                     leaf.openFile(file);
                 });
         });
@@ -337,7 +337,7 @@ export class ContextMenus {
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
                 .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    const leaf = this.view.getOrCreateRightLeaf();
                     await leaf.setViewState({
                         type: 'webviewer',
                         state: { url, navigate: true }
@@ -434,7 +434,7 @@ export class ContextMenus {
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
                 .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    const leaf = this.view.getOrCreateRightLeaf();
                     await leaf.setViewState({
                         type: 'webviewer',
                         state: { url: domainUrl, navigate: true }
@@ -503,7 +503,7 @@ export class ContextMenus {
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
                 .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    const leaf = this.view.getOrCreateRightLeaf();
                     await leaf.setViewState({
                         type: 'webviewer',
                         state: { url: subredditUrl, navigate: true }

@@ -24,6 +24,7 @@ export interface IWebSidecarView {
     openCreateNoteModal(url: string): void;
 
     openNewWebViewer(): Promise<void>;
+    getOrCreateRightLeaf(): WorkspaceLeaf;
     saveManualTabOrder(orderedLeafIds: string[]): Promise<void>;
     handleTabDrop(draggedLeafId: string, targetLeafId: string): void;
     handleSectionDrop(draggedId: string, targetId: string): void;
@@ -56,6 +57,8 @@ export interface IWebSidecarView {
 
     isManualRefresh: boolean;
     setManualRefresh(manual: boolean): void;
+
+    saveSettingsFn(): Promise<void>;
 
     // Tag Grouping State
     tagSort: 'alpha' | 'count' | 'recent';

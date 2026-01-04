@@ -23,16 +23,7 @@ export class SectionRenderer {
     renderEmptyState(container: HTMLElement): void {
         // Check if browser mode - use consistent layout
         if (this.view.settings.tabAppearance === 'browser') {
-            // Header with controls
-            const header = container.createDiv({ cls: 'web-sidecar-browser-header' });
-            const controls = header.createDiv({ cls: 'web-sidecar-controls' });
-            const refreshBtn = controls.createEl('button', {
-                cls: 'web-sidecar-refresh-btn clickable-icon',
-                attr: { 'aria-label': 'Refresh' }
-            });
-            setIcon(refreshBtn, 'refresh-cw');
-            // Using callback for consistency with other buttons, though direct referencing works too if properly bound
-            refreshBtn.addEventListener('click', () => this.view.onRefresh());
+            // No controls needed here - nav-header already provides refresh button
 
             // "+ New web tab" button (always visible)
             const newTabBtn = container.createDiv({ cls: 'web-sidecar-new-tab-btn' });
@@ -41,8 +32,8 @@ export class SectionRenderer {
             newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
             newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
 
-            // "Recent web notes" collapsible section at bottom
-            this.renderRecentWebNotesSection(container);
+            // Render ALL auxiliary sections (recent, domain, subreddit, tags, etc.)
+            this.renderAuxiliarySections(container);
             return;
         }
 
@@ -50,13 +41,7 @@ export class SectionRenderer {
         const header = container.createDiv({ cls: 'web-sidecar-header' });
         const headerRow = header.createDiv({ cls: 'web-sidecar-header-row' });
         headerRow.createEl('h4', { text: 'No web viewer tabs open' });
-
-        const refreshBtn = headerRow.createEl('button', {
-            cls: 'web-sidecar-refresh-btn clickable-icon',
-            attr: { 'aria-label': 'Refresh' }
-        });
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.addEventListener('click', () => this.view.onRefresh());
+        // No refresh button needed - nav-header already provides one
 
         // Recent notes section
         const recentNotes = getRecentNotesWithUrls(
@@ -185,13 +170,59 @@ export class SectionRenderer {
                     break;
             }
         }
+
+        // Add an end-of-list drop zone to allow dropping sections at the very end
+        this.addEndDropZone(auxContainer);
+    }
+
+    /**
+     * Add a drop zone at the end of the aux container for dropping sections to be last
+     */
+    private addEndDropZone(container: HTMLElement): void {
+        // Check if already exists
+        if (container.querySelector('.web-sidecar-drop-zone-end')) return;
+
+        const dropZone = container.createDiv({ cls: 'web-sidecar-drop-zone-end' });
+
+        dropZone.ondragover = (e) => {
+            // Only accept section drags (check for our custom MIME type)
+            if (e.dataTransfer?.types?.includes('text/section-id')) {
+                e.preventDefault();
+                dropZone.addClass('drag-over');
+            }
+        };
+
+        dropZone.ondragleave = () => {
+            dropZone.removeClass('drag-over');
+        };
+
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.removeClass('drag-over');
+            const draggedId = e.dataTransfer?.getData('text/section-id');
+            if (draggedId) {
+                // Move dragged item to end
+                const currentOrder = [...this.view.settings.sectionOrder];
+                const draggedIdx = currentOrder.indexOf(draggedId);
+                if (draggedIdx > -1) {
+                    currentOrder.splice(draggedIdx, 1);
+                }
+                currentOrder.push(draggedId);
+                this.view.settings.sectionOrder = currentOrder;
+                this.view.setManualRefresh(true);
+                this.view.saveSettingsFn(); // Persist changes
+                this.view.onRefresh();
+            }
+        };
     }
     /**
      * Add drag-and-drop handlers to a section element
      */
     private addSectionDragHandlers(element: HTMLElement, sectionId: string): void {
         element.ondragstart = (e) => {
+            // Set BOTH standard text/plain and custom type for compatibility + filtering
             e.dataTransfer?.setData('text/plain', sectionId);
+            e.dataTransfer?.setData('text/section-id', sectionId);
             element.addClass('is-dragging');
         };
 
@@ -200,8 +231,11 @@ export class SectionRenderer {
         };
 
         element.ondragover = (e) => {
-            e.preventDefault();
-            element.addClass('drag-over');
+            // Only accept section drags (check for our custom MIME type)
+            if (e.dataTransfer?.types?.includes('text/section-id')) {
+                e.preventDefault();
+                element.addClass('drag-over');
+            }
         };
 
         element.ondragleave = () => {
@@ -211,7 +245,7 @@ export class SectionRenderer {
         element.ondrop = (e) => {
             e.preventDefault();
             element.removeClass('drag-over');
-            const draggedId = e.dataTransfer?.getData('text/plain');
+            const draggedId = e.dataTransfer?.getData('text/section-id');
             if (draggedId && draggedId !== sectionId) {
                 this.view.handleSectionDrop(draggedId, sectionId);
             }

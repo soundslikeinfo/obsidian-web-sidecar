@@ -427,17 +427,82 @@ The nav-header toolbar contains these buttons (left to right):
 3. Check if note already open → focus existing
 4. Otherwise → respect `noteOpenBehavior` setting (`split` or `tab`)
 
+**Split behavior (important):** When `noteOpenBehavior === 'split'`, the plugin uses `getOrCreateRightLeaf()` which:
+- Checks if another tab group already exists in the same window
+- If found, creates a new tab in that existing group (avoids infinite splits)
+- Only creates a new vertical split if no other group exists
+
 ### Paired Opening (`openPaired`)
 
 Opens web viewer + note side-by-side. **Available ONLY via right-click context menu.**
 
 **Logic:**
 1. Reuse existing blank web viewer if available
-2. Navigate web viewer to URL
-3. Open note per `noteOpenBehavior` setting (split right or new tab)
-4. If both already open, just focus the note
+2. If none, **find existing "Left" group (containing web viewers)** and create new tab there (active focus might be on the "Right", so we must explicitly target the Left group)
+3. Navigate web viewer to URL
+4. Open note per `noteOpenBehavior` setting (uses `getOrCreateRightLeaf()` for split mode, passing the web viewer as source)
+5. If both already open, just focus the note
+
+### "Open to the Right" / Split Reuse (CRITICAL)
+
+**Goal:** Prevent infinite right-splits. Reuse the existing right-side group if one exists.
+
+**Implementation (`getOrCreateRightLeaf`):**
+1. Identify **Source Leaf**:
+   - Explicitly prioritize finding a `webviewer` leaf in the main area.
+   - Do NOT default to `mainLeaves[0]` unconditionally, as markdown notes often appear first in the DOM sort order, causing the "Right" direction to be miscalculated as "Left".
+2. Identify **Target Group**:
+   - Look for a tab group that is **different from the Source**.
+   - Prioritize groups containing `markdown` views (these are the likely "Right" group).
+3. **Action**:
+   - If Target exists → create new tab in that group.
+   - If no Target exists → `workspace.createLeafBySplit(sourceLeaf, 'vertical')`. Explicitly splitting the *source* guarantees correct right-direction placement.
 
 ---
+
+## Drag-and-Drop Mechanics
+
+### 1. MIME Type Filtering (Fixes Cross-Contamination)
+
+**Problem:** Standard `ondragover` cannot read drag data, so drop zones for different types (tabs vs sections) used to cross-illuminate.
+**Solution:** Use custom MIME types for type checking during drag.
+
+- **Tabs:** `text/tab-id`
+- **Sections:** `text/section-id`
+- **Standard:** `text/plain` (Always include as fallback for API compatibility)
+
+```typescript
+// Handler checks types before adding visual class
+if (e.dataTransfer?.types?.includes('text/tab-id')) {
+    e.preventDefault();
+    element.addClass('drag-over');
+}
+```
+
+### 2. "Magic" Overlay Drop Zones (End of List)
+
+**Problem:** Users need to drop items at the very end of a list, but creating a large visible drop zone looks "janky" and wastes UI space.
+**Solution:** Create an **invisible overlay** that sits between elements or at the end.
+
+- **Visuals:** `height: 4px` (minimal gap), `background: transparent`.
+- **Hit Target:** `::after` pseudo-element with `top: -12px; bottom: -12px` creating a large invisible catch area.
+- **Drag Over:** On active drag, collapse to `height: 0` and show `border-top: 2px solid accent` to mimic a standard insertion line.
+
+```css
+.web-sidecar-drop-zone-end::after {
+  content: '';  position: absolute;
+  top: -12px; bottom: -12px; left: 0; right: 0;
+  z-index: 10;
+}
+```
+
+### 3. Data Persistence on Drop
+
+**Critical Rule:** Every drop handler must:
+1. Update the local settings object (reorder arrays).
+2. Call `this.view.saveSettingsFn()` immediately.
+3. Call `this.view.onRefresh()` to update the UI.
+Without explicit save, the order reverts on reload (or sometimes instantly).
 
 ## Settings
 

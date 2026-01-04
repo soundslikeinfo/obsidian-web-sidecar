@@ -52,13 +52,6 @@ export class TabListRenderer {
             this.view.onRefresh();
         });
 
-        // Refresh button
-        const refreshBtn = controls.createEl('button', {
-            cls: 'web-sidecar-refresh-btn clickable-icon',
-            attr: { 'aria-label': 'Refresh' }
-        });
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.addEventListener('click', () => this.view.onRefresh());
 
         // Render each tab (with deduplication if enabled)
         if (this.view.settings.collapseDuplicateUrls) {

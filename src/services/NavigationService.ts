@@ -137,7 +137,7 @@ export class NavigationService {
         // Not open - use noteOpenBehavior setting
         const settings = this.getSettings();
         if (settings.noteOpenBehavior === 'split') {
-            const newLeaf = this.app.workspace.getLeaf('split', 'vertical');
+            const newLeaf = this.getOrCreateRightLeaf();
             await newLeaf.openFile(file);
         } else {
             const newLeaf = this.app.workspace.getLeaf('tab');
@@ -284,7 +284,7 @@ export class NavigationService {
             if (noteLeaf) {
                 this.app.workspace.revealLeaf(noteLeaf);
             } else if (settings.noteOpenBehavior === 'split') {
-                const newNoteLeaf = this.app.workspace.createLeafBySplit(webLeaf, 'vertical');
+                const newNoteLeaf = this.getOrCreateRightLeaf(webLeaf);
                 await newNoteLeaf.openFile(file);
             } else {
                 const newNoteLeaf = this.app.workspace.getLeaf('tab');
@@ -296,7 +296,25 @@ export class NavigationService {
         if (blankWebLeaf) {
             webLeaf = blankWebLeaf;
         } else {
-            webLeaf = this.app.workspace.getLeaf('tab');
+            // Find a suitable "Main" leaf to create the web viewer in
+            // Should be the LEFTMOST or MAIN leaf, not necessarily the active one
+            let parentLeaf = this.app.workspace.getLeaf(); // Default to active
+            const mainLeaves = this.getMainAreaLeaves();
+
+            // If we have main leaves, try to find a web viewer group first, or just use the first leaf (Left)
+            // This prevents creating the web viewer in the "Right" (Note) group if focus is there
+            if (mainLeaves.length > 0) {
+                const webGroupLeaf = mainLeaves.find(l => l.view.getViewType() === 'webviewer');
+                if (webGroupLeaf) {
+                    parentLeaf = webGroupLeaf;
+                } else {
+                    // Fallback to first leaf (usually Left-most in 2-pane setup)
+                    parentLeaf = mainLeaves[0]!;
+                }
+            }
+
+            // Create new tab in that specific parent group
+            webLeaf = this.app.workspace.createLeafInParent(parentLeaf.parent, -1);
         }
 
         await webLeaf.setViewState({
@@ -307,7 +325,7 @@ export class NavigationService {
         if (noteLeaf) {
             this.app.workspace.revealLeaf(noteLeaf);
         } else if (settings.noteOpenBehavior === 'split') {
-            const newNoteLeaf = this.app.workspace.createLeafBySplit(webLeaf, 'vertical');
+            const newNoteLeaf = this.getOrCreateRightLeaf(webLeaf);
             await newNoteLeaf.openFile(file);
         } else {
             const newNoteLeaf = this.app.workspace.getLeaf('tab');
@@ -412,6 +430,126 @@ export class NavigationService {
             this.isManualRefreshCallback(true);
             this.onRefreshCallback();
         }, 100);
+    }
+
+    /**
+     * Check if a leaf is in a popout window (not the main window)
+     */
+    private isPopout(leaf: WorkspaceLeaf): boolean {
+        return leaf.getRoot() !== this.app.workspace.rootSplit;
+    }
+
+    /**
+     * Get an existing right-side leaf in the same window, or create a new split.
+     * Reuses existing splits instead of creating infinite right splits.
+     * 
+     * Logic:
+     * 1. Identify which tab group the source leaf belongs to
+     * 2. Find a DIFFERENT tab group that contains web viewers (preferred) or any other content
+     * 3. If found, create a new tab in that group
+     * 4. If not found, create a new vertical split
+     * 
+     * @param referenceLeaf Optional leaf to use as reference for determining "source" group
+     */
+    getOrCreateRightLeaf(referenceLeaf?: WorkspaceLeaf): WorkspaceLeaf {
+        const workspace = this.app.workspace;
+
+        // Get all leaves in the main content area (not sidebars)
+        const mainLeaves = this.getMainAreaLeaves();
+        if (mainLeaves.length === 0) {
+            return workspace.getLeaf('split', 'vertical');
+        }
+
+        // Determine which group we're "coming from"
+        // Priority: referenceLeaf > last focused non-sidecar leaf > first main leaf
+        // Determine which group we're "coming from"
+        // Priority: referenceLeaf > first web viewer > first main leaf
+        let sourceLeaf = referenceLeaf;
+        if (!sourceLeaf || !this.isInMainArea(sourceLeaf)) {
+            // Priority: Web Viewer > Surfing View > First Main Leaf (likely markdown)
+            // We want to be "to the right of the web viewer"
+            const webViewerLeaf = mainLeaves.find(l =>
+                l.view.getViewType() === 'webviewer' ||
+                l.view.getViewType() === 'surfing-view'
+            );
+            sourceLeaf = webViewerLeaf || mainLeaves[0]!;
+        }
+
+        const sourceParent = sourceLeaf.parent;
+
+        // Collect all unique tab groups (parents) in the main area
+        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        for (const leaf of mainLeaves) {
+            if (!leaf.parent) continue;
+            if (!tabGroups.has(leaf.parent)) {
+                tabGroups.set(leaf.parent, []);
+            }
+            tabGroups.get(leaf.parent)!.push(leaf);
+        }
+
+        // Find the "target" group - a different group from the source
+        // Prefer groups that contain markdown notes (those are likely the "notes" pane on the right)
+        // Web viewers are typically on the LEFT, notes on the RIGHT
+        let targetParent: any = null;
+        let fallbackParent: any = null;
+
+        for (const [parent, leaves] of tabGroups.entries()) {
+            if (parent === sourceParent) continue; // Skip source group
+
+            // Check if this group has markdown notes (the right pane)
+            const hasMarkdown = leaves.some(l =>
+                l.view?.getViewType() === 'markdown'
+            );
+
+            if (hasMarkdown) {
+                targetParent = parent;
+                break; // Prefer markdown groups (right pane)
+            } else if (!fallbackParent) {
+                fallbackParent = parent;
+            }
+        }
+
+        // Use markdown group if found, otherwise any other group
+        const chosenParent = targetParent || fallbackParent;
+
+        if (chosenParent) {
+            return workspace.createLeafInParent(chosenParent, -1);
+        }
+
+        // No other tab group exists - create a new split
+        // Explicitly split the source leaf to ensure correct direction (Right)
+        // defaulting to 'vertical' places it to the right of the source
+        return workspace.createLeafBySplit(sourceLeaf, 'vertical');
+    }
+
+    /**
+     * Check if a leaf is in the main content area (not a sidebar)
+     */
+    private isInMainArea(leaf: WorkspaceLeaf): boolean {
+        // Traverse up to check if this leaf is under rootSplit
+        let current: any = leaf.parent;
+        const rootSplit = this.app.workspace.rootSplit;
+
+        while (current) {
+            if (current === rootSplit) {
+                return true;
+            }
+            current = current.parent;
+        }
+        return false;
+    }
+
+    /**
+     * Get all leaves in the main content area (excluding sidebars)
+     */
+    private getMainAreaLeaves(): WorkspaceLeaf[] {
+        const workspace = this.app.workspace;
+        const allLeaves = workspace.getLeavesOfType('markdown')
+            .concat(workspace.getLeavesOfType('webviewer'))
+            .concat(workspace.getLeavesOfType('surfing-view'))
+            .concat(workspace.getLeavesOfType('empty'));
+
+        return allLeaves.filter(leaf => this.isInMainArea(leaf));
     }
 
     /**

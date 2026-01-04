@@ -93,6 +93,9 @@ export class BrowserTabRenderer {
             }
         }
 
+        // Add end-of-list drop zone for tabs (allows dragging tabs to last position)
+        this.addTabEndDropZone(tabListContainer);
+
         // --- CRITICAL DOM ORDER ---
         // Order MUST be: 1) Tab list, 2) New web viewer button, 3) Virtual tabs section, 4) Recent section
         // This order is enforced by explicit insertBefore calls below.
@@ -238,5 +241,64 @@ export class BrowserTabRenderer {
                 all: tabs,
                 hasPopout: tabs.some(t => t.isPopout),
             }));
+    }
+
+    /**
+     * Add an end-of-list drop zone for tabs (allows dragging tabs to last position)
+     */
+    private addTabEndDropZone(container: HTMLElement): void {
+        // Check if already exists
+        let dropZone = container.querySelector('.web-sidecar-tab-drop-zone-end') as HTMLElement;
+        if (!dropZone) {
+            dropZone = container.createDiv({ cls: 'web-sidecar-tab-drop-zone-end' });
+        }
+
+        // Ensure drop zone is at the end of the container
+        container.appendChild(dropZone);
+
+        dropZone.ondragover = (e) => {
+            // Only accept tab drags (check for our custom MIME type)
+            if (e.dataTransfer?.types?.includes('text/tab-id')) {
+                e.preventDefault();
+                dropZone!.addClass('drag-over');
+            }
+        };
+
+        dropZone.ondragleave = () => {
+            dropZone!.removeClass('drag-over');
+        };
+
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone!.removeClass('drag-over');
+            const draggedLeafId = e.dataTransfer?.getData('text/tab-id');
+
+            if (draggedLeafId) {
+                // Move tab to end by getting current order
+                let currentOrder = [...this.view.settings.manualTabOrder];
+                if (currentOrder.length === 0) {
+                    // Get all current tab leaf IDs
+                    const allTabs = container.querySelectorAll('[data-leaf-id]');
+                    currentOrder = Array.from(allTabs).map(el => el.getAttribute('data-leaf-id')!).filter(Boolean);
+                }
+
+                // Remove dragged item and add to end
+                const draggedIdx = currentOrder.indexOf(draggedLeafId);
+                if (draggedIdx > -1) {
+                    currentOrder.splice(draggedIdx, 1);
+                }
+                currentOrder.push(draggedLeafId);
+
+                // Switch to manual mode if needed
+                if (this.view.settings.tabSortOrder !== 'manual') {
+                    this.view.settings.tabSortOrder = 'manual';
+                }
+
+                this.view.settings.manualTabOrder = currentOrder;
+                this.view.setManualRefresh(true);
+                this.view.saveSettingsFn(); // Persist changes
+                this.view.onRefresh();
+            }
+        };
     }
 }

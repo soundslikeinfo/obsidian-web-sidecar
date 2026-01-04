@@ -37,7 +37,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private onRefreshFn: () => void;
     private getTabsFn: () => TrackedWebViewer[];
     private getVirtualTabsFn: () => VirtualTab[];
-    private saveSettingsFn: () => Promise<void>;
 
     // Services & Components
     private navigationService: NavigationService;
@@ -46,6 +45,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private sectionRenderer: SectionRenderer;
     private tabListRenderer: TabListRenderer;
     private browserTabRenderer: BrowserTabRenderer;
+    public saveSettingsFn: () => Promise<void>;
 
     /** Track if user is interacting with the sidebar (prevents re-render) */
     private isInteracting: boolean = false;
@@ -446,6 +446,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // CRITICAL: Force re-render even if user is interacting
         this.isManualRefresh = true;
         this.saveManualTabOrder(currentOrder);
+        this.onRefresh();
     }
 
     handleSectionDrop(draggedId: string, targetId: string): void {
@@ -469,6 +470,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.settings.sectionOrder = currentOrder;
         this.isManualRefresh = true;
         this.saveSettingsFn();
+        this.onRefresh();
     }
 
     openCreateNoteModal(url: string): void {
@@ -497,6 +499,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     focusTab(tab: TrackedWebViewer): void {
         this.navigationService.focusTab(tab);
+    }
+
+    getOrCreateRightLeaf(): WorkspaceLeaf {
+        return this.navigationService.getOrCreateRightLeaf();
     }
 
     /**

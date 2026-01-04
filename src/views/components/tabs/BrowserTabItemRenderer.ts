@@ -215,7 +215,9 @@ export class BrowserTabItemRenderer {
         tabWrapper.setAttribute('data-leaf-id', tab.leafId);
 
         tabWrapper.ondragstart = (e) => {
+            // Set BOTH standard text/plain and custom type for compatibility + filtering
             e.dataTransfer?.setData('text/plain', tab.leafId);
+            e.dataTransfer?.setData('text/tab-id', tab.leafId);
             tabWrapper.addClass('is-dragging');
         };
 
@@ -224,8 +226,11 @@ export class BrowserTabItemRenderer {
         };
 
         tabWrapper.ondragover = (e) => {
-            e.preventDefault();
-            tabWrapper.addClass('drag-over');
+            // Only accept tab drags (check for our custom MIME type)
+            if (e.dataTransfer?.types?.includes('text/tab-id')) {
+                e.preventDefault();
+                tabWrapper.addClass('drag-over');
+            }
         };
 
         tabWrapper.ondragleave = () => {
@@ -235,7 +240,7 @@ export class BrowserTabItemRenderer {
         tabWrapper.ondrop = (e) => {
             e.preventDefault();
             tabWrapper.removeClass('drag-over');
-            const draggedLeafId = e.dataTransfer?.getData('text/plain');
+            const draggedLeafId = e.dataTransfer?.getData('text/tab-id');
             if (draggedLeafId && draggedLeafId !== tab.leafId) {
                 this.view.handleTabDrop(draggedLeafId, tab.leafId);
             }

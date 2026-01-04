@@ -338,12 +338,48 @@
 }
 
 /* Browser tabs container */
+/* Browser Tabs Container */
 .web-sidecar-browser-tabs {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 0;
-  /* Removed side padding to ensure full width */
+  margin: 0 -8px 8px -8px;
+  /* Removed extra padding - drop zone handles spacing */
+}
+
+/* End-of-list drop zone for tabs */
+.web-sidecar-tab-drop-zone-end {
+  height: 4px;
+  /* Minimal visual height */
+  margin: 2px 0;
+  /* Standard gap */
+  background: transparent;
+  transition: all 0.15s ease;
+
+  /* Make hit target much larger than visual size using outline or pseudo-element */
+  position: relative;
+  z-index: 10;
+}
+
+/* Pseudo-element to increase hit area without affecting layout */
+.web-sidecar-tab-drop-zone-end::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.web-sidecar-tab-drop-zone-end.drag-over {
+  height: 0;
+  border-top: 2px solid var(--interactive-accent);
+  background: transparent;
+  margin-top: -2px;
+  margin-bottom: 4px;
+  /* Pull button back up slightly */
 }
 
 /* Individual browser tab wrapper */
@@ -992,4 +1028,39 @@
 
 .web-sidecar-aux-section>summary:active {
   cursor: grabbing;
+}
+
+/* End-of-list drop zone for dragging sections to be last */
+/* End-of-list drop zone for dragging sections to be last */
+.web-sidecar-drop-zone-end {
+  height: 4px;
+  /* Minimal visual height */
+  margin: 2px 8px;
+  /* Match section alignment */
+  background: transparent;
+  transition: all 0.15s ease;
+
+  /* Make hit target much larger than visual size using outline or pseudo-element */
+  position: relative;
+  z-index: 10;
+}
+
+/* Pseudo-element to increase hit area without affecting layout */
+.web-sidecar-drop-zone-end::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.web-sidecar-drop-zone-end.drag-over {
+  height: 0;
+  border-top: 2px solid var(--interactive-accent);
+  background: transparent;
+  margin-top: -2px;
+  margin-bottom: 4px;
+  /* Pull content back up slightly */
 }
