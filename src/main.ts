@@ -25,9 +25,6 @@ export default class WebSidecarPlugin extends Plugin {
 		// 1. Initialize Services
 		// UrlIndex for fast lookups
 		this.urlIndex = new UrlIndex(this.app, () => this.settings);
-		this.app.workspace.onLayoutReady(() => {
-			this.urlIndex.initialize();
-		});
 
 		// TabStateService for tracking web viewers
 		this.tabStateService = new TabStateService(
@@ -35,7 +32,13 @@ export default class WebSidecarPlugin extends Plugin {
 			() => this.settings,
 			() => this.updateView()
 		);
-		this.tabStateService.initialize();
+
+		// CRITICAL: Initialize both services AFTER layout is ready
+		// This ensures workspace is fully restored (web viewers exist, metadata cache is populated)
+		this.app.workspace.onLayoutReady(() => {
+			this.urlIndex.initialize();
+			this.tabStateService.initialize();
+		});
 
 		// WebViewerManager for UI injection (buttons, menus)
 		this.webViewerManager = new WebViewerManager(this.app, () => this.settings, this.urlIndex);

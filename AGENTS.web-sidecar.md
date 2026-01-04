@@ -234,7 +234,47 @@ this.onRefreshCallback();
 - Listen to `details.addEventListener('toggle', ...)` to track state changes
 - Use unique IDs like `domain:example.com` or `subreddit:r/obsidianmd` for group tracking
 
-### 9. Section Cleanup Before Re-render
+### 9. Auxiliary Section Sorting
+
+**Expected behavior:**
+- Domain groups and subreddit groups each have independent 3-way sort cycling
+- Sort cycles: **alpha → count → recent → alpha**
+- **Tooltip shows current state** ("Sorted by name"), NOT next action ("Sort by count")
+- Sort preferences persist across vault reloads
+
+**Implementation notes:**
+- Store sort preferences in settings: `domainSortOrder`, `subredditSortOrder`
+- Save settings immediately when user clicks sort button
+- Initialize view sort state from settings in `onOpen()`
+- Recency sort uses `file.stat.mtime` (already cached by Obsidian, no overhead)
+
+```typescript
+// Helper to get max mtime of notes in a group
+const getMaxMtime = (notes: MatchedNote[]) => {
+    return Math.max(...notes.map(n => n.file.stat.mtime));
+};
+
+// Sort by recency: most recently modified note in each group
+if (sortMode === 'recent') {
+    return getMaxMtime(b.notes) - getMaxMtime(a.notes);
+}
+```
+
+### 10. Domain/Subreddit Quick Navigation
+
+**Expected behavior:**
+- Each domain row (e.g., `youtube.com`) and subreddit row (e.g., `r/AffinityPhoto`) has:
+  - **Right-click context menu** with options to open the homepage/subreddit in web viewer
+  - **Link icon** (🔗) to the left of the note count, visible on hover
+- Clicking the link icon opens the domain/subreddit directly in a new web viewer
+- Context menu title shows specific domain: "Open youtube.com" (not "Open domain homepage")
+
+**Implementation notes:**
+- Link button uses class `web-sidecar-group-link-btn` with hover-reveal CSS
+- Context menus: `ContextMenus.showDomainContextMenu()`, `ContextMenus.showSubredditContextMenu()`
+- Subreddit URLs use format: `https://reddit.com/r/subredditName`
+
+### 11. Section Cleanup Before Re-render
 
 **Expected behavior:**
 - No duplicate sections appear after refresh
@@ -414,6 +454,9 @@ Opens web viewer + note side-by-side. **Available ONLY via right-click context m
 | `collapseDuplicateUrls` | `boolean` | `false` | Collapse duplicate URL tabs |
 | `enableSubredditFilter` | `boolean` | `false` | Filter domain matches by subreddit |
 | `enableSubredditExplorer` | `boolean` | `false` | Show subreddit grouping section |
+| `sectionOrder` | `string[]` | `['recent', 'domain', 'subreddit']` | Drag-to-reorder section order |
+| `domainSortOrder` | `'alpha' \| 'count' \| 'recent'` | `'alpha'` | Domain section sort preference |
+| `subredditSortOrder` | `'alpha' \| 'count' \| 'recent'` | `'alpha'` | Subreddit section sort preference |
 
 ### Experimental Settings
 
@@ -466,6 +509,33 @@ badge.setAttribute('aria-label', '3 Notes');
 
 // ❌ Avoid
 badge.setAttribute('title', '3 Notes');
+```
+
+### Tooltip Pattern: Show Current State
+
+For sort buttons and similar state indicators, tooltips should describe the **current state**, not the next action:
+
+```typescript
+// ✅ Correct — tells user what they're looking at
+attr: { 'aria-label': 'Sorted by name' }
+
+// ❌ Avoid — confusing, requires clicking to discover current state
+attr: { 'aria-label': 'Sort by count' }
+```
+
+### Hover-Reveal Buttons
+
+Link buttons on domain/subreddit rows appear on hover:
+
+```css
+.web-sidecar-group-link-btn {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.web-sidecar-domain-row:hover .web-sidecar-group-link-btn {
+    opacity: 1;
+}
 ```
 
 ### Icon Hover Stability
@@ -556,6 +626,26 @@ li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(
 
 **Implementation:** `ContextMenus.showVirtualTabContextMenu(event, url, file)`
 
+### Domain Group Context Menu
+
+**Menu items:**
+- Open youtube.com (dynamic, shows actual domain)
+- Open in new window
+- Open to the right
+- Copy URL
+
+**Implementation:** `ContextMenus.showDomainContextMenu(event, domain)`
+
+### Subreddit Group Context Menu
+
+**Menu items:**
+- Open r/AffinityPhoto (dynamic, shows actual subreddit)
+- Open in new window
+- Open to the right
+- Copy URL
+
+**Implementation:** `ContextMenus.showSubredditContextMenu(event, subreddit)`
+
 ---
 
 ## Testing Checklist
@@ -573,6 +663,10 @@ li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(
 - [ ] Paired opening via context menu works correctly
 - [ ] Active tab is highlighted in sidebar
 - [ ] No uppercase text in section headers
+- [ ] Domain/subreddit sort button cycles through alpha → count → recent
+- [ ] Domain/subreddit sort preference persists after vault reload
+- [ ] Domain row link icon appears on hover, opens domain in web viewer
+- [ ] Right-click domain row shows context menu with "Open youtube.com"
 
 ---
 

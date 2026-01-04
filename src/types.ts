@@ -26,6 +26,7 @@ export interface IWebSidecarView {
     openNewWebViewer(): Promise<void>;
     saveManualTabOrder(orderedLeafIds: string[]): Promise<void>;
     handleTabDrop(draggedLeafId: string, targetLeafId: string): void;
+    handleSectionDrop(draggedId: string, targetId: string): void;
     focusWebViewer(leafId: string): void;
     focusTab(tab: TrackedWebViewer): void;
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void;
@@ -36,10 +37,10 @@ export interface IWebSidecarView {
     render(): void; // To trigger re-render from components (e.g. sort)
 
     // State Access
-    subredditSort: 'alpha' | 'count';
-    domainSort: 'alpha' | 'count';
-    setSubredditSort(sort: 'alpha' | 'count'): void;
-    setDomainSort(sort: 'alpha' | 'count'): void;
+    subredditSort: 'alpha' | 'count' | 'recent';
+    domainSort: 'alpha' | 'count' | 'recent';
+    setSubredditSort(sort: 'alpha' | 'count' | 'recent'): void;
+    setDomainSort(sort: 'alpha' | 'count' | 'recent'): void;
 
     isSubredditExplorerOpen: boolean;
     setSubredditExplorerOpen(open: boolean): void;
@@ -97,6 +98,12 @@ export interface WebSidecarSettings {
     enableSubredditFilter: boolean;
     /** Enable grouping matches by subreddit */
     enableSubredditExplorer: boolean;
+    /** Order of auxiliary sections (drag-to-reorder) */
+    sectionOrder: string[];
+    /** Sort order for domain grouping section */
+    domainSortOrder: 'alpha' | 'count' | 'recent';
+    /** Sort order for subreddit explorer section */
+    subredditSortOrder: 'alpha' | 'count' | 'recent';
 }
 
 /**
@@ -136,6 +143,9 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
+    sectionOrder: ['recent', 'domain', 'subreddit'],
+    domainSortOrder: 'alpha',
+    subredditSortOrder: 'alpha',
 };
 
 /**

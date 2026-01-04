@@ -4,14 +4,17 @@ import { extractDomain } from '../../services/urlUtils';
 import { getRecentNotesWithUrls, getAllRedditNotes, extractSubreddit } from '../../services/noteMatcher';
 import { IWebSidecarView } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
+import { ContextMenus } from './ContextMenus';
 
 export class SectionRenderer {
     private view: IWebSidecarView;
     private noteRenderer: NoteRenderer;
+    private contextMenus: ContextMenus;
 
-    constructor(view: IWebSidecarView, noteRenderer: NoteRenderer) {
+    constructor(view: IWebSidecarView, noteRenderer: NoteRenderer, contextMenus: ContextMenus) {
         this.view = view;
         this.noteRenderer = noteRenderer;
+        this.contextMenus = contextMenus;
     }
 
     /**
@@ -97,7 +100,13 @@ export class SectionRenderer {
         const existingRecent = container.querySelector('.web-sidecar-recent-section');
         if (existingRecent) existingRecent.remove();
 
-        const details = container.createEl('details', { cls: 'web-sidecar-recent-section' });
+        const details = container.createEl('details', { cls: 'web-sidecar-recent-section web-sidecar-aux-section' });
+        details.setAttribute('data-section-id', 'recent');
+        details.setAttribute('draggable', 'true');
+
+        // Drag-and-drop handlers
+        this.addSectionDragHandlers(details, 'recent');
+
         // Preserve open state
         if (this.view.isRecentNotesOpen) {
             details.setAttribute('open', '');
@@ -116,28 +125,108 @@ export class SectionRenderer {
         for (const note of recentNotes) {
             this.noteRenderer.renderNoteItem(list, note.file, note.url);
         }
+    }
 
-        // Add domain grouping section below (it handles its own cleanup)
-        this.renderDomainGroupingSection(container);
-        // Add subreddit explorer section below that (it handles its own cleanup)
-        this.renderSubredditExplorerSection(container);
+    /**
+ * Render all auxiliary sections in configured order
+ * CRITICAL: Aux sections MUST always appear AFTER the main sections (tabs, new button, virtual tabs)
+ */
+    renderAuxiliarySections(container: HTMLElement): void {
+        // Get or create aux container
+        let auxContainer = container.querySelector('.web-sidecar-aux-sections') as HTMLElement;
+        if (!auxContainer) {
+            auxContainer = document.createElement('div');
+            auxContainer.className = 'web-sidecar-aux-sections';
+            container.appendChild(auxContainer);
+        }
+
+        // CRITICAL: Ensure aux container is at the END of container (after virtual section, tabs, etc.)
+        // This prevents aux sections from appearing above main content during initial load
+        const virtualSection = container.querySelector('.web-sidecar-virtual-section');
+        const newTabBtn = container.querySelector('.web-sidecar-new-tab-btn');
+        const tabListContainer = container.querySelector('.web-sidecar-browser-tabs');
+
+        // Determine the correct anchor point (last of the main sections)
+        const anchorElement = virtualSection || newTabBtn || tabListContainer;
+
+        if (anchorElement && anchorElement.nextSibling !== auxContainer) {
+            // Insert aux container right after the anchor
+            anchorElement.after(auxContainer);
+        } else if (!anchorElement && container.lastChild !== auxContainer) {
+            // No main sections exist yet, append to end
+            container.appendChild(auxContainer);
+        }
+
+        // Clear and re-render in order
+        auxContainer.empty();
+
+        for (const sectionId of this.view.settings.sectionOrder) {
+            switch (sectionId) {
+                case 'recent':
+                    this.renderRecentWebNotesSection(auxContainer);
+                    break;
+                case 'domain':
+                    this.renderDomainGroupingSection(auxContainer);
+                    break;
+                case 'subreddit':
+                    if (this.view.settings.enableSubredditExplorer) {
+                        this.renderSubredditExplorerSection(auxContainer);
+                    }
+                    break;
+            }
+        }
+    }
+    /**
+     * Add drag-and-drop handlers to a section element
+     */
+    private addSectionDragHandlers(element: HTMLElement, sectionId: string): void {
+        element.ondragstart = (e) => {
+            e.dataTransfer?.setData('text/plain', sectionId);
+            element.addClass('is-dragging');
+        };
+
+        element.ondragend = () => {
+            element.removeClass('is-dragging');
+        };
+
+        element.ondragover = (e) => {
+            e.preventDefault();
+            element.addClass('drag-over');
+        };
+
+        element.ondragleave = () => {
+            element.removeClass('drag-over');
+        };
+
+        element.ondrop = (e) => {
+            e.preventDefault();
+            element.removeClass('drag-over');
+            const draggedId = e.dataTransfer?.getData('text/plain');
+            if (draggedId && draggedId !== sectionId) {
+                this.view.handleSectionDrop(draggedId, sectionId);
+            }
+        };
     }
 
     /**
      * Render "Subreddit notes explorer" collapsible section
      */
-    private renderSubredditExplorerSection(container: HTMLElement): void {
+    renderSubredditExplorerSection(container: HTMLElement): void {
         if (!this.view.settings.enableSubredditExplorer) return;
 
         const subredditMap = getAllRedditNotes(this.view.app, this.view.settings, this.view.urlIndex);
         if (subredditMap.size === 0) return;
 
         // Remove existing subreddit section before creating new one
-        const existingSection = container.querySelector('[data-section-type="subreddit-explorer"]');
+        const existingSection = container.querySelector('[data-section-id="subreddit"]');
         if (existingSection) existingSection.remove();
 
-        const details = container.createEl('details', { cls: 'web-sidecar-domain-section' });
-        details.setAttribute('data-section-type', 'subreddit-explorer');
+        const details = container.createEl('details', { cls: 'web-sidecar-domain-section web-sidecar-aux-section' });
+        details.setAttribute('data-section-id', 'subreddit');
+        details.setAttribute('draggable', 'true');
+
+        // Drag-and-drop handlers
+        this.addSectionDragHandlers(details, 'subreddit');
         // Preserve open state
         if (this.view.isSubredditExplorerOpen) {
             details.setAttribute('open', '');
@@ -162,21 +251,45 @@ export class SectionRenderer {
 
         summary.createSpan({ text: `Subreddit notes explorer (${subredditMap.size})` });
 
-        // Sort button
+        // Sort button - cycles through: alpha -> count -> recent -> alpha
+        const getSortIcon = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'arrow-down-az';
+                case 'count': return 'arrow-down-wide-narrow';
+                case 'recent': return 'clock';
+                default: return 'arrow-down-az';
+            }
+        };
+        const getSortLabel = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'Sorted by name';
+                case 'count': return 'Sorted by count';
+                case 'recent': return 'Sorted by recent';
+                default: return 'Sorted by name';
+            }
+        };
+        const getNextSort = (sort: string): 'alpha' | 'count' | 'recent' => {
+            switch (sort) {
+                case 'alpha': return 'count';
+                case 'count': return 'recent';
+                case 'recent': return 'alpha';
+                default: return 'count';
+            }
+        };
+
         const sortBtn = summary.createEl('button', {
             cls: 'web-sidecar-sort-btn-tiny web-sidecar-align-right clickable-icon',
             attr: {
-                'aria-label': `Sort by ${this.view.subredditSort === 'alpha' ? 'count' : 'name'}`,
+                'aria-label': getSortLabel(this.view.subredditSort),
             }
         });
-        // sortBtn.style.marginLeft = 'auto'; // Handled by class
-        setIcon(sortBtn, this.view.subredditSort === 'alpha' ? 'arrow-down-wide-narrow' : 'arrow-down-az');
+        setIcon(sortBtn, getSortIcon(this.view.subredditSort));
 
         // Prevent summary expansion when clicking sort
         sortBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            this.view.setSubredditSort(this.view.subredditSort === 'alpha' ? 'count' : 'alpha');
+            this.view.setSubredditSort(getNextSort(this.view.subredditSort));
             // Force manual refresh to bypass interaction lock if needed, though usually sort is explicit
             this.view.setManualRefresh(true);
             this.view.onRefresh();
@@ -184,11 +297,19 @@ export class SectionRenderer {
 
         const groupList = details.createDiv({ cls: 'web-sidecar-domain-list' });
 
+        // Helper to get max mtime of notes in a group
+        const getMaxMtime = (notes: import('../../types').MatchedNote[]) => {
+            return Math.max(...notes.map(n => n.file.stat.mtime));
+        };
+
         // Sort subreddits
         const sortedSubreddits = Array.from(subredditMap.entries()).sort((a, b) => {
             if (this.view.subredditSort === 'count') {
                 const countDiff = b[1].length - a[1].length;
                 if (countDiff !== 0) return countDiff;
+            } else if (this.view.subredditSort === 'recent') {
+                const mtimeDiff = getMaxMtime(b[1]) - getMaxMtime(a[1]);
+                if (mtimeDiff !== 0) return mtimeDiff;
             }
             return a[0].localeCompare(b[0]);
         });
@@ -215,6 +336,9 @@ export class SectionRenderer {
 
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
 
+        // Context menu on right-click
+        summary.addEventListener('contextmenu', (e) => this.contextMenus.showSubredditContextMenu(e, subreddit));
+
         // Reuse domain group styling
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
@@ -227,6 +351,17 @@ export class SectionRenderer {
         });
 
         summary.createSpan({ text: subreddit, cls: 'web-sidecar-domain-name' });
+
+        // Link icon to open subreddit (to the left of count)
+        const linkBtn = summary.createEl('button', {
+            cls: 'web-sidecar-group-link-btn clickable-icon',
+            attr: { 'aria-label': `Open ${subreddit}` }
+        });
+        setIcon(linkBtn, 'external-link');
+        e.preventDefault();
+        e.stopPropagation();
+        const subredditUrl = `https://reddit.com/${subreddit}`;
+        await this.view.openUrlSmartly(subredditUrl, e as any); // cast to any/MouseEvent
 
         summary.createSpan({
             text: notes.length.toString(),
@@ -245,7 +380,7 @@ export class SectionRenderer {
     /**
      * Render "Web notes grouped by domain" collapsible section
      */
-    private renderDomainGroupingSection(container: HTMLElement): void {
+    renderDomainGroupingSection(container: HTMLElement): void {
         const recentNotes = getRecentNotesWithUrls(
             this.view.app,
             this.view.settings,
@@ -270,11 +405,15 @@ export class SectionRenderer {
         if (domainMap.size === 0) return;
 
         // Remove existing domain section before creating new one
-        const existingSection = container.querySelector('[data-section-type="domain-groups"]');
+        const existingSection = container.querySelector('[data-section-id="domain"]');
         if (existingSection) existingSection.remove();
 
-        const details = container.createEl('details', { cls: 'web-sidecar-domain-section' });
-        details.setAttribute('data-section-type', 'domain-groups');
+        const details = container.createEl('details', { cls: 'web-sidecar-domain-section web-sidecar-aux-section' });
+        details.setAttribute('data-section-id', 'domain');
+        details.setAttribute('draggable', 'true');
+
+        // Drag-and-drop handlers
+        this.addSectionDragHandlers(details, 'domain');
         // Preserve open state
         if (this.view.isDomainGroupOpen) {
             details.setAttribute('open', '');
@@ -288,21 +427,45 @@ export class SectionRenderer {
         setIcon(summaryIcon, 'globe');
         summary.createSpan({ text: `Web notes grouped by domain (${domainMap.size})` });
 
-        // Sort button
+        // Sort button - cycles through: alpha -> count -> recent -> alpha
+        const getSortIcon = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'arrow-down-az';
+                case 'count': return 'arrow-down-wide-narrow';
+                case 'recent': return 'clock';
+                default: return 'arrow-down-az';
+            }
+        };
+        const getSortLabel = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'Sorted by name';
+                case 'count': return 'Sorted by count';
+                case 'recent': return 'Sorted by recent';
+                default: return 'Sorted by name';
+            }
+        };
+        const getNextSort = (sort: string): 'alpha' | 'count' | 'recent' => {
+            switch (sort) {
+                case 'alpha': return 'count';
+                case 'count': return 'recent';
+                case 'recent': return 'alpha';
+                default: return 'count';
+            }
+        };
+
         const sortBtn = summary.createEl('button', {
             cls: 'web-sidecar-sort-btn-tiny web-sidecar-align-right clickable-icon',
             attr: {
-                'aria-label': `Sort by ${this.view.domainSort === 'alpha' ? 'count' : 'name'}`,
+                'aria-label': getSortLabel(this.view.domainSort),
             }
         });
-        // sortBtn.style.marginLeft = 'auto'; // Handled by class
-        setIcon(sortBtn, this.view.domainSort === 'alpha' ? 'arrow-down-wide-narrow' : 'arrow-down-az');
+        setIcon(sortBtn, getSortIcon(this.view.domainSort));
 
         // Prevent summary expansion when clicking sort
         sortBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            this.view.setDomainSort(this.view.domainSort === 'alpha' ? 'count' : 'alpha');
+            this.view.setDomainSort(getNextSort(this.view.domainSort));
             // Force manual refresh to bypass interaction lock if needed
             this.view.setManualRefresh(true);
             this.view.onRefresh();
@@ -310,11 +473,19 @@ export class SectionRenderer {
 
         const domainList = details.createDiv({ cls: 'web-sidecar-domain-list' });
 
+        // Helper to get max mtime of notes in a group
+        const getMaxMtime = (notes: { file: import('obsidian').TFile }[]) => {
+            return Math.max(...notes.map(n => n.file.stat.mtime));
+        };
+
         // Sort domains
         const sortedDomains = Array.from(domainMap.entries()).sort((a, b) => {
             if (this.view.domainSort === 'count') {
                 const countDiff = b[1].notes.length - a[1].notes.length;
                 if (countDiff !== 0) return countDiff;
+            } else if (this.view.domainSort === 'recent') {
+                const mtimeDiff = getMaxMtime(b[1].notes) - getMaxMtime(a[1].notes);
+                if (mtimeDiff !== 0) return mtimeDiff;
             }
             return a[0].localeCompare(b[0]);
         });
@@ -341,6 +512,9 @@ export class SectionRenderer {
 
         const domainSummary = domainDetails.createEl('summary', { cls: 'web-sidecar-domain-row' });
 
+        // Context menu on right-click
+        domainSummary.addEventListener('contextmenu', (e) => this.contextMenus.showDomainContextMenu(e, domain));
+
         // Favicon
         const faviconContainer = domainSummary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         const favicon = faviconContainer.createEl('img', {
@@ -358,6 +532,17 @@ export class SectionRenderer {
 
         // Domain name
         domainSummary.createSpan({ text: domain, cls: 'web-sidecar-domain-name' });
+
+        // Link icon to open domain homepage (to the left of count)
+        const linkBtn = domainSummary.createEl('button', {
+            cls: 'web-sidecar-group-link-btn clickable-icon',
+            attr: { 'aria-label': `Open ${domain}` }
+        });
+        setIcon(linkBtn, 'external-link');
+        e.preventDefault();
+        e.stopPropagation();
+        const domainUrl = `https://${domain}`;
+        await this.view.openUrlSmartly(domainUrl, e as any); // cast to any/MouseEvent
 
         // Note count badge
         domainSummary.createSpan({

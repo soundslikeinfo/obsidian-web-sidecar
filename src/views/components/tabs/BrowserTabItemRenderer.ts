@@ -37,13 +37,9 @@ export class BrowserTabItemRenderer {
         const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
 
         // Click -> Open web viewer
-        tabRow.onclick = async () => {
-            const leaf = this.view.app.workspace.getLeaf('tab');
-            await leaf.setViewState({
-                type: 'webviewer',
-                state: { url: virtualTab.url, navigate: true }
-            });
-            this.view.app.workspace.revealLeaf(leaf);
+        // Click -> Open web viewer using smart handler (handles refresh logic)
+        tabRow.onclick = (e) => {
+            this.view.openUrlSmartly(virtualTab.url, e as MouseEvent);
         };
 
         // Context menu for virtual tab
@@ -146,13 +142,23 @@ export class BrowserTabItemRenderer {
 
         let isActive = false;
         if (activeLeaf) {
-            // 1. Direct match (Web Viewer is active)
-            // Use ID check if available for more robustness, fallback to object equality
             const activeLeafId = (activeLeaf as any).id;
-            if (activeLeafId && tab.leafId === activeLeafId) {
-                isActive = true;
-            } else if (tab.leaf && activeLeaf === tab.leaf) {
-                isActive = true;
+
+            // 1. Direct match (Web Viewer is active)
+            // For grouped tabs, check if ANY tab in the group is the active leaf
+            if (isDeduped && allTabs) {
+                isActive = allTabs.some(t => {
+                    if (activeLeafId && t.leafId === activeLeafId) return true;
+                    if (t.leaf && activeLeaf === t.leaf) return true;
+                    return false;
+                });
+            } else {
+                // Single tab - check just this one
+                if (activeLeafId && tab.leafId === activeLeafId) {
+                    isActive = true;
+                } else if (tab.leaf && activeLeaf === tab.leaf) {
+                    isActive = true;
+                }
             }
 
             // 2. Linked Note match (Note is active)
@@ -249,22 +255,35 @@ export class BrowserTabItemRenderer {
             if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
             if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 
-            // Check if tab is already focused - if so, toggle expand instead
-            if (hasExpandableContent && tab.leaf) {
+            // Check if any tab in the group is already focused - if so, toggle expand instead of cycling
+            if (hasExpandableContent) {
                 const activeLeaf = this.view.app.workspace.activeLeaf;
                 let isAlreadyActive = false;
 
                 if (activeLeaf) {
                     const activeLeafId = (activeLeaf as any).id;
-                    if (activeLeafId && tab.leafId === activeLeafId) {
-                        isAlreadyActive = true;
-                    } else if (activeLeaf === tab.leaf) {
-                        isAlreadyActive = true;
+
+                    // For grouped tabs, check if ANY tab in the group is active
+                    if (isDeduped && allTabs) {
+                        isAlreadyActive = allTabs.some(t => {
+                            if (activeLeafId && t.leafId === activeLeafId) return true;
+                            if (t.leaf && activeLeaf === t.leaf) return true;
+                            return false;
+                        });
+                    } else {
+                        // Single tab - check just this one
+                        if (activeLeafId && tab.leafId === activeLeafId) {
+                            isAlreadyActive = true;
+                        } else if (tab.leaf && activeLeaf === tab.leaf) {
+                            isAlreadyActive = true;
+                        }
                     }
                 }
 
-                if (isAlreadyActive) {
-                    // Already focused, toggle expand
+                // Only toggle expand if ALL tabs in the group have been focused
+                // For grouped tabs, we should cycle through them first
+                if (isAlreadyActive && !isDeduped) {
+                    // Single tab already focused, toggle expand
                     toggleExpand();
                     return;
                 }

@@ -82,7 +82,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Initialize components
         this.contextMenus = new ContextMenus(this);
         this.noteRenderer = new NoteRenderer(this, this.contextMenus);
-        this.sectionRenderer = new SectionRenderer(this, this.noteRenderer);
+        this.sectionRenderer = new SectionRenderer(this, this.noteRenderer, this.contextMenus);
         this.tabListRenderer = new TabListRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.browserTabRenderer = new BrowserTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
     }
@@ -414,6 +414,29 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.saveManualTabOrder(currentOrder);
     }
 
+    handleSectionDrop(draggedId: string, targetId: string): void {
+        const currentOrder = [...this.settings.sectionOrder];
+
+        // Remove dragged item
+        const draggedIdx = currentOrder.indexOf(draggedId);
+        if (draggedIdx > -1) {
+            currentOrder.splice(draggedIdx, 1);
+        }
+
+        // Insert before target
+        const targetIdx = currentOrder.indexOf(targetId);
+        if (targetIdx > -1) {
+            currentOrder.splice(targetIdx, 0, draggedId);
+        } else {
+            currentOrder.push(draggedId);
+        }
+
+        // Update settings and persist
+        this.settings.sectionOrder = currentOrder;
+        this.isManualRefresh = true;
+        this.saveSettingsFn();
+    }
+
     openCreateNoteModal(url: string): void {
         this.navigationService.openCreateNoteModal(url);
     }
@@ -485,12 +508,19 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Show full view if we have web tabs OR virtual tabs
         const hasContent = this.trackedTabs.length > 0 || this.virtualTabs.length > 0;
 
+        // Track content state transition (empty <-> has content)
+        // Check VALUE, because hasAttribute is true if value is "false"
+        const hadContent = container.getAttribute('data-has-content') === 'true';
+        const contentStateChanged = hasContent !== hadContent;
+        container.setAttribute('data-has-content', hasContent ? 'true' : 'false');
+
         // Only empty container when:
         // 1. Mode changed
         // 2. No content (empty state)
         // 3. Notes mode (doesn't have DOM reconciliation)
+        // 4. Content state changed (transitioning from empty to content or vice versa)
         // Browser mode with content uses DOM reconciliation to preserve expanded states
-        if (modeChanged || !hasContent || !isBrowserMode) {
+        if (modeChanged || !hasContent || !isBrowserMode || contentStateChanged) {
             container.empty();
         }
 

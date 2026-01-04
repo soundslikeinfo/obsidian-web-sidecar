@@ -44,8 +44,8 @@ export class TabStateService {
         // Start polling
         this.startPolling();
 
-        // Initial scan
-        this.scanAllWebViewers();
+        // Initial scan and notify view
+        this.refreshState();
     }
 
     destroy(): void {

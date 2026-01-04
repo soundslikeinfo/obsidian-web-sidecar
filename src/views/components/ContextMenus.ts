@@ -389,4 +389,141 @@ export class ContextMenus {
 
         menu.showAtMouseEvent(event);
     }
+
+    /**
+     * Show context menu for a domain group (Web notes grouped by domain)
+     */
+    showDomainContextMenu(event: MouseEvent, domain: string): void {
+        event.preventDefault();
+        const menu = new Menu();
+
+        const domainUrl = `https://${domain}`;
+
+        // Open domain homepage
+        menu.addItem((item) => {
+            item
+                .setTitle(`Open ${domain}`)
+                .setIcon('globe')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.getLeaf('tab');
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: domainUrl, navigate: true }
+                    });
+                    this.view.app.workspace.revealLeaf(leaf);
+                });
+        });
+
+        // Open in new window
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in new window')
+                .setIcon('picture-in-picture-2')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.openPopoutLeaf();
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: domainUrl, navigate: true }
+                    });
+                });
+        });
+
+        // Open to the right
+        menu.addItem((item) => {
+            item
+                .setTitle('Open to the right')
+                .setIcon('separator-vertical')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: domainUrl, navigate: true }
+                    });
+                    this.view.app.workspace.revealLeaf(leaf);
+                });
+        });
+
+        menu.addSeparator();
+
+        // Copy domain URL
+        menu.addItem((item) => {
+            item
+                .setTitle('Copy URL')
+                .setIcon('copy')
+                .onClick(() => {
+                    navigator.clipboard.writeText(domainUrl);
+                });
+        });
+
+        menu.showAtMouseEvent(event);
+    }
+
+    /**
+     * Show context menu for a subreddit group (Subreddit notes explorer)
+     */
+    showSubredditContextMenu(event: MouseEvent, subreddit: string): void {
+        event.preventDefault();
+        const menu = new Menu();
+
+        // subreddit is already in format "r/subredditName"
+        const subredditUrl = `https://reddit.com/${subreddit}`;
+
+        // Open subreddit
+        menu.addItem((item) => {
+            item
+                .setTitle(`Open ${subreddit}`)
+                .setIcon('globe')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.getLeaf('tab');
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: subredditUrl, navigate: true }
+                    });
+                    this.view.app.workspace.revealLeaf(leaf);
+                });
+        });
+
+        // Open in new window
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in new window')
+                .setIcon('picture-in-picture-2')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.openPopoutLeaf();
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: subredditUrl, navigate: true }
+                    });
+                });
+        });
+
+        // Open to the right
+        menu.addItem((item) => {
+            item
+                .setTitle('Open to the right')
+                .setIcon('separator-vertical')
+                .onClick(async () => {
+                    const leaf = this.view.app.workspace.getLeaf('split', 'vertical');
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: subredditUrl, navigate: true }
+                    });
+                    this.view.app.workspace.revealLeaf(leaf);
+                });
+        });
+
+        menu.addSeparator();
+
+        // Copy subreddit URL
+        menu.addItem((item) => {
+            item
+                .setTitle('Copy URL')
+                .setIcon('copy')
+                .onClick(() => {
+                    navigator.clipboard.writeText(subredditUrl);
+                });
+        });
+
+        menu.showAtMouseEvent(event);
+    }
 }

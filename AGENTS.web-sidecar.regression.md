@@ -114,32 +114,33 @@ newTabBtn.after(virtualSection);         // Virtual section after button
 
 ---
 
-## Tab Sync Delay Regression
+## Tab Sync Delay Regression (Virtual Tabs & Aux Links)
 
-New tabs don't appear immediately in the sidecar after creation.
+New tabs (specifically from virtual tabs, domain links, or subreddit links) don't appear immediately in the sidecar after creation.
 
 ### The Problem
-When clicking "New web viewer", the UI doesn't show the new tab until clicking again.
+When clicking a virtual tab or "New web viewer", the UI doesn't show the new tab until clicking again or waiting for a poll cycle.
 
 ### Why It Happens
-Obsidian's workspace doesn't immediately register new leaves. A single refresh call happens before the leaf exists.
+Obsidian's workspace doesn't immediately register new leaves. A single refresh call happens before the leaf exists or is fully registered.
+Additionally, manual `setViewState` calls in event handlers (in `BrowserTabItemRenderer` or `SectionRenderer`) bypassed the centralized refresh logic.
 
 ### The Fix
-Use dual refresh pattern:
+1.  **Use `openUrlSmartly`**: Always use the service method instead of manually creating leaves in click handlers.
+    *   Virtual Tabs (`BrowserTabItemRenderer`)
+    *   Domain/Subreddit Links (`SectionRenderer`)
+2.  **Dual Refresh Pattern**: Use immediate refresh + delayed refresh.
 
 ```typescript
-// NavigationService.ts - openNewWebViewer()
-async openNewWebViewer(): Promise<void> {
-    this.isManualRefreshCallback(true);
-    const leaf = this.app.workspace.getLeaf('tab');
-    await leaf.setViewState({ type: 'webviewer', state: { url: 'about:blank', navigate: true } });
-    this.app.workspace.revealLeaf(leaf);
-    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+// NavigationService.ts
+async openUrlSmartly(url: string, e: MouseEvent): Promise<void> {
+    // ... open logic ...
     
-    // CRITICAL: Immediate refresh THEN delayed refresh
+    // CRITICAL: Immediate refresh
     this.isManualRefreshCallback(true);
     this.onRefreshCallback();
-    
+
+    // Delayed refresh to catch late registration
     await new Promise(resolve => setTimeout(resolve, 100));
     this.isManualRefreshCallback(true);
     this.onRefreshCallback();
@@ -147,6 +148,7 @@ async openNewWebViewer(): Promise<void> {
 ```
 
 ### Checklist
+- [ ] Are click handlers calling `openUrlSmartly` instead of `setViewState` directly?
 - [ ] Is `setActiveLeaf` being called after reveal?
 - [ ] Is there an immediate refresh BEFORE the delay?
 - [ ] Is there a second refresh AFTER a 100ms delay?

@@ -660,7 +660,6 @@
 
 /* Recent web notes collapsible section */
 .web-sidecar-recent-section {
-  margin-top: 12px;
   border-top: 1px solid var(--background-modifier-border);
 }
 
@@ -807,6 +806,36 @@
   margin-top: 2px;
 }
 
+/* Group link button (external link icon) for domain/subreddit rows */
+.web-sidecar-group-link-btn {
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: var(--radius-s);
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-sidecar-group-link-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.web-sidecar-domain-row:hover .web-sidecar-group-link-btn {
+  opacity: 1;
+}
+
+.web-sidecar-group-link-btn:hover {
+  color: var(--text-accent);
+  background-color: var(--background-modifier-hover);
+}
+
 /* ============================================
    VIRTUAL TAB STYLES (from open notes with URLs)
    ============================================ */
@@ -927,4 +956,35 @@
 .web-sidecar-browser-tab.drag-over {
   border-top: 2px solid var(--interactive-accent);
   margin-top: -2px;
+}
+
+/* Auxiliary sections container */
+.web-sidecar-aux-sections {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+/* First section doesn't need top border since container provides separation */
+.web-sidecar-aux-sections>.web-sidecar-aux-section:first-child {
+  border-top: none;
+}
+
+/* Auxiliary section dragging */
+.web-sidecar-aux-section.is-dragging {
+  opacity: 0.5;
+}
+
+.web-sidecar-aux-section.drag-over {
+  border-top: 2px solid var(--interactive-accent);
+  margin-top: -2px;
+}
+
+/* Make section summaries show grab cursor */
+.web-sidecar-aux-section>summary {
+  cursor: grab;
+}
+
+.web-sidecar-aux-section>summary:active {
+  cursor: grabbing;
 }

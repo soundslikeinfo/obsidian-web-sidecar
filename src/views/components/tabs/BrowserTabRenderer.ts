@@ -218,12 +218,8 @@ export class BrowserTabRenderer {
             virtualSection.remove(); // Remove section if no virtual tabs
         }
 
-        // "Recent web notes" collapsible section at bottom - remove and re-add to preserve order
-        let recentSection = container.querySelector('.web-sidecar-recent-section') as HTMLElement;
-        if (recentSection) {
-            recentSection.remove();
-        }
-        this.sectionRenderer.renderRecentWebNotesSection(container);
+        // Auxiliary sections (Recent, Domain, Subreddit) - rendered in user-configured order
+        this.sectionRenderer.renderAuxiliarySections(container);
     }
 
     private getGroupedTabs(tabs: TrackedWebViewer[]): Array<{ primary: TrackedWebViewer; all: TrackedWebViewer[]; hasPopout: boolean }> {
