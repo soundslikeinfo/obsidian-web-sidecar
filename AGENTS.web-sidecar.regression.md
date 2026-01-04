@@ -176,3 +176,61 @@ newViewerBtn.onclick = () => this.openNewWebViewer();
 - [ ] Is the plus button being created in `createNavHeader()`?
 - [ ] Is it positioned BEFORE (leftmost) the expand/collapse button?
 - [ ] Does clicking it call `openNewWebViewer()`?
+
+---
+
+## Missing Auxiliary Sections on Reload
+
+**Symptom:** Auxiliary sections (Recent, Domains, etc.) are empty/missing when Obsidian first loads, but appear if you modify a file or manually refresh.
+
+**Cause:** `UrlIndex` initializes synchronously in code but `getAllFilesWithUrls()` returns empty because initialization depends on scanning the vault which might happen after the view's first render. The view `onOpen` runs before the index is populated.
+
+**Fix:**
+1. `UrlIndex` must be an event emitter (`extends Events`).
+2. `UrlIndex` must emit an event (e.g., `'index-updated'`) when it finishes its initial scan and whenever files update.
+3. The main `WebSidecarPlugin` must listen for this event and trigger `refreshState()`.
+
+```typescript
+// services/UrlIndex.ts
+updateFileIndex(...) {
+   // ... update logic
+   if (hasChanges && !suppressEvent) this.trigger('index-updated');
+}
+rebuildIndex() {
+   // ... loop
+   this.trigger('index-updated');
+}
+
+// main.ts
+this.urlIndex.on('index-updated', () => {
+     this.tabStateService.refreshState();
+});
+```
+
+---
+
+## Infinite Refresh Loop (Expand/Collapse & Toggle)
+
+**Symptom:** Clicking "Expand All", toggling a section, or sorting causes the UI to flicker, revert state (expand -> collapse -> expand), or hang the browser (Violation: handler took 400ms+).
+
+**Cause:**
+1. State setters (e.g. `setDomainGroupOpen`) called `this.saveSettings()`.
+2. `saveSettings()` in `main.ts` was implemented to call `await this.saveData(...)` AND THEN `this.urlIndex.rebuildIndex()` AND `this.tabStateService.refreshState()`.
+3. This creates a cycle: specific interaction -> save -> GLOBAL REBUILD -> refresh -> re-render.
+4. The global rebuild is expensive and unnecessary for valid UI state changes (which don't change data).
+5. The re-render destroys the DOM element that triggered the event, confusing the browser or causing double-invocations.
+
+**Fix:**
+Pass a lightweight save callback to the View that *only* writes to disk, avoiding the heavy rebuild/refresh cycle for pure UI state changes.
+
+```typescript
+// main.ts
+this.view = new WebSidecarView(
+    // ...
+    async () => { await this.saveData(this.settings); } // LIGHTWEIGHT CALLBACK
+);
+```
+
+**Checklist:**
+- [ ] Does `WebSidecarView` use a lightweight save callback?
+- [ ] Are `onRefresh()` calls removed from simple toggle setters (letting CSS/details element handle it)?

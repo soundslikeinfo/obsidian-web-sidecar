@@ -44,6 +44,11 @@ export default class WebSidecarPlugin extends Plugin {
 		this.webViewerManager = new WebViewerManager(this.app, () => this.settings, this.urlIndex);
 		this.webViewerManager.initialize();
 
+		// Listen for index updates to refresh view (fixes missing aux sections on load)
+		this.urlIndex.on('index-updated', () => {
+			this.tabStateService.refreshState();
+		});
+
 		// 2. Register View
 		this.registerView(
 			VIEW_TYPE_WEB_SIDECAR,
@@ -55,7 +60,7 @@ export default class WebSidecarPlugin extends Plugin {
 					() => this.tabStateService.getTrackedTabs(),
 					() => this.tabStateService.getVirtualTabs(),
 					this.urlIndex,
-					() => this.saveSettings() // saveSettings callback
+					async () => { await this.saveData(this.settings); } // saveSettings callback - LIGHTWEIGHT (no rebuild/refresh)
 				);
 				return this.view;
 			}
@@ -124,6 +129,14 @@ export default class WebSidecarPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+		// Migration: Ensure new sections are in sectionOrder
+		const allSections = ['recent', 'domain', 'subreddit', 'tag', 'selected-tag'];
+		for (const sec of allSections) {
+			if (!this.settings.sectionOrder.includes(sec)) {
+				this.settings.sectionOrder.push(sec);
+			}
+		}
 	}
 
 	async saveSettings(): Promise<void> {

@@ -1,9 +1,8 @@
-
-import { App, TFile, EventRef } from 'obsidian';
+import { App, TFile, EventRef, Events } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 import { extractDomain, isValidUrl } from './urlUtils';
 
-export class UrlIndex {
+export class UrlIndex extends Events {
     private app: App;
     private getSettings: () => WebSidecarSettings;
     private urlToFiles: Map<string, Set<TFile>> = new Map();
@@ -14,6 +13,7 @@ export class UrlIndex {
     private listeners: EventRef[] = [];
 
     constructor(app: App, getSettings: () => WebSidecarSettings) {
+        super();
         this.app = app;
         this.getSettings = getSettings;
     }
@@ -31,6 +31,7 @@ export class UrlIndex {
         const deleteRef = this.app.vault.on('delete', (file) => {
             if (file instanceof TFile && file.extension === 'md') {
                 this.removeFileFromIndex(file);
+                this.trigger('index-updated');
             }
         });
         this.listeners.push(deleteRef);
@@ -44,6 +45,7 @@ export class UrlIndex {
                 if (urls) {
                     this.fileToUrls.delete(oldPath);
                     this.fileToUrls.set(file.path, urls);
+                    this.trigger('index-updated');
                 }
             }
         });
@@ -52,11 +54,7 @@ export class UrlIndex {
 
     destroy(): void {
         this.listeners.forEach(ref => this.app.metadataCache.offref(ref));
-        this.listeners.forEach(ref => this.app.vault.offref(ref)); // vault.offref is not standard? vault.off(name, cb)
-        // Actually App.vault returns Vault which extends Events. Events has offref? 
-        // Checking types definitions usually Events has offref.
-        // But simpler to just use this.app.metadataCache.offref and check if vault has it.
-        // Safe way:
+        this.listeners.forEach(ref => this.app.vault.offref(ref));
         this.urlToFiles.clear();
         this.domainToFiles.clear();
         this.fileToUrls.clear();
@@ -66,18 +64,6 @@ export class UrlIndex {
      * Get files referencing this URL exactly
      */
     getFilesForUrl(url: string): TFile[] {
-        // Normalize? We rely on normalized storage.
-        // But caller might pass raw URL.
-        // We should normalize input if we normalize storage.
-        // Let's match exact string for now, assuming storage is raw or we normalize everywhere.
-        // Better to normalize. 
-        // noteMatcher used normalized checks.
-
-        // Actually, noteMatcher checked frontmatter values.
-        // Ideally we should index normalized values if we want fuzzy match.
-        // Or index raw values and do normalization during lookup? No, lookup should be fast.
-
-        // Let's just index exact values from frontmatter.
         const files = this.urlToFiles.get(url);
         return files ? Array.from(files) : [];
     }
@@ -114,59 +100,68 @@ export class UrlIndex {
 
         const files = this.app.vault.getMarkdownFiles();
         for (const file of files) {
-            this.updateFileIndex(file);
+            this.updateFileIndex(file, true); // suppress event during loop
         }
+        this.trigger('index-updated');
     }
 
     /**
      * Update index for a single file
      */
-    updateFileIndex(file: TFile): void {
+    updateFileIndex(file: TFile, suppressEvent = false): void {
         // 1. Clear existing entries for this file
         this.removeFileFromIndex(file);
 
         // 2. Parse new frontmatter
         const cache = this.app.metadataCache.getFileCache(file);
         const frontmatter = cache?.frontmatter;
-        if (!frontmatter) return;
 
-        const settings = this.getSettings();
-        const foundUrls = new Set<string>();
+        let hasChanges = false;
 
-        for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
-            if (!propValue) continue;
+        if (frontmatter) {
+            const settings = this.getSettings();
+            const foundUrls = new Set<string>();
 
-            // Handle string or array of strings
-            const urls = Array.isArray(propValue) ? propValue : [propValue];
+            for (const propName of settings.urlPropertyFields) {
+                const propValue = frontmatter[propName];
+                if (!propValue) continue;
 
-            for (const rawUrl of urls) {
-                if (typeof rawUrl === 'string' && isValidUrl(rawUrl)) {
-                    foundUrls.add(rawUrl);
+                // Handle string or array of strings
+                const urls = Array.isArray(propValue) ? propValue : [propValue];
+
+                for (const rawUrl of urls) {
+                    if (typeof rawUrl === 'string' && isValidUrl(rawUrl)) {
+                        foundUrls.add(rawUrl);
+                    }
                 }
+            }
+
+            // 3. Add to indices
+            if (foundUrls.size > 0) {
+                this.fileToUrls.set(file.path, foundUrls);
+
+                for (const url of foundUrls) {
+                    // Index by URL
+                    if (!this.urlToFiles.has(url)) {
+                        this.urlToFiles.set(url, new Set());
+                    }
+                    this.urlToFiles.get(url)!.add(file);
+
+                    // Index by Domain
+                    const domain = extractDomain(url);
+                    if (domain) {
+                        if (!this.domainToFiles.has(domain)) {
+                            this.domainToFiles.set(domain, new Set());
+                        }
+                        this.domainToFiles.get(domain)!.add(file);
+                    }
+                }
+                hasChanges = true;
             }
         }
 
-        // 3. Add to indices
-        if (foundUrls.size > 0) {
-            this.fileToUrls.set(file.path, foundUrls);
-
-            for (const url of foundUrls) {
-                // Index by URL
-                if (!this.urlToFiles.has(url)) {
-                    this.urlToFiles.set(url, new Set());
-                }
-                this.urlToFiles.get(url)!.add(file);
-
-                // Index by Domain
-                const domain = extractDomain(url);
-                if (domain) {
-                    if (!this.domainToFiles.has(domain)) {
-                        this.domainToFiles.set(domain, new Set());
-                    }
-                    this.domainToFiles.get(domain)!.add(file);
-                }
-            }
+        if (hasChanges && !suppressEvent) {
+            this.trigger('index-updated');
         }
     }
 
@@ -174,12 +169,6 @@ export class UrlIndex {
      * Remove file from all indices
      */
     removeFileFromIndex(file: TFile): void {
-        // Use reverse index to find what URLs this file had
-        // We use path because TFile content might have changed but path is key in fileToUrls
-        // Wait, updateFileIndex calls this with the file that *just changed*.
-        // So `this.fileToUrls.get(file.path)` returns the *old* URLs (from previous indexing).
-        // This is correct: remove old entries before adding new ones.
-
         const urls = this.fileToUrls.get(file.path);
         if (!urls) return;
 

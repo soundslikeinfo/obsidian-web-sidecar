@@ -313,125 +313,127 @@ export class NavigationService {
             const newNoteLeaf = this.app.workspace.getLeaf('tab');
             await newNoteLeaf.openFile(file);
         }
-        const newNoteLeaf = this.app.workspace.getLeaf('tab');
-        await newNoteLeaf.openFile(file);
-    }
+        // Remove these redundant lines
+        // const newNoteLeaf = this.app.workspace.getLeaf('tab');
+        // await newNoteLeaf.openFile(file);
 
         // CRITICAL: Immediate refresh THEN delayed refresh
         this.isManualRefreshCallback(true);
-this.onRefreshCallback();
+        this.onRefreshCallback();
 
-// Second refresh after Obsidian fully registers the leaf
-await new Promise(resolve => setTimeout(resolve, 100));
-this.isManualRefreshCallback(true);
-this.onRefreshCallback();
+        // Second refresh after Obsidian fully registers the leaf
+        await new Promise(resolve => setTimeout(resolve, 100));
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
     }
 
-/**
- * Close a specific leaf by ID
- */
-closeLeaf(leafId: string): void {
-    // We need to find it again using the loose matching or stored ID
-    const leaves = this.app.workspace.getLeavesOfType('webviewer')
-        .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+    /**
+     * Close a specific leaf by ID
+     */
+    closeLeaf(leafId: string): void {
+        // We need to find it again using the loose matching or stored ID
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
-    for(const leaf of leaves) {
-        const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
-        if (id === leafId) {
-            leaf.detach();
-            return;
+        for (const leaf of leaves) {
+            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            if (id === leafId) {
+                leaf.detach();
+                // break; // Don't return, we need to refresh
+            }
         }
-    }
+
         // Fallback: try getLeafById if it works with internal IDs
         const leaf = this.app.workspace.getLeafById(leafId);
-    if(leaf) {
-        leaf.detach();
-    }
-        this.isManualRefreshCallback(true);
-    this.onRefreshCallback();
-
-    // Delayed refresh to ensure UI catches up
-    setTimeout(() => {
-    this.isManualRefreshCallback(true);
-    this.onRefreshCallback();
-}, 100);
-    }
-
-/**
- * Close all web viewer leaves for a specific URL
- */
-closeAllLeavesForUrl(url: string): void {
-    const leaves = this.app.workspace.getLeavesOfType('webviewer')
-        .concat(this.app.workspace.getLeavesOfType('surfing-view'));
-
-    for(const leaf of leaves) {
-        const state = leaf.view.getState();
-        if (state?.url === url) {
+        if (leaf) {
             leaf.detach();
         }
-    }
+
         this.isManualRefreshCallback(true);
-    this.onRefreshCallback();
+        this.onRefreshCallback();
 
-    // Delayed refresh to ensure UI catches up
-    setTimeout(() => {
-    this.isManualRefreshCallback(true);
-    this.onRefreshCallback();
-}, 100);
+        // Delayed refresh to ensure UI catches up
+        setTimeout(() => {
+            this.isManualRefreshCallback(true);
+            this.onRefreshCallback();
+        }, 100);
     }
 
-/**
- * Close all linked note leaves for a URL
- */
-closeLinkedNoteLeaves(url: string): void {
-    const matches = findMatchingNotes(this.app, url, this.getSettings(), this.urlIndex);
-    const allMatches = [...matches.exactMatches, ...matches.tldMatches];
+    /**
+     * Close all web viewer leaves for a specific URL
+     */
+    closeAllLeavesForUrl(url: string): void {
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
-    if(matches.subredditMatches) {
-    matches.subredditMatches.forEach(notes => allMatches.push(...notes));
-}
+        for (const leaf of leaves) {
+            const state = leaf.view.getState();
+            if (state?.url === url) {
+                leaf.detach();
+            }
+        }
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
 
-if (allMatches.length === 0) return;
-
-const filePaths = new Set(allMatches.map(m => m.file.path));
-const leaves = this.app.workspace.getLeavesOfType('markdown');
-
-for (const leaf of leaves) {
-    const file = (leaf.view as any).file;
-    if (file && filePaths.has(file.path)) {
-        leaf.detach();
+        // Delayed refresh to ensure UI catches up
+        setTimeout(() => {
+            this.isManualRefreshCallback(true);
+            this.onRefreshCallback();
+        }, 100);
     }
-}
-this.isManualRefreshCallback(true);
-this.onRefreshCallback();
 
-// Delayed refresh to ensure UI catches up
-setTimeout(() => {
-    this.isManualRefreshCallback(true);
-    this.onRefreshCallback();
-}, 100);
+    /**
+     * Close all linked note leaves for a URL
+     */
+    closeLinkedNoteLeaves(url: string): void {
+        const matches = findMatchingNotes(this.app, url, this.getSettings(), this.urlIndex);
+        const allMatches = [...matches.exactMatches, ...matches.tldMatches];
+
+        if (matches.subredditMatches) {
+            matches.subredditMatches.forEach(notes => allMatches.push(...notes));
+        }
+
+        if (allMatches.length === 0) return;
+
+        const filePaths = new Set(allMatches.map(m => m.file.path));
+        const leaves = this.app.workspace.getLeavesOfType('markdown');
+
+        for (const leaf of leaves) {
+            const file = (leaf.view as any).file;
+            if (file && filePaths.has(file.path)) {
+                leaf.detach();
+            }
+        }
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
+
+        // Delayed refresh to ensure UI catches up
+        setTimeout(() => {
+            this.isManualRefreshCallback(true);
+            this.onRefreshCallback();
+        }, 100);
     }
 
     /**
      * Open a URL - focus existing tab if already open, otherwise create new
      */
-    private async openUrlInWebViewer(url: string): Promise < void> {
-    const leaves = this.app.workspace.getLeavesOfType('webviewer')
-        .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+    private async openUrlInWebViewer(url: string): Promise<void> {
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
-    for(const leaf of leaves) {
-        const state = leaf.view.getState();
-        if (state?.url === url) {
-            this.app.workspace.revealLeaf(leaf);
-            return;
+        for (const leaf of leaves) {
+            const state = leaf.view.getState();
+            if (state?.url === url) {
+                this.app.workspace.revealLeaf(leaf);
+                return;
+            }
         }
-    }
 
         const leaf = this.app.workspace.getLeaf('tab');
-    await leaf.setViewState({
-        type: 'webviewer',
-        state: { url, navigate: true }
-    });
-    this.app.workspace.revealLeaf(leaf);
-}
+        await leaf.setViewState({
+            type: 'webviewer',
+            state: { url, navigate: true }
+        });
+        this.app.workspace.revealLeaf(leaf);
+    }
 }

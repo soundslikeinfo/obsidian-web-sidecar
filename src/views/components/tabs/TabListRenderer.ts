@@ -130,7 +130,8 @@ export class TabListRenderer {
         const domain = extractDomain(tab.url);
 
         // Favicon
-        if (domain) {
+        const isInternal = tab.url.startsWith('about:') || tab.url.startsWith('chrome:') || tab.url.startsWith('obsidian:');
+        if (domain && !isInternal) {
             const favicon = tabHeader.createEl('img', {
                 cls: 'web-sidecar-favicon',
                 attr: {
@@ -277,7 +278,9 @@ export class TabListRenderer {
         const domain = extractDomain(virtualTab.url);
 
         const faviconContainer = tabHeader.createDiv({ cls: 'web-sidecar-browser-favicon' });
-        if (domain) {
+        const isInternal = virtualTab.url.startsWith('about:') || virtualTab.url.startsWith('chrome:') || virtualTab.url.startsWith('obsidian:');
+
+        if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
                     src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,

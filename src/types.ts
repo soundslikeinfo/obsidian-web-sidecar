@@ -56,6 +56,19 @@ export interface IWebSidecarView {
 
     isManualRefresh: boolean;
     setManualRefresh(manual: boolean): void;
+
+    // Tag Grouping State
+    tagSort: 'alpha' | 'count' | 'recent';
+    setTagSort(sort: 'alpha' | 'count' | 'recent'): void;
+
+    selectedTagSort: 'alpha' | 'count' | 'recent';
+    setSelectedTagSort(sort: 'alpha' | 'count' | 'recent'): void;
+
+    isTagGroupOpen: boolean;
+    setTagGroupOpen(open: boolean): void;
+
+    isSelectedTagGroupOpen: boolean;
+    setSelectedTagGroupOpen(open: boolean): void;
 }
 
 /**
@@ -104,6 +117,25 @@ export interface WebSidecarSettings {
     domainSortOrder: 'alpha' | 'count' | 'recent';
     /** Sort order for subreddit explorer section */
     subredditSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable grouping all web notes by tags */
+    enableTagGrouping: boolean;
+    /** Enable grouping web notes by selected tags */
+    enableSelectedTagGrouping: boolean;
+    /** Comma-separated list of tags to include in the selected tag group */
+    selectedTagsAllowlist: string;
+    /** Sort order for tag grouping section */
+    tagSortOrder: 'alpha' | 'count' | 'recent';
+    /** Sort order for selected tag grouping section */
+    selectedTagSortOrder: 'alpha' | 'count' | 'recent';
+
+    // UI Persistence
+    isRecentNotesOpen: boolean;
+    isDomainGroupOpen: boolean;
+    isSubredditExplorerOpen: boolean;
+    isTagGroupOpen: boolean;
+    isSelectedTagGroupOpen: boolean;
+    /** JSON string of Set<string> for expanded groups */
+    expandedGroupIds: string[];
 }
 
 /**
@@ -143,9 +175,22 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
-    sectionOrder: ['recent', 'domain', 'subreddit'],
+    sectionOrder: ['recent', 'domain', 'subreddit', 'tag', 'selected-tag'],
     domainSortOrder: 'alpha',
     subredditSortOrder: 'alpha',
+    enableTagGrouping: false,
+    enableSelectedTagGrouping: false,
+    selectedTagsAllowlist: '',
+    tagSortOrder: 'alpha',
+    selectedTagSortOrder: 'alpha',
+
+    // UI Persistence Defaults
+    isRecentNotesOpen: false,
+    isDomainGroupOpen: false,
+    isSubredditExplorerOpen: false,
+    isTagGroupOpen: false,
+    isSelectedTagGroupOpen: false,
+    expandedGroupIds: [],
 };
 
 /**

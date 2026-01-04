@@ -18,10 +18,14 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Interface implementation properties
     settings: WebSidecarSettings;
     subredditSort: 'alpha' | 'count' = 'alpha';
-    domainSort: 'alpha' | 'count' = 'alpha';
+    domainSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    tagSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    selectedTagSort: 'alpha' | 'count' | 'recent' = 'alpha';
     isSubredditExplorerOpen: boolean = false;
     isDomainGroupOpen: boolean = false;
     isRecentNotesOpen: boolean = false;
+    isTagGroupOpen: boolean = false;
+    isSelectedTagGroupOpen: boolean = false;
     expandedGroupIds: Set<string> = new Set();
     isManualRefresh: boolean = false;
     urlIndex: UrlIndex;
@@ -104,6 +108,14 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();
 
+        // Restore UI state from settings
+        this.isRecentNotesOpen = this.settings.isRecentNotesOpen;
+        this.isDomainGroupOpen = this.settings.isDomainGroupOpen;
+        this.isSubredditExplorerOpen = this.settings.isSubredditExplorerOpen;
+        this.isTagGroupOpen = this.settings.isTagGroupOpen;
+        this.isSelectedTagGroupOpen = this.settings.isSelectedTagGroupOpen;
+        this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
+
         // Create nav-header toolbar
         this.createNavHeader();
 
@@ -138,15 +150,24 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * nav-header is SIBLING of contentEl (view-content), not a child
      */
     private createNavHeader(): void {
-        // Check if our nav-header already exists at containerEl level
-        if (this.containerEl.querySelector(':scope > .nav-header.web-sidecar-toolbar')) return;
-
-        // contentEl is view-content, we insert nav-header BEFORE it as sibling
         const contentEl = this.contentEl;
         if (!contentEl) return;
 
+        // Check if our nav-header already exists
+        let navHeader = this.containerEl.querySelector(':scope > .nav-header.web-sidecar-toolbar') as HTMLElement;
+
+        // Ensure button state is synced even if header exists
+        if (navHeader) {
+            const expandBtn = navHeader.querySelector('.nav-action-button[aria-label="Expand all"], .nav-action-button[aria-label="Collapse all"]') as HTMLElement;
+            if (expandBtn) {
+                setIcon(expandBtn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
+                expandBtn.setAttribute('aria-label', this.allExpanded ? 'Collapse all' : 'Expand all');
+            }
+            return;
+        }
+
         // Create nav-header
-        const navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
+        navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
         const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
 
         // New Web Viewer button (leftmost)
@@ -160,9 +181,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Expand/Collapse button
         const expandBtn = buttonContainer.createEl('div', {
             cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': 'Expand all' }
+            attr: { 'aria-label': this.allExpanded ? 'Collapse all' : 'Expand all' }
         });
-        setIcon(expandBtn, 'unfold-vertical');
+        setIcon(expandBtn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
         expandBtn.onclick = () => this.handleExpandToggle(expandBtn);
 
         // Sort button - cycles through: focus -> title -> manual -> focus
@@ -227,45 +248,32 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     private handleExpandToggle(btn: HTMLElement): void {
         this.allExpanded = !this.allExpanded;
-
-        // Use contentEl directly (not children[1] which may be nav-header)
-        const contentEl = this.contentEl;
-        if (!contentEl) return;
+        const newState = this.allExpanded;
 
         // Update button icon
         setIcon(btn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
         btn.setAttribute('aria-label', this.allExpanded ? 'Collapse all' : 'Expand all');
 
-        // Toggle tab notes containers
-        contentEl.querySelectorAll('.web-sidecar-browser-notes').forEach(el => {
-            if (this.allExpanded) {
-                el.removeClass('hidden');
-            } else {
-                el.addClass('hidden');
-            }
-        });
+        // Update state tracking & settings
+        this.isRecentNotesOpen = newState;
+        this.settings.isRecentNotesOpen = newState;
 
-        // Toggle expand button icons
-        contentEl.querySelectorAll('.web-sidecar-expand-btn').forEach(expandBtn => {
-            expandBtn.empty();
-            setIcon(expandBtn as HTMLElement, this.allExpanded ? 'chevron-down' : 'chevron-right');
-        });
+        this.isDomainGroupOpen = newState;
+        this.settings.isDomainGroupOpen = newState;
 
-        // Toggle all details sections
-        contentEl.querySelectorAll('details').forEach(details => {
-            if (this.allExpanded) {
-                details.setAttribute('open', '');
-            } else {
-                details.removeAttribute('open');
-            }
-        });
+        this.isSubredditExplorerOpen = newState;
+        this.settings.isSubredditExplorerOpen = newState;
 
-        // Update state tracking
-        this.setRecentNotesOpen(this.allExpanded);
-        this.setDomainGroupOpen(this.allExpanded);
-        this.setSubredditExplorerOpen(this.allExpanded);
+        this.isTagGroupOpen = newState;
+        this.settings.isTagGroupOpen = newState;
 
-        // Force re-render to populate content
+        this.isSelectedTagGroupOpen = newState;
+        this.settings.isSelectedTagGroupOpen = newState;
+
+        // Persist changes
+        this.saveSettingsFn();
+
+        // Force re-render to populate content with new state
         this.isManualRefresh = true;
         this.onRefresh();
     }
@@ -303,23 +311,47 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.subredditSort = sort;
     }
 
-    setDomainSort(sort: 'alpha' | 'count'): void {
+    setDomainSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.domainSort = sort;
+    }
+
+    setTagSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.tagSort = sort;
+    }
+
+    setSelectedTagSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.selectedTagSort = sort;
     }
 
     setSubredditExplorerOpen(open: boolean): void {
         this.isSubredditExplorerOpen = open;
-        this.onRefresh();
+        this.settings.isSubredditExplorerOpen = open;
+        this.saveSettingsFn();
     }
 
     setDomainGroupOpen(open: boolean): void {
         this.isDomainGroupOpen = open;
-        this.onRefresh();
+        this.settings.isDomainGroupOpen = open;
+        this.saveSettingsFn();
     }
 
     setRecentNotesOpen(open: boolean): void {
         this.isRecentNotesOpen = open;
+        this.settings.isRecentNotesOpen = open;
+        this.saveSettingsFn();
         // No auto-refresh needed here, as it's just state tracking for next render
+    }
+
+    setTagGroupOpen(open: boolean): void {
+        this.isTagGroupOpen = open;
+        this.settings.isTagGroupOpen = open;
+        this.saveSettingsFn();
+    }
+
+    setSelectedTagGroupOpen(open: boolean): void {
+        this.isSelectedTagGroupOpen = open;
+        this.settings.isSelectedTagGroupOpen = open;
+        this.saveSettingsFn();
     }
 
     setGroupExpanded(id: string, expanded: boolean): void {
@@ -328,6 +360,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         } else {
             this.expandedGroupIds.delete(id);
         }
+        this.settings.expandedGroupIds = Array.from(this.expandedGroupIds);
+        this.saveSettingsFn();
         // No auto-refresh needed here
     }
 

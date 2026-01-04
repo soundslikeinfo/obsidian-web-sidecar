@@ -160,6 +160,45 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// Tag Rules Section
+		containerEl.createEl('h3', { text: 'Tag Rules' });
+
+		new Setting(containerEl)
+			.setName('Group all web notes by tags')
+			.setDesc('Add new section of notes grouped by their tags')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableTagGrouping)
+				.onChange(async (value) => {
+					this.plugin.settings.enableTagGrouping = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Group web notes from selected tags')
+			.setDesc('Add new section of notes grouped by specific tags')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSelectedTagGrouping)
+				.onChange(async (value) => {
+					this.plugin.settings.enableSelectedTagGrouping = value;
+					await this.plugin.saveSettings();
+					// Re-render to show/hide allowlist
+					this.display();
+				}));
+
+		if (this.plugin.settings.enableSelectedTagGrouping) {
+			new Setting(containerEl)
+				.setName('Selected tags allowlist')
+				.setDesc('Enter tags to group by, separated by commas (e.g. #todo, #research)')
+				.setClass('web-sidecar-sub-setting')
+				.addText(text => text
+					.setPlaceholder('#todo, #research')
+					.setValue(this.plugin.settings.selectedTagsAllowlist)
+					.onChange(async (value) => {
+						this.plugin.settings.selectedTagsAllowlist = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
 		// Experimental Section
 		containerEl.createEl('h3', { text: 'Experimental' });
 

@@ -49,7 +49,10 @@ export class BrowserTabItemRenderer {
 
         // Favicon (Same styling as browser tab)
         const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
-        if (domain) {
+        // Skip favicon for internal pages
+        const isInternal = virtualTab.url.startsWith('about:') || virtualTab.url.startsWith('chrome:') || virtualTab.url.startsWith('obsidian:');
+
+        if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
                     src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
@@ -305,7 +308,10 @@ export class BrowserTabItemRenderer {
 
         // Favicon
         const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
-        if (domain) {
+        // Skip favicon for internal pages
+        const isInternal = tab.url.startsWith('about:') || tab.url.startsWith('chrome:') || tab.url.startsWith('obsidian:');
+
+        if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
                     src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,

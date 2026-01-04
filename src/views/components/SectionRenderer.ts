@@ -1,7 +1,7 @@
 
 import { setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
-import { getRecentNotesWithUrls, getAllRedditNotes, extractSubreddit } from '../../services/noteMatcher';
+import { getRecentNotesWithUrls, getAllRedditNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
 import { IWebSidecarView } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
 import { ContextMenus } from './ContextMenus';
@@ -171,6 +171,16 @@ export class SectionRenderer {
                 case 'subreddit':
                     if (this.view.settings.enableSubredditExplorer) {
                         this.renderSubredditExplorerSection(auxContainer);
+                    }
+                    break;
+                case 'tag':
+                    if (this.view.settings.enableTagGrouping) {
+                        this.renderTagGroupingSection(auxContainer);
+                    }
+                    break;
+                case 'selected-tag':
+                    if (this.view.settings.enableSelectedTagGrouping) {
+                        this.renderSelectedTagGroupingSection(auxContainer);
                     }
                     break;
             }
@@ -358,10 +368,12 @@ export class SectionRenderer {
             attr: { 'aria-label': `Open ${subreddit}` }
         });
         setIcon(linkBtn, 'external-link');
-        e.preventDefault();
-        e.stopPropagation();
-        const subredditUrl = `https://reddit.com/${subreddit}`;
-        await this.view.openUrlSmartly(subredditUrl, e as any); // cast to any/MouseEvent
+        linkBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const subredditUrl = `https://reddit.com/${subreddit}`;
+            await this.view.openUrlSmartly(subredditUrl, e as any);
+        };
 
         summary.createSpan({
             text: notes.length.toString(),
@@ -517,18 +529,26 @@ export class SectionRenderer {
 
         // Favicon
         const faviconContainer = domainSummary.createDiv({ cls: 'web-sidecar-domain-favicon' });
-        const favicon = faviconContainer.createEl('img', {
-            attr: {
-                src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
-                alt: '',
-                width: '14',
-                height: '14'
-            }
-        });
-        favicon.onerror = () => {
-            faviconContainer.empty();
+
+        // Skip favicon for internal "domains"
+        const isInternal = domain === 'about' || domain === 'chrome' || domain === 'obsidian';
+
+        if (!isInternal) {
+            const favicon = faviconContainer.createEl('img', {
+                attr: {
+                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    alt: '',
+                    width: '14',
+                    height: '14'
+                }
+            });
+            favicon.onerror = () => {
+                faviconContainer.empty();
+                setIcon(faviconContainer, 'globe');
+            };
+        } else {
             setIcon(faviconContainer, 'globe');
-        };
+        }
 
         // Domain name
         domainSummary.createSpan({ text: domain, cls: 'web-sidecar-domain-name' });
@@ -539,10 +559,12 @@ export class SectionRenderer {
             attr: { 'aria-label': `Open ${domain}` }
         });
         setIcon(linkBtn, 'external-link');
-        e.preventDefault();
-        e.stopPropagation();
-        const domainUrl = `https://${domain}`;
-        await this.view.openUrlSmartly(domainUrl, e as any); // cast to any/MouseEvent
+        linkBtn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const domainUrl = `https://${domain}`;
+            await this.view.openUrlSmartly(domainUrl, e as any);
+        };
 
         // Note count badge
         domainSummary.createSpan({
@@ -559,4 +581,197 @@ export class SectionRenderer {
             this.noteRenderer.renderNoteItem(notesList, note.file, note.url);
         }
     }
+
+    /**
+     * Render "Group all web notes by tags" section
+     */
+    renderTagGroupingSection(container: HTMLElement): void {
+        const tagMap = getNotesGroupedByTags(this.view.app, this.view.settings, this.view.urlIndex);
+        if (tagMap.size === 0) return;
+
+        // Remove existing section
+        const existingSection = container.querySelector('[data-section-id="tag"]');
+        if (existingSection) existingSection.remove();
+
+        const details = container.createEl('details', { cls: 'web-sidecar-tag-section web-sidecar-aux-section' });
+        details.setAttribute('data-section-id', 'tag');
+        details.setAttribute('draggable', 'true');
+
+        this.addSectionDragHandlers(details, 'tag');
+        if (this.view.isTagGroupOpen) {
+            details.setAttribute('open', '');
+        }
+        details.addEventListener('toggle', () => {
+            this.view.setTagGroupOpen(details.hasAttribute('open'));
+        });
+
+        const summary = details.createEl('summary', { cls: 'web-sidecar-domain-summary' });
+        const summaryIcon = summary.createSpan({ cls: 'web-sidecar-domain-icon' });
+        setIcon(summaryIcon, 'tag');
+        summary.createSpan({ text: `Web notes grouped by tags (${tagMap.size})` });
+
+        this.renderSortButton(summary, this.view.tagSort, (sort) => {
+            this.view.setTagSort(sort);
+            this.view.setManualRefresh(true);
+            this.view.onRefresh();
+        });
+
+        const groupList = details.createDiv({ cls: 'web-sidecar-domain-list' });
+        const sortedGroups = this.sortGroups(tagMap, this.view.tagSort);
+
+        for (const [tag, notes] of sortedGroups) {
+            this.renderTagGroup(groupList, tag, notes, 'tag');
+        }
+    }
+
+    /**
+     * Render "Group web notes from selected tags" section
+     */
+    renderSelectedTagGroupingSection(container: HTMLElement): void {
+        const rawList = this.view.settings.selectedTagsAllowlist || '';
+        const allowedTags = new Set(rawList.split(',')
+            .map(t => t.trim())
+            .filter(t => t.length > 0)
+            .map(t => t.startsWith('#') ? t : '#' + t));
+
+        if (allowedTags.size === 0) return;
+
+        const tagMap = getNotesGroupedByTags(this.view.app, this.view.settings, this.view.urlIndex, allowedTags);
+        if (tagMap.size === 0) return;
+
+        // Remove existing section
+        const existingSection = container.querySelector('[data-section-id="selected-tag"]');
+        if (existingSection) existingSection.remove();
+
+        const details = container.createEl('details', { cls: 'web-sidecar-selected-tag-section web-sidecar-aux-section' });
+        details.setAttribute('data-section-id', 'selected-tag');
+        details.setAttribute('draggable', 'true');
+
+        this.addSectionDragHandlers(details, 'selected-tag');
+        if (this.view.isSelectedTagGroupOpen) {
+            details.setAttribute('open', '');
+        }
+        details.addEventListener('toggle', () => {
+            this.view.setSelectedTagGroupOpen(details.hasAttribute('open'));
+        });
+
+        const summary = details.createEl('summary', { cls: 'web-sidecar-domain-summary' });
+        const summaryIcon = summary.createSpan({ cls: 'web-sidecar-domain-icon' });
+        setIcon(summaryIcon, 'list-filter');
+        summary.createSpan({ text: `Web notes from selected tags (${tagMap.size})` });
+
+        this.renderSortButton(summary, this.view.selectedTagSort, (sort) => {
+            this.view.setSelectedTagSort(sort);
+            this.view.setManualRefresh(true);
+            this.view.onRefresh();
+        });
+
+        const groupList = details.createDiv({ cls: 'web-sidecar-domain-list' });
+        const sortedGroups = this.sortGroups(tagMap, this.view.selectedTagSort);
+
+        for (const [tag, notes] of sortedGroups) {
+            // Using same group renderer but maybe different ID prefix to allow separate expansion states
+            this.renderTagGroup(groupList, tag, notes, 'selected-tag');
+        }
+    }
+
+    private renderSortButton(container: HTMLElement, currentSort: string, onSortChange: (sort: 'alpha' | 'count' | 'recent') => void) {
+        const getSortIcon = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'arrow-down-az';
+                case 'count': return 'arrow-down-wide-narrow';
+                case 'recent': return 'clock';
+                default: return 'arrow-down-az';
+            }
+        };
+        const getSortLabel = (sort: string) => {
+            switch (sort) {
+                case 'alpha': return 'Sorted by name';
+                case 'count': return 'Sorted by count';
+                case 'recent': return 'Sorted by recent';
+                default: return 'Sorted by name';
+            }
+        };
+        const getNextSort = (sort: string): 'alpha' | 'count' | 'recent' => {
+            switch (sort) {
+                case 'alpha': return 'count';
+                case 'count': return 'recent';
+                case 'recent': return 'alpha';
+                default: return 'count';
+            }
+        };
+
+        const sortBtn = container.createEl('button', {
+            cls: 'web-sidecar-sort-btn-tiny web-sidecar-align-right clickable-icon',
+            attr: { 'aria-label': getSortLabel(currentSort) }
+        });
+        setIcon(sortBtn, getSortIcon(currentSort));
+
+        sortBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onSortChange(getNextSort(currentSort));
+        };
+    }
+
+    private sortGroups(map: Map<string, any[]>, sortOrder: 'alpha' | 'count' | 'recent'): [string, any[]][] {
+        const getMaxMtime = (notes: { file: import('obsidian').TFile }[]) => {
+            return Math.max(...notes.map(n => n.file.stat.mtime));
+        };
+
+        return Array.from(map.entries()).sort((a, b) => {
+            if (sortOrder === 'count') {
+                const countDiff = b[1].length - a[1].length;
+                if (countDiff !== 0) return countDiff;
+            } else if (sortOrder === 'recent') {
+                const mtimeDiff = getMaxMtime(b[1]) - getMaxMtime(a[1]);
+                if (mtimeDiff !== 0) return mtimeDiff;
+            }
+            return a[0].localeCompare(b[0]);
+        });
+    }
+
+    private renderTagGroup(container: HTMLElement, tag: string, notes: import('../../types').MatchedNote[], sectionPrefix: string): void {
+        const details = container.createEl('details', { cls: 'web-sidecar-domain-group' });
+
+        // State persistence - make unique per section
+        const groupId = `${sectionPrefix}:${tag}`;
+        if (this.view.expandedGroupIds.has(groupId)) {
+            details.setAttribute('open', '');
+        }
+        details.addEventListener('toggle', () => {
+            this.view.setGroupExpanded(groupId, details.hasAttribute('open'));
+        });
+
+        const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
+
+        // TODO: Context menu for tag? Maybe later.
+
+        // Icon
+        const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
+        // Use tag icon instead of favicon
+        const iconSpan = faviconContainer.createSpan();
+        setIcon(iconSpan, 'tag');
+        // make it small like favicon
+        iconSpan.style.transform = 'scale(0.8)';
+
+        // Tag name
+        summary.createSpan({ text: tag, cls: 'web-sidecar-domain-name' });
+
+        // Count badge
+        summary.createSpan({
+            text: notes.length.toString(),
+            cls: 'web-sidecar-domain-count',
+            attr: {
+                'title': notes.length === 1 ? '1 Note' : `${notes.length} Notes`
+            }
+        });
+
+        // Notes list
+        const notesList = details.createEl('ul', { cls: 'web-sidecar-list web-sidecar-domain-notes' });
+        for (const note of notes) {
+            this.noteRenderer.renderNoteItem(notesList, note.file, note.url);
+        }
+    }
+
 }
