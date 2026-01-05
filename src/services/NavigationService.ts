@@ -194,11 +194,18 @@ export class NavigationService {
     /**
      * Open a new empty web viewer
      * CRITICAL: Must trigger immediate UI refresh showing the new tab
+     * Respects preferWebViewerLeft setting to open in left (web viewer) group
      */
     async openNewWebViewer(): Promise<void> {
         this.isManualRefreshCallback(true);
         const homepage = getWebViewerHomepage(this.app);
-        const leaf = this.app.workspace.getLeaf('tab');
+
+        // Use left-side web viewer group if setting enabled
+        const settings = this.getSettings();
+        const leaf = settings.preferWebViewerLeft
+            ? this.getOrCreateWebViewerLeaf()
+            : this.app.workspace.getLeaf('tab');
+
         await leaf.setViewState({
             type: 'webviewer',
             state: { url: homepage, navigate: true }

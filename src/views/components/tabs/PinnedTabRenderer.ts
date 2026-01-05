@@ -234,7 +234,7 @@ export class PinnedTabRenderer {
             newNoteBtn.setAttribute('aria-label', 'New linked note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.view.openCreateNoteModal(pin.url);
+                this.view.openCreateNoteModal(pin.url, pin.leafId);
             };
         }
 
@@ -248,7 +248,7 @@ export class PinnedTabRenderer {
             if (!isExpanded) notesContainer.addClass('hidden');
             else {
                 // Render content
-                this.renderPinnedNotes(notesContainer, pin.url, matches);
+                this.renderPinnedNotes(notesContainer, pin.url, matches, pin.leafId);
             }
 
             expandBtn.onclick = (e) => {
@@ -281,7 +281,7 @@ export class PinnedTabRenderer {
         }
     }
 
-    private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
+    private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
         // Duplicate logic from BrowserTabItemRenderer's renderBrowserTabNotes
         // Ideally this should be shared, but for now we inline to fix the bug quickly.
 
@@ -331,7 +331,7 @@ export class PinnedTabRenderer {
         newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
         newNoteBtn.onclick = (e) => {
             e.stopPropagation();
-            this.view.openCreateNoteModal(url);
+            this.view.openCreateNoteModal(url, leafId);
         };
 
         // 3. Same domain notes

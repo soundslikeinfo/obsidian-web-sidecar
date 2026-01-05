@@ -263,7 +263,7 @@ export class BrowserTabItemRenderer {
             setIcon(expandBtn, isExpanded ? 'chevron-right' : 'chevron-down');
 
             if (!isExpanded && notesContainer.children.length === 0) {
-                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+                this.renderBrowserTabNotes(notesContainer, tab.url, matches, tab.leafId);
             }
         };
 
@@ -395,7 +395,7 @@ export class BrowserTabItemRenderer {
             newNoteBtn.setAttribute('aria-label', 'New linked note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.view.openCreateNoteModal(tab.url);
+                this.view.openCreateNoteModal(tab.url, tab.leafId);
             };
         }
 
@@ -441,7 +441,7 @@ export class BrowserTabItemRenderer {
             // (clearing and rebuilding is fast enough and ensures consistency)
             if (isCurrentlyExpanded) {
                 notesContainer.empty();
-                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+                this.renderBrowserTabNotes(notesContainer, tab.url, matches, tab.leafId);
             }
 
             // CRITICAL: Update is-focused class on existing note items when focus changes
@@ -473,7 +473,7 @@ export class BrowserTabItemRenderer {
         });
     }
 
-    renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
+    renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
@@ -527,7 +527,7 @@ export class BrowserTabItemRenderer {
         newNoteBtn.setAttribute('aria-label', 'New linked note');
         newNoteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.view.openCreateNoteModal(url);
+            this.view.openCreateNoteModal(url, leafId);
         });
 
         // 3. Same domain notes (if enabled) - collapsible section

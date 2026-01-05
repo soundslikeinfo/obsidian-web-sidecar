@@ -148,6 +148,17 @@ export class ContextMenus {
                         this.view.closeLinkedNoteLeaves(tab.url);
                     });
             });
+
+            // Close ALL - web views + linked notes
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close all web views + linked notes')
+                    .setIcon('trash-2')
+                    .onClick(() => {
+                        this.view.closeAllLeavesForUrl(tab.url);
+                        this.view.closeLinkedNoteLeaves(tab.url);
+                    });
+            });
         }
 
         // Redirect detection: Show option to update linked notes if URL has changed from original

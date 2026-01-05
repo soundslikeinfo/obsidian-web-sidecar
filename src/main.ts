@@ -207,7 +207,7 @@ export default class WebSidecarPlugin extends Plugin {
 		// Generate title from URL
 		const noteTitle = this.generateTitleFromUrl(url);
 		const fileName = this.sanitizeFileName(noteTitle) + '.md';
-		const folderPath = this.settings.newNoteFolderPath;
+		const folderPath = this.getFolderPath();
 
 		// Construct full path
 		let fullPath = folderPath ? `${folderPath}/${fileName}` : fileName;
@@ -290,5 +290,27 @@ export default class WebSidecarPlugin extends Plugin {
 			.replace(/[\\/:*?"<>|]/g, '')
 			.replace(/\s+/g, ' ')
 			.trim();
+	}
+
+	/**
+	 * Resolve folder path based on settings - uses vault config or custom path
+	 */
+	private getFolderPath(): string {
+		if (this.settings.useVaultDefaultLocation) {
+			// Access Obsidian's vault config (internal API)
+			const vault = this.app.vault as any;
+			const newFileLocation = vault.getConfig?.('newFileLocation') ?? 'root';
+
+			if (newFileLocation === 'folder') {
+				return vault.getConfig?.('newFileFolderPath') || '';
+			} else if (newFileLocation === 'current') {
+				// Use folder of currently active file
+				const activeFile = this.app.workspace.getActiveFile();
+				return activeFile?.parent?.path || '';
+			}
+			// 'root' or default
+			return '';
+		}
+		return this.settings.newNoteFolderPath;
 	}
 }

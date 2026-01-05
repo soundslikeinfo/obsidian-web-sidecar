@@ -31,6 +31,28 @@ export class CreateNoteModal extends Modal {
         this.noteTitle = this.generateTitleFromUrl(url);
     }
 
+    /**
+     * Resolve folder path based on settings - uses vault config or custom path
+     */
+    private getFolderPath(): string {
+        if (this.settings.useVaultDefaultLocation) {
+            // Access Obsidian's vault config (internal API)
+            const vault = this.app.vault as any;
+            const newFileLocation = vault.getConfig?.('newFileLocation') ?? 'root';
+
+            if (newFileLocation === 'folder') {
+                return vault.getConfig?.('newFileFolderPath') || '';
+            } else if (newFileLocation === 'current') {
+                // Use folder of currently active file
+                const activeFile = this.app.workspace.getActiveFile();
+                return activeFile?.parent?.path || '';
+            }
+            // 'root' or default
+            return '';
+        }
+        return this.settings.newNoteFolderPath;
+    }
+
     private generateTitleFromUrl(url: string): string {
         try {
             let urlWithProtocol = url;
@@ -81,10 +103,11 @@ export class CreateNoteModal extends Modal {
                 }));
 
         // Folder display (read-only info)
-        const folderPath = this.settings.newNoteFolderPath || '(vault root)';
+        const folderPath = this.getFolderPath();
+        const folderDisplay = folderPath || '(vault root)';
         new Setting(contentEl)
             .setName('Folder')
-            .setDesc(`Note will be created in: ${folderPath}`);
+            .setDesc(`Note will be created in: ${folderDisplay}`);
 
         // Property display
         new Setting(contentEl)
@@ -123,7 +146,7 @@ export class CreateNoteModal extends Modal {
         }
 
         const fileName = this.sanitizeFileName(this.noteTitle) + '.md';
-        const folderPath = this.settings.newNoteFolderPath;
+        const folderPath = this.getFolderPath();
         const fullPath = folderPath ? normalizePath(`${folderPath}/${fileName}`) : fileName;
 
         // Create folder if it doesn't exist

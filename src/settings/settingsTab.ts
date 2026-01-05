@@ -48,17 +48,33 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 
 
 
-		// New Note Folder Path
+		// Use Vault's Default Location Toggle
 		new Setting(containerEl)
-			.setName('New note folder')
-			.setDesc('Default folder for new notes created from this plugin (leave empty for vault root)')
-			.addText(text => text
-				.setPlaceholder('Folder/Subfolder')
-				.setValue(this.plugin.settings.newNoteFolderPath)
+			.setName('Use vault\'s default location')
+			.setDesc('Use the location configured in Obsidian\'s Files & Links settings')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.useVaultDefaultLocation)
 				.onChange(async (value) => {
-					this.plugin.settings.newNoteFolderPath = value.trim();
+					this.plugin.settings.useVaultDefaultLocation = value;
 					await this.plugin.saveSettings();
+					// Re-render to show/hide custom folder input
+					this.display();
 				}));
+
+		// New Note Folder Path (only show if not using vault default)
+		if (!this.plugin.settings.useVaultDefaultLocation) {
+			new Setting(containerEl)
+				.setName('New note folder')
+				.setDesc('Custom folder for new notes created from this plugin (leave empty for vault root)')
+				.setClass('web-sidecar-sub-setting')
+				.addText(text => text
+					.setPlaceholder('Folder/Subfolder')
+					.setValue(this.plugin.settings.newNoteFolderPath)
+					.onChange(async (value) => {
+						this.plugin.settings.newNoteFolderPath = value.trim();
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		// Capture Page Content
 		new Setting(containerEl)

@@ -106,6 +106,8 @@ export interface WebSidecarSettings {
     enableRecentNotes: boolean;
     /** Enable grouped by domain auxiliary section */
     enableTldSearch: boolean;
+    /** Use vault's default location for new notes instead of custom path */
+    useVaultDefaultLocation: boolean;
     /** Default folder path for new notes (empty = vault root) */
     newNoteFolderPath: string;
     /** Number of recent notes to show when no web viewer is active */
@@ -210,6 +212,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     primaryUrlProperty: 'source',
     enableRecentNotes: true,
     enableTldSearch: true,
+    useVaultDefaultLocation: true,
     newNoteFolderPath: '',
     recentNotesCount: 10,
     tabSortOrder: 'focus',

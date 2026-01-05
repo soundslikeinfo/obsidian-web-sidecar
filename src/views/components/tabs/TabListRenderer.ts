@@ -176,7 +176,7 @@ export class TabListRenderer {
         setIcon(createBtn, 'plus');
         createBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.view.openCreateNoteModal(tab.url);
+            this.view.openCreateNoteModal(tab.url, tab.leafId);
         });
 
         // Find matches for this tab
