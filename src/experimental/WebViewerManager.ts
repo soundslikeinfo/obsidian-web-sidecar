@@ -3,6 +3,7 @@ import { App, WorkspaceLeaf, Menu } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 import { WebViewerUI } from './WebViewerUI';
 import type { UrlIndex } from '../services/UrlIndex';
+import { getWebViewerHomepage } from '../services/webViewerUtils';
 
 const WEB_VIEW_TYPES = ['webviewer', 'surfing-view'];
 
@@ -165,10 +166,11 @@ export class WebViewerManager {
             item.setTitle('New web view tab')
                 .setIcon('plus-circle')
                 .onClick(async () => {
+                    const homepage = getWebViewerHomepage(this.app);
                     const newLeaf = this.app.workspace.getLeaf('tab');
                     await newLeaf.setViewState({
                         type: 'webviewer',
-                        state: { url: 'about:blank', navigate: true }
+                        state: { url: homepage, navigate: true }
                     });
                     this.app.workspace.revealLeaf(newLeaf);
                 });

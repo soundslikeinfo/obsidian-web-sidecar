@@ -318,3 +318,35 @@ webLeaf = this.app.workspace.createLeafInParent(parentLeaf.parent, -1);
 *   **Visual:** `height: 4px`, `background: transparent` (looks like standard gap).
 *   **Interaction:** `::after` pseudo-element with `top: -12px; bottom: -12px` creates a large invisible hit target.
 *   **Feedback:** collapsing to `height: 0` + `border-top` on drag-over mimics standard insertion line.
+
+---
+
+## New Web Viewer Ignores Homepage Setting
+
+**Symptom:** Creating a new web viewer tab always loads `about:blank` instead of the homepage configured in Obsidian's Web Viewer settings.
+**Cause:** Multiple places in the codebase hardcoded `about:blank` when creating new web viewers.
+**Fix:** Created `webViewerUtils.ts` with `getWebViewerHomepage(app)` function that reads the homepage from Obsidian's internal webviewer plugin settings (`app.internalPlugins.getPluginById('webviewer').options.homepage`).
+
+**Files updated:**
+*   `NavigationService.ts` - `openNewWebViewer()`
+*   `ButtonInjector.ts` - `openNewWebViewer()`
+*   `MenuInjector.ts` - `openNewWebViewer()`
+*   `WebViewerManager.ts` - `addMenuItems()`
+
+**Code pattern:**
+```typescript
+import { getWebViewerHomepage } from '../services/webViewerUtils';
+
+// Instead of:
+state: { url: 'about:blank', navigate: true }
+
+// Use:
+const homepage = getWebViewerHomepage(this.app);
+state: { url: homepage, navigate: true }
+```
+
+### Checklist
+- [ ] Is `getWebViewerHomepage()` being called before creating new web viewers?
+- [ ] Did you check all four files where `openNewWebViewer` or similar functions exist?
+- [ ] Falls back to `about:blank` if homepage setting is unavailable?
+

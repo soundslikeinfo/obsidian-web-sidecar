@@ -4,6 +4,7 @@ import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import { findMatchingNotes } from './noteMatcher';
 import type { UrlIndex } from './UrlIndex';
+import { getWebViewerHomepage } from './webViewerUtils';
 
 export class NavigationService {
     private app: App;
@@ -196,10 +197,11 @@ export class NavigationService {
      */
     async openNewWebViewer(): Promise<void> {
         this.isManualRefreshCallback(true);
+        const homepage = getWebViewerHomepage(this.app);
         const leaf = this.app.workspace.getLeaf('tab');
         await leaf.setViewState({
             type: 'webviewer',
-            state: { url: 'about:blank', navigate: true }
+            state: { url: homepage, navigate: true }
         });
         this.app.workspace.revealLeaf(leaf);
         this.app.workspace.setActiveLeaf(leaf, { focus: true });
