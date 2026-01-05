@@ -17,7 +17,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Web Sidecar Settings' });
+
 
 		// URL Property Fields
 		new Setting(containerEl)
@@ -155,7 +155,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// AUX SECTIONS
 		// ============================================
 		const auxSectionsContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-		auxSectionsContainer.createEl('div', { text: 'Aux Sections', cls: 'web-sidecar-settings-group-title' });
+		auxSectionsContainer.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
 
 		new Setting(auxSectionsContainer)
 			.setName('Recent web notes')
@@ -168,7 +168,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(auxSectionsContainer)
-			.setName('Grouped by domain')
+			.setName('Group by domain')
 			.setDesc('Show section with notes grouped by their domain')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableTldSearch)
@@ -178,7 +178,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(auxSectionsContainer)
-			.setName('All Tags')
+			.setName('Group by tag')
 			.setDesc('Show section with notes grouped by their tags')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableTagGrouping)
@@ -188,7 +188,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(auxSectionsContainer)
-			.setName('Tag selection')
+			.setName('Group by selected tags')
 			.setDesc('Show section with notes grouped by specific tags')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSelectedTagGrouping)
@@ -214,8 +214,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(auxSectionsContainer)
-			.setName('Subreddit notes explorer')
-			.setDesc('Show section with notes grouped by subreddit (e.g., r/macApps)')
+			.setName('Group by subreddit (reddit.com)')
+			.setDesc('Show section with notes grouped by subreddit')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSubredditExplorer)
 				.onChange(async (value) => {
@@ -224,8 +224,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(auxSectionsContainer)
-			.setName('Group YouTube Channels')
-			.setDesc('Show section with notes grouped by YouTube channel. Configure channel property fields in Domain Rules → youtube.com.')
+			.setName('Group by YouTube channel (youtube.com)')
+			.setDesc('Show section with notes grouped by YouTube channel')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableYouTubeChannelExplorer)
 				.onChange(async (value) => {
@@ -281,13 +281,13 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				}));
 
 		domainRulesContainer.createEl('div', {
-			text: 'More coming soon...',
+			text: 'Opening up more domain rules soon...',
 			cls: 'setting-item-description',
 			attr: { style: 'font-style: italic; padding-left: 14px; margin-top: 8px;' }
 		});
 
 		// Experimental Section
-		containerEl.createEl('h3', { text: 'Experimental' });
+		containerEl.createEl('h3', { text: 'Experimental features' });
 
 		containerEl.createEl('div', {
 			text: '⚠️ Disclaimer: Experimental features may be unstable or break with Obsidian updates. Use with caution.',

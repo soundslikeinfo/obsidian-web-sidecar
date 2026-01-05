@@ -324,12 +324,18 @@
   margin-left: 12px;
 }
 
-/* Settings group container (bordered box for Aux Sections) */
+/* Settings group container (line dividers between sections) */
 .web-sidecar-settings-group {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  padding: 12px 16px;
-  margin: 8px 0 16px 0;
+  border-top: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 16px 0;
+  margin-top: 16px;
+}
+
+/* Collapse double borders between adjacent groups */
+.web-sidecar-settings-group+.web-sidecar-settings-group {
+  border-top: none;
+  margin-top: 0;
 }
 
 .web-sidecar-settings-group-title {

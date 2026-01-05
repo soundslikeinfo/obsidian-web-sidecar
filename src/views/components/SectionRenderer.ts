@@ -912,26 +912,69 @@ export class SectionRenderer {
         // Channel name
         summary.createSpan({ text: channel, cls: 'web-sidecar-domain-name' });
 
-        // Link to note if exists
+        // Link buttons if channel matches a note in the vault
         const channelNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(channel, '');
         if (channelNoteFile) {
-            const linkSpan = summary.createSpan({ cls: 'web-sidecar-channel-link' });
-            setIcon(linkSpan, 'external-link');
-            // Inline styles for now, should move to CSS eventually but keeping it simple as per previous pattern
-            linkSpan.style.marginLeft = '6px';
-            linkSpan.style.cursor = 'pointer';
-            linkSpan.style.opacity = '0.6';
-            linkSpan.style.display = 'inline-flex';
-            linkSpan.style.verticalAlign = 'middle';
+            // Check if the note has a URL property
+            const noteCache = this.view.app.metadataCache.getFileCache(channelNoteFile);
+            const noteFrontmatter = noteCache?.frontmatter;
+            let channelUrl: string | null = null;
 
-            linkSpan.addEventListener('click', (e) => {
+            if (noteFrontmatter) {
+                for (const propName of this.view.settings.urlPropertyFields) {
+                    const val = noteFrontmatter[propName];
+                    if (typeof val === 'string' && val.startsWith('http')) {
+                        channelUrl = val;
+                        break;
+                    }
+                    if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string' && val[0].startsWith('http')) {
+                        channelUrl = val[0];
+                        break;
+                    }
+                }
+            }
+
+            // Note link button
+            const noteLinkBtn = summary.createEl('button', {
+                cls: 'web-sidecar-group-link-btn clickable-icon',
+                attr: { 'aria-label': `Open ${channel} note` }
+            });
+            setIcon(noteLinkBtn, 'file-text');
+            noteLinkBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                this.view.app.workspace.getLeaf(false).openFile(channelNoteFile);
-            });
+                await this.view.app.workspace.getLeaf(false).openFile(channelNoteFile);
+            };
 
-            linkSpan.addEventListener('mouseenter', () => { linkSpan.style.opacity = '1'; });
-            linkSpan.addEventListener('mouseleave', () => { linkSpan.style.opacity = '0.6'; });
+            // Web link button (if URL exists)
+            if (channelUrl) {
+                const webLinkBtn = summary.createEl('button', {
+                    cls: 'web-sidecar-group-link-btn clickable-icon',
+                    attr: { 'aria-label': `Open ${channel} in web viewer` }
+                });
+                setIcon(webLinkBtn, 'external-link');
+                webLinkBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.view.openUrlSmartly(channelUrl!, e as any);
+                };
+            }
+        }
+
+        // YouTube handle shortcut (@ChannelName -> https://www.youtube.com/@ChannelName)
+        // Show external link if channel starts with @ (even if no note exists)
+        if (channel.startsWith('@')) {
+            const youtubeChannelUrl = `https://www.youtube.com/${channel}`;
+            const ytLinkBtn = summary.createEl('button', {
+                cls: 'web-sidecar-group-link-btn clickable-icon',
+                attr: { 'aria-label': `Open YouTube channel ${channel}` }
+            });
+            setIcon(ytLinkBtn, 'external-link');
+            ytLinkBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                await this.view.openUrlSmartly(youtubeChannelUrl, e as any);
+            };
         }
 
         // Count badge
