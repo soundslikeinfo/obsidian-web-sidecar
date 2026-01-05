@@ -1,90 +1,134 @@
-# Obsidian Sample Plugin
+# Web Sidecar
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+A sidebar companion for Obsidian's web viewers. Track all your open web pages, see matching notes from your vault, and seamlessly navigate between web content and your notes.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+🌐 Track all open web viewer tabs in one sidebar  
+📝 See linked notes for each URL automatically  
+🔗 Smart URL matching with frontmatter properties  
+📂 Group notes by domain, subreddit, or YouTube channel  
+⚡ Quick actions: create notes, open URLs, focus tabs  
+🎯 Paired view: open web page + note side-by-side  
+📌 Pin frequently visited pages for quick access  
+🔄 Real-time updates as you browse  
 
-## First time developing plugins?
+## Changelog
 
-Quick starting guide for new plugin devs:
+See [CHANGELOG](CHANGELOG.md) for version history.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## Installation
 
-## Releasing new releases
+### From Obsidian Community Plugins
+1. Open **Settings → Community plugins**
+2. Turn off Safe Mode if prompted
+3. Click **Browse** and search for "Web Sidecar"
+4. Install the plugin and enable it
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### Manual Installation
+1. Download the latest release from GitHub
+2. Extract files into your vault's `.obsidian/plugins/web-sidecar/` directory
+3. Enable the plugin in **Settings → Community plugins**
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## Configuration
 
-## Adding your plugin to the community plugin list
+1. Open **Settings → Web Sidecar**
+2. Configure URL property fields (default: `source`, `url`, `URL`)
+3. Set your preferred note folder and display options
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Key Settings
 
-## How to use
+| Setting | Description |
+|---------|-------------|
+| URL property fields | Frontmatter properties to search for URLs |
+| Tab appearance | Browser mode (compact) or Notes mode (detailed) |
+| Note open behavior | Split view or new tab |
+| Recent notes count | Number of recent notes to show |
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## Usage
 
-## Manually installing the plugin
+### Basic Workflow
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+1. Open a web page in Obsidian's web viewer
+2. The Web Sidecar sidebar automatically shows matching notes
+3. Click notes to open them, or create new notes for the current URL
+4. Right-click for additional options like paired opening
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+### Auxiliary Sections
 
-## Funding URL
+- **Recent web notes** — Recently modified notes with URLs
+- **Group by domain** — All web notes organized by website
+- **Group by subreddit** — Reddit notes grouped by community
+- **Group by YouTube channel** — YouTube notes grouped by creator
 
-You can include funding URLs where people who use your plugin can financially support it.
+### Pinned Tabs
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+Pin frequently visited pages for quick access. Pinned tabs persist across sessions and can track URL redirects.
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+## Features in Detail
+
+### Smart URL Matching
+- Matches notes based on frontmatter URL properties
+- Supports both single URLs and arrays: `source: https://...` or `source: [https://..., ...]`
+
+### Virtual Tabs
+Notes with URLs that aren't currently open appear as "virtual tabs" — click to open the URL in a new web viewer.
+
+### Paired Opening
+Open a web page and its linked note side-by-side via right-click context menu.
+
+### Domain Grouping
+See all notes from the same domain at a glance. Sort by name, count, or recency.
+
+## Privacy & Network Usage
+
+This plugin operates locally and does not connect to any AI services, analytics, or telemetry. Your vault contents and browsing activity remain private.
+
+**External service used:**
+- **Google Favicons API** — Used to display website icons (favicons) in the sidebar. Only the domain name is sent to fetch the icon (e.g., `google.com/s2/favicons?domain=example.com`). No other data is transmitted.
+
+## Support
+
+- For bugs or feature requests, please [open an issue](https://github.com/soundslikeinfo/obsidian-web-sidecar/issues)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Frequently Asked Questions
+
+### How does the plugin find my web notes?
+The plugin looks for notes with a URL property (default: `source`) in the frontmatter. You can customize which properties to search in the settings.
+
+### Can I use this with the Surfing plugin?
+Yes! Web Sidecar tracks both native Obsidian web viewers and Surfing plugin views.
+
+### Why doesn't my note appear in the sidebar?
+Make sure your note has a URL property in its frontmatter that matches the web page URL. Check **Settings → Web Sidecar → URL property fields**.
+
+---
+
+### 🧠 Crafted with AI & Human Creativity
+```
+🎨 Design & Development
+Greg K. (@soundslikeinfo)
+
+🤖 AI Pair Programming
+- Claude by Anthropic
+- Gemini 3 by Google
 ```
 
-If you have multiple URLs, you can also do:
+### 💝 Support the Project
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+[![GitHub Stars](https://img.shields.io/github/stars/soundslikeinfo/obsidian-web-sidecar?style=social)](https://github.com/soundslikeinfo/obsidian-web-sidecar)
+[![Buy Me A Coffee](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/soundslikeinfo)
 
-## API Documentation
-
-See https://docs.obsidian.md
+Made with ❤️ for the Obsidian Community
