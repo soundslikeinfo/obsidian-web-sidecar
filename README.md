@@ -12,6 +12,7 @@ A sidebar companion for Obsidian's web viewers. Track all your open web pages, s
 🎯 Paired view: open web page + note side-by-side  
 📌 Pin frequently visited pages for quick access  
 🔄 Real-time updates as you browse  
+📋 Capture page content using [Defuddle](https://github.com/kepano/defuddle) (same as Save to vault)  
 
 ## Changelog
 
@@ -44,6 +45,7 @@ See [CHANGELOG](CHANGELOG.md) for version history.
 | Tab appearance | Browser mode (compact) or Notes mode (detailed) |
 | Note open behavior | Split view or new tab |
 | Recent notes count | Number of recent notes to show |
+| Capture page content | Extract and save web page content using Defuddle |
 
 ## Usage
 

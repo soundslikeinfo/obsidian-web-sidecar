@@ -60,6 +60,17 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// Capture Page Content
+		new Setting(containerEl)
+			.setName('Capture page content')
+			.setDesc('When creating a new linked note, extract and include the page content as markdown using Defuddle (desktop only)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.capturePageContent)
+				.onChange(async (value) => {
+					this.plugin.settings.capturePageContent = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// Recent Notes Count
 		new Setting(containerEl)
 			.setName('Recent notes count')

@@ -91,6 +91,16 @@ export class ContextMenus {
             });
         }
 
+        // New linked note from URL
+        menu.addItem((item) => {
+            item
+                .setTitle('New linked note from URL')
+                .setIcon('file-plus')
+                .onClick(() => {
+                    this.view.openCreateNoteModal(tab.url, tab.leafId);
+                });
+        });
+
         menu.addSeparator();
 
         // Close web view
@@ -431,6 +441,16 @@ export class ContextMenus {
                 .setIcon('columns')
                 .onClick(async () => {
                     await this.view.openPaired(file, url, { metaKey: false, ctrlKey: false } as MouseEvent);
+                });
+        });
+
+        // New linked note from URL (create additional note for this URL)
+        menu.addItem((item) => {
+            item
+                .setTitle('New linked note from URL')
+                .setIcon('file-plus')
+                .onClick(() => {
+                    this.view.openCreateNoteModal(url);
                 });
         });
 

@@ -344,9 +344,11 @@ export class ButtonInjector {
             return;
         }
 
-        // Trigger a custom event that main.ts can listen to, or directly open modal
+        const leafId = this.getLeafId(leaf);
+
+        // Trigger a custom event that main.ts can listen to
         const event = new CustomEvent('web-sidecar:create-note', {
-            detail: { url }
+            detail: { url, leafId }
         });
         window.dispatchEvent(event);
     }

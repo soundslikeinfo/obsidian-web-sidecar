@@ -7,6 +7,7 @@ import { WebViewerManager } from './experimental/WebViewerManager';
 import { CreateNoteModal } from './modals/createNoteModal';
 import { UrlIndex } from './services/UrlIndex';
 import { TabStateService } from './services/TabStateService';
+import { capturePageAsMarkdown, findWebViewerLeafById } from './services/contentCapture';
 
 /**
  * Web Sidecar Plugin
@@ -106,22 +107,14 @@ export default class WebSidecarPlugin extends Plugin {
 		this.addSettingTab(new WebSidecarSettingTab(this.app, this));
 
 		// 4. Register Events
-		// Custom event for create note modal (dispatched by WebViewerUI)
-		const handleCreateNote = (e: Event) => {
-			const customEvent = e as CustomEvent<{ url: string }>;
+		// Custom event for direct note creation (no modal - captures content and creates immediately)
+		const handleCreateNote = async (e: Event) => {
+			const customEvent = e as CustomEvent<{ url: string; leafId?: string }>;
 			if (customEvent.detail?.url) {
-				new CreateNoteModal(
-					this.app,
-					customEvent.detail.url,
-					this.settings,
-					async (path) => {
-						const file = this.app.vault.getAbstractFileByPath(path);
-						if (file instanceof TFile) {
-							await this.app.workspace.openLinkText(path, '', true);
-						}
-						this.tabStateService.refreshState();
-					}
-				).open();
+				const url = customEvent.detail.url;
+				const leafId = customEvent.detail.leafId;
+
+				await this.createLinkedNoteFromUrl(url, leafId);
 			}
 		};
 		window.addEventListener('web-sidecar:create-note', handleCreateNote);
@@ -195,5 +188,107 @@ export default class WebSidecarPlugin extends Plugin {
 			workspace.revealLeaf(leaf);
 			this.tabStateService.refreshState();
 		}
+	}
+
+	/**
+	 * Create a linked note directly from URL without modal.
+	 * Captures page content if setting is enabled and leafId is provided.
+	 */
+	private async createLinkedNoteFromUrl(url: string, leafId?: string): Promise<void> {
+		// Capture content if setting enabled and we have a leafId
+		let capturedContent: string | null = null;
+		if (this.settings.capturePageContent && leafId) {
+			const leaf = findWebViewerLeafById(this.app, leafId);
+			if (leaf) {
+				capturedContent = await capturePageAsMarkdown(leaf);
+			}
+		}
+
+		// Generate title from URL
+		const noteTitle = this.generateTitleFromUrl(url);
+		const fileName = this.sanitizeFileName(noteTitle) + '.md';
+		const folderPath = this.settings.newNoteFolderPath;
+
+		// Construct full path
+		let fullPath = folderPath ? `${folderPath}/${fileName}` : fileName;
+		fullPath = fullPath.replace(/\/+/g, '/'); // Normalize slashes
+
+		// Create folder if needed
+		if (folderPath) {
+			const folder = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folder) {
+				await this.app.vault.createFolder(folderPath);
+			}
+		}
+
+		// Handle existing file (append timestamp)
+		const existingFile = this.app.vault.getAbstractFileByPath(fullPath);
+		if (existingFile) {
+			const timestamp = Date.now();
+			fullPath = folderPath
+				? `${folderPath}/${this.sanitizeFileName(noteTitle)}-${timestamp}.md`
+				: `${this.sanitizeFileName(noteTitle)}-${timestamp}.md`;
+		}
+
+		// Generate note content
+		const lines = [
+			'---',
+			`${this.settings.primaryUrlProperty}: ${url}`,
+			'---',
+			'',
+			`# ${noteTitle}`,
+			'',
+		];
+
+		// Add captured content if available
+		if (capturedContent) {
+			lines.push(capturedContent);
+			lines.push('');
+		}
+
+		const content = lines.join('\n');
+
+		// Create file and open it
+		try {
+			await this.app.vault.create(fullPath, content);
+			await this.app.workspace.openLinkText(fullPath, '', true);
+			this.tabStateService.refreshState();
+		} catch (error) {
+			console.error('Web Sidecar: Failed to create note:', error);
+		}
+	}
+
+	private generateTitleFromUrl(url: string): string {
+		try {
+			let urlWithProtocol = url;
+			if (!url.match(/^https?:\/\//)) {
+				urlWithProtocol = 'https://' + url;
+			}
+			const parsed = new URL(urlWithProtocol);
+
+			// Try to get a meaningful title from the pathname
+			const pathname = parsed.pathname.replace(/\/$/, '');
+			if (pathname && pathname !== '/') {
+				const lastSegment = pathname.split('/').pop() || '';
+				const cleaned = lastSegment
+					.replace(/[-_]/g, ' ')
+					.replace(/\.[^.]+$/, '')
+					.trim();
+				if (cleaned) {
+					return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+				}
+			}
+
+			return parsed.hostname.replace(/^www\./, '');
+		} catch {
+			return 'New Note';
+		}
+	}
+
+	private sanitizeFileName(name: string): string {
+		return name
+			.replace(/[\\/:*?"<>|]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
 	}
 }

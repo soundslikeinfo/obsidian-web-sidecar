@@ -371,36 +371,24 @@
 
 /* End-of-list drop zone for tabs */
 .web-sidecar-tab-drop-zone-end {
+  /* Visual height is just the height value, but hit area includes padding */
   height: 4px;
-  /* Minimal visual height */
-  margin: 2px 0;
-  /* Standard gap */
+  margin: 0;
+  padding: 4px 0;
+  /* Modest padding creates hit area for drag without too much visual gap */
   background: transparent;
+  background-clip: content-box;
+  /* Only show background in content area, not padding */
   transition: all 0.15s ease;
-
-  /* Make hit target much larger than visual size using outline or pseudo-element */
   position: relative;
-  z-index: 10;
-}
-
-/* Pseudo-element to increase hit area without affecting layout */
-.web-sidecar-tab-drop-zone-end::after {
-  content: '';
-  position: absolute;
-  top: -12px;
-  bottom: -12px;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  box-sizing: content-box;
 }
 
 .web-sidecar-tab-drop-zone-end.drag-over {
   height: 0;
+  padding: 4px 0;
   border-top: 2px solid var(--interactive-accent);
   background: transparent;
-  margin-top: -2px;
-  margin-bottom: 4px;
-  /* Pull button back up slightly */
 }
 
 /* Individual browser tab wrapper */
@@ -414,6 +402,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
+  min-height: 28px;
   border-radius: var(--radius-s);
   cursor: pointer;
   transition: background-color 0.1s ease;
@@ -1180,6 +1169,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
+  min-height: 28px;
   border-radius: var(--radius-s);
   cursor: pointer;
   transition: background-color 0.1s ease;

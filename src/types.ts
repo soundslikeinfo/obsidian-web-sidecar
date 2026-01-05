@@ -28,7 +28,7 @@ export interface IWebSidecarView {
     openPaired(file: TFile, url: string, e: MouseEvent): Promise<void>;
     openNoteSmartly(file: TFile, e: MouseEvent): Promise<void>;
     openUrlSmartly(url: string, e: MouseEvent): Promise<void>;
-    openCreateNoteModal(url: string): void;
+    openCreateNoteModal(url: string, leafId?: string): void;
 
     openNewWebViewer(): Promise<void>;
     getOrCreateRightLeaf(): WorkspaceLeaf;
@@ -179,6 +179,10 @@ export interface WebSidecarSettings {
     // Tab Group Placement Preferences
     /** Prefer to open new web viewers in the left tab group */
     preferWebViewerLeft: boolean;
+
+    // Content Capture
+    /** Capture page content when creating new linked notes (desktop only) */
+    capturePageContent: boolean;
     /** Prefer to open notes in the right tab group */
     preferNotesRight: boolean;
 }
@@ -255,6 +259,9 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     // Tab Group Placement Defaults
     preferWebViewerLeft: true,
     preferNotesRight: true,
+
+    // Content Capture
+    capturePageContent: true,
 };
 
 /**

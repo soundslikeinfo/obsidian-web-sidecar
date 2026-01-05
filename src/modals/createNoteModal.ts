@@ -2,24 +2,30 @@ import { App, Modal, Setting, TFolder, normalizePath } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 
 /**
- * Modal for creating a new note with URL pre-filled
+ * Modal for creating a new note with URL pre-filled and optional captured content
  */
 export class CreateNoteModal extends Modal {
     private url: string;
     private settings: WebSidecarSettings;
     private noteTitle: string = '';
     private onNoteCreated: (path: string) => void;
+    private capturedContent: string | null;
+    private includeContent: boolean;
 
     constructor(
         app: App,
         url: string,
         settings: WebSidecarSettings,
-        onNoteCreated: (path: string) => void
+        onNoteCreated: (path: string) => void,
+        capturedContent?: string | null
     ) {
         super(app);
         this.url = url;
         this.settings = settings;
         this.onNoteCreated = onNoteCreated;
+        this.capturedContent = capturedContent ?? null;
+        // Default to include content if we have it
+        this.includeContent = !!this.capturedContent;
 
         // Generate default title from URL
         this.noteTitle = this.generateTitleFromUrl(url);
@@ -85,6 +91,18 @@ export class CreateNoteModal extends Modal {
             .setName('URL property')
             .setDesc(`Will be saved as: ${this.settings.primaryUrlProperty}`);
 
+        // Content capture toggle (only show if content was captured)
+        if (this.capturedContent) {
+            new Setting(contentEl)
+                .setName('Include page content')
+                .setDesc('Add the web page content as markdown to the note')
+                .addToggle(toggle => toggle
+                    .setValue(this.includeContent)
+                    .onChange(value => {
+                        this.includeContent = value;
+                    }));
+        }
+
         // Buttons
         const buttonContainer = contentEl.createDiv({ cls: 'web-sidecar-modal-buttons' });
 
@@ -143,16 +161,22 @@ export class CreateNoteModal extends Modal {
     }
 
     private generateNoteContent(): string {
-        const frontmatter = [
+        const lines = [
             '---',
             `${this.settings.primaryUrlProperty}: ${this.url}`,
             '---',
             '',
             `# ${this.noteTitle}`,
             '',
-        ].join('\n');
+        ];
 
-        return frontmatter;
+        // Add captured content if enabled
+        if (this.includeContent && this.capturedContent) {
+            lines.push(this.capturedContent);
+            lines.push('');
+        }
+
+        return lines.join('\n');
     }
 
     private sanitizeFileName(name: string): string {
@@ -168,3 +192,4 @@ export class CreateNoteModal extends Modal {
         contentEl.empty();
     }
 }
+

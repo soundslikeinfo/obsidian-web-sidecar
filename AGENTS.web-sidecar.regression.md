@@ -4,6 +4,35 @@ This document details the recurring regression regarding **Active Tab Highlighti
 
 ---
 
+## Tab Clickable Area Regression
+
+**Symptom:** The bottom portion of tab rows (below the title text) is not clickable. Users expect to click anywhere on the tab row to select it, like in a normal browser.
+
+**Cause:** `.web-sidecar-tab-drop-zone-end::after` pseudo-element had `z-index: 10` and extended `-12px` above and below the drop zone to create a large drag target. It always blocked clicks on the tabs above it - even when not dragging.
+
+**Fix (2026-01-05):**
+1. Replaced the `::after` pseudo-element approach with **padding** on the drop zone itself
+2. Using `background-clip: content-box` to keep visual appearance minimal while having large hit area
+3. Added `min-height: 28px` to both `.web-sidecar-browser-tab-row` and `.web-sidecar-pinned-tab-row`
+
+```css
+.web-sidecar-tab-drop-zone-end {
+  height: 4px;
+  padding: 10px 0;  /* Large padding creates hit area for drag */
+  background-clip: content-box;  /* Only show background in content area */
+}
+```
+
+**Why padding works:** Padding is part of the element's hit area for drag events, but doesn't block clicks on elements above/below like an absolutely-positioned pseudo-element with z-index does.
+
+**Checklist:**
+- [ ] Is the `::after` pseudo-element removed from drop zone?
+- [ ] Does drop zone use padding for larger hit area?
+- [ ] Can you click anywhere on the tab row to select it?
+- [ ] Can you drag tabs to the bottommost position?
+
+---
+
 ## Pinned Tabs Setting Toggle Regression
 
 **Symptom:** When disabling pinned tabs in settings, the pinned tabs section stays visible. When re-enabling, tabs don't move back to the pinned section.

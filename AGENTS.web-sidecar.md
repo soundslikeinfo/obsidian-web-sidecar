@@ -161,6 +161,29 @@ for (const pin of settings.pinnedTabs) {
 - Cross-reference against already-open web viewer URLs to avoid duplicates
 - Cache page titles from previous web viewer sessions for display
 
+### 2a. Content Capture with Defuddle
+
+**Purpose:** When creating new linked notes from web pages, extract and include clean page content as Markdown.
+
+**Implementation:**
+- Uses [Defuddle](https://github.com/kepano/defuddle) — the same content extraction library used by Obsidian's "Save to vault" feature
+- Defuddle removes navigation, ads, sidebars, footers, and other cruft
+- Only the main article content is extracted and converted to Markdown
+
+**Flow:**
+1. Capture full page HTML via `document.documentElement.outerHTML`
+2. Parse HTML into DOM using `DOMParser`
+3. Run Defuddle to extract main content: `new Defuddle(doc).parse().content`
+4. Convert clean HTML to Markdown using Obsidian's `htmlToMarkdown()`
+5. Include Markdown in newly created note
+
+**Entry points:**
+- Header button: `file-plus` icon in web viewer action row
+- Context menu: Right-click tab → "New linked note from URL"
+- Virtual tab menu: Right-click → "New linked note from URL"
+
+**Setting:** `capturePageContent` (default: true, desktop-only)
+
 ### 3. URL Detection & Polling
 
 **Expected behavior:**

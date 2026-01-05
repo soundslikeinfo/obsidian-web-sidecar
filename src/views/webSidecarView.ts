@@ -512,8 +512,12 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.onRefresh();
     }
 
-    openCreateNoteModal(url: string): void {
-        this.navigationService.openCreateNoteModal(url);
+    openCreateNoteModal(url: string, leafId?: string): void {
+        // Dispatch custom event for main.ts to handle content capture and modal opening
+        const event = new CustomEvent('web-sidecar:create-note', {
+            detail: { url, leafId }
+        });
+        window.dispatchEvent(event);
     }
 
     async openPaired(file: TFile, url: string, evt: MouseEvent): Promise<void> {
