@@ -11,6 +11,7 @@ export class BrowserTabRenderer {
     private view: IWebSidecarView;
     private sectionRenderer: SectionRenderer;
     private itemRenderer: BrowserTabItemRenderer;
+    private isBasicMode: boolean = false;
 
     constructor(
         view: IWebSidecarView,
@@ -25,8 +26,11 @@ export class BrowserTabRenderer {
 
     /**
      * Render browser-style tab list with favicon + title (compact mode)
+     * @param isBasicMode If true, skip note expansion and virtual tabs
      */
-    renderBrowserModeTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[]): void {
+    renderBrowserModeTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[], isBasicMode: boolean = false): void {
+        this.isBasicMode = isBasicMode;
+        this.itemRenderer.setBasicMode(isBasicMode);
         // Remove any legacy inline header if it exists (nav-header is now in WebSidecarView)
         const legacyHeader = container.querySelector('.web-sidecar-browser-header');
         if (legacyHeader) {
@@ -143,8 +147,9 @@ export class BrowserTabRenderer {
         // Render virtual tabs (from open notes with URLs) in browser style
         // Virtual section MUST come AFTER the New web viewer button
         // Uses DOM reconciliation to preserve expanded state
+        // SKIP in basic mode - no virtual tabs section
         let virtualSection = container.querySelector('.web-sidecar-virtual-section') as HTMLElement;
-        if (virtualTabs.length > 0) {
+        if (!isBasicMode && virtualTabs.length > 0) {
             if (!virtualSection) {
                 virtualSection = document.createElement('div');
                 virtualSection.className = 'web-sidecar-virtual-section';

@@ -73,18 +73,27 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Tab Appearance Mode
 		new Setting(containerEl)
 			.setName('Tab appearance')
 			.setDesc('Choose how tabs are displayed in the sidebar')
-			.addDropdown(dropdown => dropdown
-				.addOption('browser', 'Browser mode (compact, favicon + title)')
-				.addOption('notes', 'Notes mode (detailed, shows URLs)')
-				.setValue(this.plugin.settings.tabAppearance)
-				.onChange(async (value) => {
-					this.plugin.settings.tabAppearance = value as 'notes' | 'browser';
-					await this.plugin.saveSettings();
-				}));
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('basic', 'Basic tabs (vertical tabs only)')
+					.addOption('browser', 'Browser mode (compact, favicon + title)');
+
+				// Only show "Notes mode" if in developer mode (.hotreload exists)
+				// OR if the user is already stuck on it (so they can switch away)
+				if (this.plugin.isDeveloperMode || this.plugin.settings.tabAppearance === 'notes') {
+					dropdown.addOption('notes', 'Notes mode (detailed, shows URLs)');
+				}
+
+				dropdown
+					.setValue(this.plugin.settings.tabAppearance)
+					.onChange(async (value) => {
+						this.plugin.settings.tabAppearance = value as 'notes' | 'browser' | 'basic';
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// Tab Sort Order
 		new Setting(containerEl)
@@ -372,8 +381,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 
 			new Setting(containerEl)
-				.setName('Create/Open Note button')
-				.setDesc('Add button to create or open note for current URL')
+				.setName('Open linked web note button')
+				.setDesc('Add button to open linked note for current URL (if it exists)')
 				.setClass('web-sidecar-sub-setting')
 				.addToggle(toggle => toggle
 					.setValue(this.plugin.settings.showWebViewerOpenNoteButton)

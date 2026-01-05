@@ -638,14 +638,15 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             }
         };
 
-        const isBrowserMode = this.settings.tabAppearance === 'browser';
+        const isBrowserMode = this.settings.tabAppearance === 'browser' || this.settings.tabAppearance === 'basic';
+        const isBasicMode = this.settings.tabAppearance === 'basic';
         const modeChanged = wasBrowserMode !== isBrowserMode;
 
         // Add mode-specific class
-        container.removeClass('web-sidecar-notes-mode', 'web-sidecar-browser-mode');
-        container.addClass(isBrowserMode
-            ? 'web-sidecar-browser-mode'
-            : 'web-sidecar-notes-mode');
+        container.removeClass('web-sidecar-notes-mode', 'web-sidecar-browser-mode', 'web-sidecar-basic-mode');
+        container.addClass(isBasicMode
+            ? 'web-sidecar-basic-mode'
+            : (isBrowserMode ? 'web-sidecar-browser-mode' : 'web-sidecar-notes-mode'));
 
         // Track mouse enter/leave to prevent re-rendering during interaction
         if (!container.getAttribute('data-events-bound')) {
@@ -695,7 +696,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // TabStateService.getTrackedTabs() ALREADY does this filtering!
 
         if (isBrowserMode) {
-            this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs);
+            this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
         } else {
             this.tabListRenderer.renderTabList(container, this.trackedTabs, this.virtualTabs);
         }

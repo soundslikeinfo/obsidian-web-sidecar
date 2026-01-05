@@ -32,6 +32,16 @@ export class ContextMenus {
                 });
         });
 
+        // Open in default browser
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in default browser')
+                .setIcon('external-link')
+                .onClick(() => {
+                    this.openInDefaultBrowser(tab.url);
+                });
+        });
+
         // Open in new window
         menu.addItem((item) => {
             item
@@ -290,10 +300,10 @@ export class ContextMenus {
 
         menu.addSeparator();
 
-        // Open URL in web viewer
+        // Open in web viewer
         menu.addItem((item) => {
             item
-                .setTitle('Open URL in web viewer')
+                .setTitle('Open in web viewer')
                 .setIcon('globe')
                 .onClick(async () => {
                     const leaf = this.view.app.workspace.getLeaf('tab');
@@ -305,10 +315,20 @@ export class ContextMenus {
                 });
         });
 
-        // Open web view + note pair
+        // Open in default browser
         menu.addItem((item) => {
             item
-                .setTitle('Open web view + note pair')
+                .setTitle('Open in default browser')
+                .setIcon('external-link')
+                .onClick(() => {
+                    this.openInDefaultBrowser(url);
+                });
+        });
+
+        // Open web viewer + note pair
+        menu.addItem((item) => {
+            item
+                .setTitle('Open web viewer + note pair')
                 .setIcon('columns')
                 .onClick(async () => {
                     await this.view.openPaired(file, url, { metaKey: false, ctrlKey: false } as MouseEvent);
@@ -347,6 +367,16 @@ export class ContextMenus {
                         state: { url, navigate: true }
                     });
                     this.view.app.workspace.revealLeaf(leaf);
+                });
+        });
+
+        // Open in default browser
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in default browser')
+                .setIcon('external-link')
+                .onClick(() => {
+                    this.openInDefaultBrowser(url);
                 });
         });
 
@@ -394,10 +424,10 @@ export class ContextMenus {
 
         menu.addSeparator();
 
-        // Open web view + note pair
+        // Open web viewer + note pair
         menu.addItem((item) => {
             item
-                .setTitle('Open web view + note pair')
+                .setTitle('Open web viewer + note pair')
                 .setIcon('columns')
                 .onClick(async () => {
                     await this.view.openPaired(file, url, { metaKey: false, ctrlKey: false } as MouseEvent);
@@ -574,6 +604,24 @@ export class ContextMenus {
     }
 
     /**
+     * Helper to open URL in system default browser mechanism
+     */
+    private openInDefaultBrowser(url: string): void {
+        // Try Electron shell first (definitive external open)
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { shell } = require('electron');
+            shell.openExternal(url);
+            return;
+        } catch (e) {
+            console.error('Failed to load electron shell', e);
+        }
+
+        // Fallback to window.open
+        window.open(url, '_blank');
+    }
+
+    /**
      * Show context menu for a Pinned Tab
      */
     showPinnedTabContextMenu(event: MouseEvent, pin: PinnedTab): void {
@@ -587,6 +635,16 @@ export class ContextMenus {
                 .onClick(() => {
                     const leaf = this.view.app.workspace.openPopoutLeaf();
                     leaf.setViewState({ type: 'webviewer', state: { url: pin.currentUrl || pin.url } });
+                });
+        });
+
+        // Open in default browser (NEW)
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in default browser')
+                .setIcon('external-link')
+                .onClick(() => {
+                    this.openInDefaultBrowser(pin.currentUrl || pin.url);
                 });
         });
 

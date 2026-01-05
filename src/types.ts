@@ -191,7 +191,7 @@ export type TabSortOrder = 'focus' | 'title' | 'manual';
 /**
  * Tab appearance mode for sidebar
  */
-export type TabAppearance = 'notes' | 'browser';
+export type TabAppearance = 'notes' | 'browser' | 'basic';
 
 /**
  * Note opening behavior from sidebar
@@ -210,7 +210,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     recentNotesCount: 10,
     tabSortOrder: 'focus',
     manualTabOrder: [],
-    tabAppearance: 'browser',
+    tabAppearance: 'basic',
     enableWebViewerActions: false,
     showWebViewerHeaderButton: true,
     showWebViewerNewNoteButton: true,

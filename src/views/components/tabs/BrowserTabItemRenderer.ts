@@ -8,10 +8,15 @@ import { ContextMenus } from '../ContextMenus';
 export class BrowserTabItemRenderer {
     private view: IWebSidecarView;
     private contextMenus: ContextMenus;
+    private isBasicMode: boolean = false;
 
     constructor(view: IWebSidecarView, contextMenus: ContextMenus) {
         this.view = view;
         this.contextMenus = contextMenus;
+    }
+
+    setBasicMode(basic: boolean): void {
+        this.isBasicMode = basic;
     }
 
     renderBrowserTab(container: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
@@ -85,8 +90,8 @@ export class BrowserTabItemRenderer {
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
 
-        // Note count badge
-        if (exactCount > 0) {
+        // Note count badge (skip in basic mode)
+        if (!this.isBasicMode && exactCount > 0) {
             tabRow.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -97,8 +102,8 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Inline new note (unlikely for virtual tab since it IS a note, but good for consistency)
-        if (exactCount === 0) {
+        // Inline new note (skip in basic mode)
+        if (!this.isBasicMode && exactCount === 0) {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.onclick = (e) => {
@@ -107,8 +112,8 @@ export class BrowserTabItemRenderer {
             };
         }
 
-        // Expand button
-        if (exactCount > 0 || hasSameDomain) {
+        // Expand button (skip in basic mode)
+        if (!this.isBasicMode && (exactCount > 0 || hasSameDomain)) {
             const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
             setIcon(expandBtn, 'chevron-right');
 
@@ -191,7 +196,8 @@ export class BrowserTabItemRenderer {
         const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
-        const hasExpandableContent = exactCount > 0 || hasSameDomain;
+        // In basic mode, we don't show expandable content
+        const hasExpandableContent = !this.isBasicMode && (exactCount > 0 || hasSameDomain);
 
         // Notes container - create/reuse early so onclick can reference it
         let notesContainer: HTMLElement | null = null;
@@ -371,8 +377,8 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Note count
-        if (exactCount > 0) {
+        // Note count (skip in basic mode)
+        if (!this.isBasicMode && exactCount > 0) {
             tabRow.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -382,8 +388,8 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Inline new note
-        if (exactCount === 0) {
+        // Inline new note (skip in basic mode)
+        if (!this.isBasicMode && exactCount === 0) {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.setAttribute('aria-label', 'New linked note');

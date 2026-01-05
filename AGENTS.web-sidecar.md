@@ -398,13 +398,22 @@ if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.pat
 
 ### Display Modes
 
-**Browser Mode** (default, `tabAppearance: 'browser'`):
+**Basic Tabs Mode** (default, `tabAppearance: 'basic'`):
+- Vertical tabs only (favicon + title)
+- No note expansion, no virtual tabs section
+- No note counts, new note buttons, or expand chevrons
+- Auxiliary sections still render normally (controlled by separate settings)
+- Uses same renderer as Browser Mode with `isBasicMode` flag
+
+**Browser Mode** (`tabAppearance: 'browser'`):
 - Compact favicon + title display
 - Expandable cards for matching notes
 - "More web notes" collapsible sections
 - **Uses DOM reconciliation to preserve expanded state and minimize flashing**
 
 **Notes Mode** (`tabAppearance: 'notes'`):
+> [!NOTE] Developer Only
+> This mode is currently hidden unless a `.hotreload` file is present in the plugin directory.
 - Detailed cards with URL display
 - Full note matching results inline
 - Full re-render on each update (simpler, no reconciliation)
@@ -759,8 +768,8 @@ li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(
 - Close linked web view (if URL open)
 - Close all linked web views
 - *(separator)*
-- Open URL in web viewer
-- **Open web view + note pair** ← Paired opening
+- Open in web viewer
+- **Open web viewer + note pair** ← Paired opening
 - Copy URL
 
 ### Virtual Tab Context Menu
@@ -772,7 +781,7 @@ li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(
 - Open in new window
 - Open to the right
 - **Pin web view** *(if pinned tabs enabled)* — Creates a pinned tab from this note's URL
-- Open web view + note pair
+- Open web viewer + note pair
 - Copy URL
 - Reveal note in navigation
 
