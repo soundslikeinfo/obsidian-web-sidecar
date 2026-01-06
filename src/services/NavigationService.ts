@@ -40,7 +40,7 @@ export class NavigationService {
             // Use getLeafId helper for type-safe access
             const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
-                this.app.workspace.revealLeaf(leaf);
+                await this.app.workspace.revealLeaf(leaf);
                 this.app.workspace.setActiveLeaf(leaf, { focus: true });
                 return;
             }
@@ -54,13 +54,13 @@ export class NavigationService {
         if (tab.leaf) {
             // Verify leaf is still valid/attached
             if (tab.leaf.view && tab.leaf.parent) {
-                this.app.workspace.revealLeaf(tab.leaf);
+                void this.app.workspace.revealLeaf(tab.leaf);
                 this.app.workspace.setActiveLeaf(tab.leaf, { focus: true });
                 return;
             }
         }
         // Fallback to ID matching
-        this.focusWebViewer(tab.leafId);
+        void this.focusWebViewer(tab.leafId);
     }
 
     /**
@@ -95,7 +95,7 @@ export class NavigationService {
         if (matchingLeaves.length === 0) return;
 
         if (matchingLeaves.length === 1) {
-            this.app.workspace.revealLeaf(matchingLeaves[0]!);
+            void this.app.workspace.revealLeaf(matchingLeaves[0]!);
             this.app.workspace.setActiveLeaf(matchingLeaves[0]!, { focus: true });
             return;
         }
@@ -105,7 +105,7 @@ export class NavigationService {
         const nextIndex = (currentIndex + 1) % matchingLeaves.length;
         this.urlCycleIndex.set(url, nextIndex);
 
-        this.app.workspace.revealLeaf(matchingLeaves[nextIndex]!);
+        void this.app.workspace.revealLeaf(matchingLeaves[nextIndex]!);
         this.app.workspace.setActiveLeaf(matchingLeaves[nextIndex]!, { focus: true });
     }
 
@@ -123,7 +123,7 @@ export class NavigationService {
 
         if (leaves.length === 1) {
             // Single instance - just focus it
-            this.app.workspace.revealLeaf(leaves[0]!);
+            void this.app.workspace.revealLeaf(leaves[0]!);
             this.app.workspace.setActiveLeaf(leaves[0]!, { focus: true });
             return;
         }
@@ -133,7 +133,7 @@ export class NavigationService {
         const nextIndex = (currentIndex + 1) % leaves.length;
         this.noteCycleIndex.set(filePath, nextIndex);
 
-        this.app.workspace.revealLeaf(leaves[nextIndex]!);
+        void this.app.workspace.revealLeaf(leaves[nextIndex]!);
         this.app.workspace.setActiveLeaf(leaves[nextIndex]!, { focus: true });
     }
 
@@ -160,7 +160,7 @@ export class NavigationService {
             const viewFile = getViewFile(leaf.view);
             if (viewFile && viewFile.path === file.path) {
                 // Already open, just focus it
-                this.app.workspace.revealLeaf(leaf);
+                await this.app.workspace.revealLeaf(leaf);
                 this.app.workspace.setActiveLeaf(leaf, { focus: true });
                 return;
             }
@@ -248,7 +248,7 @@ export class NavigationService {
             type: 'webviewer',
             state: { url: homepage, navigate: true }
         });
-        this.app.workspace.revealLeaf(leaf);
+        await this.app.workspace.revealLeaf(leaf);
         this.app.workspace.setActiveLeaf(leaf, { focus: true });
 
         // CRITICAL: Immediate refresh first, then delayed refresh to catch any late registration
@@ -269,14 +269,16 @@ export class NavigationService {
             this.app,
             url,
             this.getSettings(),
-            async (path) => {
-                // Open the newly created note
-                const file = this.app.vault.getAbstractFileByPath(path);
-                if (file instanceof TFile) {
-                    await this.app.workspace.openLinkText(path, '', true);
-                }
-                // Refresh the view
-                this.onRefreshCallback();
+            (path) => {
+                void (async () => {
+                    // Open the newly created note
+                    const file = this.app.vault.getAbstractFileByPath(path);
+                    if (file instanceof TFile) {
+                        await this.app.workspace.openLinkText(path, '', true);
+                    }
+                    // Refresh the view
+                    this.onRefreshCallback();
+                })();
             }
         ).open();
     }
@@ -321,7 +323,7 @@ export class NavigationService {
         }
 
         if (webLeaf && noteLeaf) {
-            this.app.workspace.revealLeaf(noteLeaf);
+            await this.app.workspace.revealLeaf(noteLeaf);
             return;
         }
 
@@ -329,7 +331,7 @@ export class NavigationService {
 
         if (webLeaf) {
             if (noteLeaf) {
-                this.app.workspace.revealLeaf(noteLeaf);
+                await this.app.workspace.revealLeaf(noteLeaf);
             } else if (settings.noteOpenBehavior === 'split') {
                 const newNoteLeaf = this.getOrCreateRightLeaf(webLeaf);
                 await newNoteLeaf.openFile(file);
@@ -370,7 +372,7 @@ export class NavigationService {
         });
 
         if (noteLeaf) {
-            this.app.workspace.revealLeaf(noteLeaf);
+            await this.app.workspace.revealLeaf(noteLeaf);
         } else if (settings.noteOpenBehavior === 'split') {
             const newNoteLeaf = this.getOrCreateRightLeaf(webLeaf);
             await newNoteLeaf.openFile(file);
@@ -673,7 +675,7 @@ export class NavigationService {
         for (const leaf of leaves) {
             const state = leaf.view.getState();
             if (state?.url === url) {
-                this.app.workspace.revealLeaf(leaf);
+                await this.app.workspace.revealLeaf(leaf);
                 return;
             }
         }
@@ -687,6 +689,6 @@ export class NavigationService {
             type: 'webviewer',
             state: { url, navigate: true }
         });
-        this.app.workspace.revealLeaf(leaf);
+        await this.app.workspace.revealLeaf(leaf);
     }
 }
