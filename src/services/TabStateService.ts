@@ -4,6 +4,7 @@ import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from
 import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';
 import { getLeafId } from './obsidianHelpers';
+import { isSameRedditPost } from './matchers/reddit';
 
 /**
  * Supported web viewer types
@@ -233,11 +234,18 @@ export class TabStateService {
                 }
 
                 if (foundUrl) {
-                    // Skip if URL is already open in a web viewer
-                    if (openUrls.has(foundUrl)) continue;
+                    // Skip if URL is already open in a web viewer (check exact & domain-specific, e.g. Reddit ID)
+                    const isAlreadyOpen = Array.from(openUrls).some(openUrl =>
+                        openUrl === foundUrl || isSameRedditPost(openUrl, foundUrl)
+                    );
+                    if (isAlreadyOpen) continue;
 
                     // Skip if URL belongs to a pinned tab (shown in pinned section instead)
-                    if (pinnedUrls.has(foundUrl)) continue;
+                    // Pinned tabs might also have redirected, so we check using the same robust logic
+                    const isPinned = Array.from(pinnedUrls).some(pinUrl =>
+                        pinUrl === foundUrl || isSameRedditPost(pinUrl, foundUrl)
+                    );
+                    if (isPinned) continue;
 
                     virtualTabs.push({
                         file,
@@ -432,6 +440,11 @@ export class TabStateService {
         } catch {
             return url;
         }
+    }
+
+    setCachedTitle(url: string, title: string): void {
+        this.urlTitleCache.set(url, title);
+        // Persist? We don't persist cache currently, relies on session or fetch.
     }
 
     // --- Pinned Tabs Logic ---

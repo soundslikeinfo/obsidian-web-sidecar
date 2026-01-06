@@ -14,14 +14,24 @@ Split large files (> 300 lines) into smaller, single-responsibility modules to i
 - This makes context menu logic much easier to find and modify.
 
 ## `SectionRenderer.ts` Refactor
-- **Status**: In Progress
-- **Current Size**: 997 lines
-- **Strategy**: Break down by logical section type (Recent, Domain, Subreddit, Tags).
+- **Status**: ✅ Complete
+- **Original Size**: 997 lines → **Now**: 149 lines
 - **Files created**:
-    - `src/views/components/sections/SectionHelpers.ts` (Shared drag/drop/sort logic)
+    - `src/views/components/sections/SectionHelpers.ts`
     - `src/views/components/sections/RecentNotesSection.ts`
     - `src/views/components/sections/DomainSection.ts`
     - `src/views/components/sections/SubredditSection.ts`
     - `src/views/components/sections/TagSection.ts`
     - `src/views/components/sections/YouTubeSection.ts`
-- **Result**: `SectionRenderer.ts` will become an orchestrator/coordinator, managing the order and instantiation of these sub-renderers.
+- **Result**: `SectionRenderer.ts` is now an orchestrator, delegating to sub-renderers.
+
+## `NavigationService.ts` Refactor
+- **Status**: ✅ Complete
+- **Original Size**: 662 lines → **Now**: 320 lines
+- **Analysis**: Extracted two focused modules:
+    - **Focus handling** → `FocusService.ts` (80 lines)
+    - **Leaf management** → `LeafManagement.ts` (155 lines)
+- **Key Changes**:
+    - Consolidated duplicate refresh logic into `triggerRefresh()` helper
+    - `NavigationService` now delegates focus/leaf operations to sub-services
+    - All files now under 300-line threshold

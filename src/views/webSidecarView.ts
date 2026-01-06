@@ -564,19 +564,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             currentOrder.push(draggedLeafId);
         }
 
-        // CRITICAL: Force re-render even if user is interacting
+        // All three steps required for immediate visual feedback of manual sort order
         this.isManualRefresh = true;
         this.saveManualTabOrder(currentOrder);
-        this.onRefresh(); // onRefresh calls render? No onRefreshFn calls View.updateTabs calls render.
-        // But onRefreshFn might be debounced or dependent on other things.
-        // Let's force render directly locally if possible, but trackedTabs needs update?
-        // NavigationService/TabStateService updates trackedTabs usually.
-        // Actually handleTabDrop just updates ORDER in settings.
-        // We need to re-sort trackedTabs based on this new order visually.
-        // The render loop does: const tabs = this.trackedTabs.
-        // If we don't update this.trackedTabs order in memory, render will show old order until polling.
-        // But we just updated settings.manualTabOrder.
-        // We should trigger a full refresh cycle.
+        this.onRefresh();
         this.render(true);
     }
 

@@ -205,6 +205,39 @@ async openUrlSmartly(url: string, e: MouseEvent): Promise<void> {
 - [ ] Is there a second refresh AFTER a 100ms delay?
 - [ ] Is `isManualRefreshCallback(true)` set before EACH refresh call?
 
+### Anti-Pattern: Redundant refreshState Calls
+
+> [!CAUTION]
+> **DO NOT** add additional `refreshState` calls to the refresh chain.
+
+**What went wrong (2026-01-06):**
+An attempt to "fix" tab sync by adding a `refreshTabStateCallback` parameter to `NavigationService` caused a **regression**. The issue was that:
+
+1. `onRefreshCallback` already calls `tabStateService.refreshState()` (via `main.ts` wiring)
+2. Adding `refreshTabStateCallback` that also calls `refreshState()` caused **double calls** per refresh cycle
+3. The race condition from 4x `refreshState` calls (2 immediate + 2 delayed) broke the sync
+
+**The correct pattern is:**
+- `triggerRefresh()` calls `onRefreshCallback()` only (which internally triggers `refreshState`)
+- One immediate refresh + one delayed (100ms) refresh = 2 total `refreshState` calls
+- Adding any additional `refreshState` wrappers breaks this
+
+```typescript
+// CORRECT - NavigationService.triggerRefresh()
+private async triggerRefresh(): Promise<void> {
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();  // This calls refreshState internally
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();  // Second call after delay
+}
+
+// WRONG - adding redundant calls
+this.refreshTabStateCallback();  // DON'T add this
+this.onRefreshCallback();        // This already refreshes state
+```
+
 ---
 
 ## Nav-Header Plus Button

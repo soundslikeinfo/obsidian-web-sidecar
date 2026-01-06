@@ -3,7 +3,7 @@ import { App, TFile } from 'obsidian';
 import type { WebSidecarSettings, MatchResult, MatchedNote } from '../../types';
 import type { UrlIndex } from '../UrlIndex';
 import { normalizeUrl, urlsMatch, isSameDomain, isValidUrl, extractDomain } from '../urlUtils';
-import { extractSubreddit } from './reddit';
+import { extractSubreddit, isSameRedditPost } from './reddit';
 import { isYouTubeDomain, extractYouTubeChannel } from './youtube';
 
 /**
@@ -60,8 +60,8 @@ export function findMatchingNotes(
                 if (typeof val !== 'string') continue;
                 if (!isValidUrl(val)) continue;
 
-                // Check for exact match
-                if (urlsMatch(val, url)) {
+                // Check for exact match OR domain-specific equivalency (e.g. Reddit post ID match)
+                if (urlsMatch(val, url) || isSameRedditPost(val, url)) {
                     // Check if already added (if we have multiple properties pointing to same URL)
                     if (!exactMatches.some(m => m.file.path === file.path)) {
                         exactMatches.push({

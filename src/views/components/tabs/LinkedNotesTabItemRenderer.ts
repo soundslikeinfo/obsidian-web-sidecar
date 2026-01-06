@@ -6,15 +6,18 @@ import { getLeafId, getViewFile, getViewFilePath, leafHasFile } from '../../../s
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
+import { PageTitleService } from '../../../services/PageTitleService';
 
 export class LinkedNotesTabItemRenderer {
     private view: IWebSidecarView;
     private contextMenus: ContextMenus;
+    private pageTitleService: PageTitleService;
     private isBasicMode: boolean = false;
 
     constructor(view: IWebSidecarView, contextMenus: ContextMenus) {
         this.view = view;
         this.contextMenus = contextMenus;
+        this.pageTitleService = new PageTitleService();
     }
 
     setBasicMode(basic: boolean): void {
@@ -81,11 +84,35 @@ export class LinkedNotesTabItemRenderer {
         }
 
         // Title (Italicized)
-        const displayTitle = virtualTab.cachedTitle || domain || virtualTab.url;
+        // Check service cache first (survives re-renders), then virtualTab cache, then fallback to domain
+        const serviceCachedTitle = this.view.settings.fetchVirtualTabTitles
+            ? this.pageTitleService.getCachedTitle(virtualTab.url)
+            : undefined;
+        const displayTitle = serviceCachedTitle || virtualTab.cachedTitle || domain || virtualTab.url;
         const titleSpan = tabRow.createSpan({
             text: displayTitle,
             cls: 'web-sidecar-linked-notes-tab-title web-sidecar-virtual-tab-title'
         });
+
+        // Set initial aria-label for accessibility
+        titleSpan.setAttribute('aria-label', `Open web view for ${displayTitle}`);
+
+        // On-demand title fetch (if enabled and no cached title anywhere)
+        if (this.view.settings.fetchVirtualTabTitles && !serviceCachedTitle && !virtualTab.cachedTitle && domain) {
+            this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
+                if (title) {
+                    // Push to TabStateService urlTitleCache so it persists when virtual tab becomes real tab
+                    this.view.tabStateService.setCachedTitle(virtualTab.url, title);
+
+                    // CRITICAL: Check if element is still attached to DOM before updating
+                    // (polling may have re-rendered and replaced this element)
+                    if (titleSpan.isConnected) {
+                        titleSpan.textContent = title;
+                        titleSpan.setAttribute('aria-label', `Open web view for ${title}`);
+                    }
+                }
+            });
+        }
 
         // Match handling for counts and expand logic
         const matches = findMatchingNotes(this.view.app, virtualTab.url, this.view.settings, this.view.urlIndex);
@@ -298,8 +325,9 @@ export class LinkedNotesTabItemRenderer {
             }
 
             // 3-state click behavior:
+            // Click behavior for open web viewer tabs (NOT pinned tabs - see PinnedTabRenderer):
             // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
-            // - Grouped tabs: always cycle through instances (expand button handles expand/collapse)
+            // - Grouped tabs: cycle through instances (expand button handles expand/collapse)
 
             if (!isAlreadyActive) {
                 // Not focused - focus the tab (or start cycling for grouped)

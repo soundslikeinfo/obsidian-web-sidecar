@@ -19,6 +19,35 @@ export function extractSubreddit(url: string): string | null {
     return null;
 }
 
+/**
+ * Extract the Reddit post ID from a URL
+ * e.g. .../comments/1q4o8pu/... -> "1q4o8pu"
+ */
+export function extractRedditPostId(url: string): string | null {
+    // Matches /comments/{id}
+    const regex = /\/comments\/([a-z0-9]+)/i;
+    const match = url.match(regex);
+    return match && match[1] ? match[1] : null;
+}
+
+/**
+ * Check if two URLs refer to the same Reddit post
+ * This handles cases where one URL might include a slug and the other doesn't,
+ * or if the slug changed (e.g. to "removed_by_moderator").
+ */
+export function isSameRedditPost(url1: string, url2: string): boolean {
+    // Fast check: both must contain "reddit.com"
+    if (!url1.includes('reddit.com') || !url2.includes('reddit.com')) return false;
+
+    const id1 = extractRedditPostId(url1);
+    const id2 = extractRedditPostId(url2);
+
+    if (id1 && id2) {
+        return id1 === id2;
+    }
+    return false;
+}
+
 
 /**
  * Get all notes that link to Reddit, grouped by subreddit

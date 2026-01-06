@@ -184,7 +184,15 @@ export class LinkedNotesTabRenderer {
                 }
             }
 
-            for (const virtualTab of virtualTabs) {
+            // CRITICAL: Deduplicate virtualTabs by URL (same URL = same entry even if from different notes)
+            const seenUrls = new Set<string>();
+            const deduplicatedVirtualTabs = virtualTabs.filter(vt => {
+                if (seenUrls.has(vt.url)) return false;
+                seenUrls.add(vt.url);
+                return true;
+            });
+
+            for (const virtualTab of deduplicatedVirtualTabs) {
                 const key = `virtual:${virtualTab.url}`;
                 newKeys.add(key);
 

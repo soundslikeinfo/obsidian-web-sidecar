@@ -196,6 +196,8 @@ export interface WebSidecarSettings {
     // Linked Note Display
     /** How to display linked notes in web viewer tabs based on open state */
     linkedNoteDisplayStyle: 'none' | 'color' | 'style';
+    /** Fetch page titles for virtual tabs (web notes not currently open) */
+    fetchVirtualTabTitles: boolean;
 }
 
 /**
@@ -248,6 +250,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
 
     // UI Persistence Defaults
     isRecentNotesOpen: false,
+    fetchVirtualTabTitles: true,
     isDomainGroupOpen: false,
     isSubredditExplorerOpen: false,
     isTagGroupOpen: false,

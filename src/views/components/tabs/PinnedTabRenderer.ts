@@ -431,25 +431,49 @@ export class PinnedTabRenderer {
     }
 
     private async handlePinClick(startPin: PinnedTab, e: MouseEvent) {
-        // FIX: Re-fetch pin from settings to ensure we have the LATEST leafId.
-        // The 'startPin' passed in closure might be stale if a leaf was just created but render loop hasn't fully cycled/updated this specific element's closure yet.
-        const freshPin = this.view.settings.pinnedTabs.find(p => p.id === startPin.id) || startPin;
+        // Skip if clicking on expand button or new note button
+        if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
+        if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 
-        // 1. Check if potential open leaf exists
+        // Re-fetch pin from settings to ensure we have the LATEST leafId
+        const freshPin = this.view.settings.pinnedTabs.find((p: PinnedTab) => p.id === startPin.id) || startPin;
+
+        // Check if potential open leaf exists
         const openLeaf = freshPin.leafId ? this.view.app.workspace.getLeafById(freshPin.leafId) : null;
 
+        // Check if this pinned tab is already focused
+        let checkLeaf = this.view.app.workspace.activeLeaf;
+        if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+            checkLeaf = this.view.lastActiveLeaf;
+        }
+        const isAlreadyFocused = openLeaf && checkLeaf && getLeafId(checkLeaf) === freshPin.leafId;
+
+        // Check if has expandable content (for expand/collapse toggle)
+        const matches = findMatchingNotes(this.view.app, freshPin.url, this.view.settings, this.view.urlIndex);
+        const exactCount = matches.exactMatches.length;
+        const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
+        const hasExpandableContent = exactCount > 0 || hasSameDomain;
+
+        // Click behavior for pinned tabs (mirrors open web viewer tabs):
+        // - First click = focus (or open if closed)
+        // - Subsequent clicks when already focused = toggle expand/collapse
+
+        if (isAlreadyFocused && hasExpandableContent) {
+            // Already focused - toggle expand/collapse
+            const key = `pin:${freshPin.id}`;
+            const newState = !this.view.expandedGroupIds.has(key);
+            this.view.setGroupExpanded(key, newState);
+            this.view.render(true);
+            return;
+        }
+
         if (openLeaf) {
-            // Focus it with delay to prevent sidecar self-focus race condition
+            // Open but not focused - focus it
             setTimeout(() => {
                 this.view.app.workspace.setActiveLeaf(openLeaf, { focus: true });
             }, 50);
         } else {
-            // Check if we are already in the process of opening? (Prevent rapid clicks)
-            // Ideally we'd have a lock or 'isOpening' state.
-            // relying on freshPin.leafId should be enough IF setPinnedTabLeaf is fast enough or synchronous-ish in memory.
-
-            // Open new
-            // Open in main tab area
+            // Closed - open new web viewer
             const leaf = this.view.app.workspace.getLeaf('tab');
             const urlToOpen = freshPin.currentUrl || freshPin.url;
 
@@ -459,23 +483,14 @@ export class PinnedTabRenderer {
             });
             this.view.app.workspace.revealLeaf(leaf);
 
-            // The StateService will detect this new leaf and link it to the pin via URL matching
-            // We might need to manually link it if URL is same but we want explicit ownership?
-            // But existing logic relies on URL matching.
-
-            // FIX: Explicitly link the new Leaf ID to this Pin immediately.
-            // This ensures that even if the page redirects immediately (changing URL),
-            // the service knows this leaf belongs to this pin.
+            // Explicitly link the new Leaf ID to this Pin immediately
             const leafId = getLeafId(leaf);
-
             if (leafId && this.view.tabStateService) {
                 await this.view.tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
             }
 
-            // CRITICAL: Force UI refresh to show the pin is now open
+            // Force UI refresh to show the pin is now open
             this.view.render(true);
-
-            // Additional delayed refreshes for robustness
             setTimeout(() => this.view.render(true), 150);
             setTimeout(() => this.view.render(true), 400);
         }
