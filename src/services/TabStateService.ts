@@ -275,6 +275,8 @@ export class TabStateService {
             if (info) {
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -365,6 +367,8 @@ export class TabStateService {
             if (info) {
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -669,7 +673,7 @@ export class TabStateService {
         // Find first valid URL
         let url: string | undefined;
         for (const field of settings.urlPropertyFields) {
-            const val = (frontmatter as Record<string, any>)[field];
+            const val = (frontmatter as Record<string, unknown>)[field];
             if (typeof val === 'string' && val.startsWith('http')) {
                 url = val;
                 break;

@@ -111,6 +111,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     getDisplayText(): string {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         return 'Web Sidecar';
     }
 
@@ -184,7 +185,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         }
 
         // Create nav-header
-        navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
+        navHeader = this.containerEl.createDiv({ cls: 'nav-header web-sidecar-toolbar', prepend: true });
         const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
 
         // New Web Viewer button (leftmost)
@@ -272,6 +273,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 if (cmd) {
                     app.commands.executeCommandById(cmd.id);
                 } else {
+                    // eslint-disable-next-line obsidianmd/ui/sentence-case
                     new Notice('Web Sidecar: Command "Show history" not found.');
                     console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
                 }
@@ -310,6 +312,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 if (cmd) {
                     app.commands.executeCommandById(cmd.id);
                 } else {
+                    // eslint-disable-next-line obsidianmd/ui/sentence-case
                     new Notice('Web Sidecar: Command "Search the web" not found.');
                     console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));
                 }

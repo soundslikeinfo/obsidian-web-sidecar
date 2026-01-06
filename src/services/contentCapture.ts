@@ -20,6 +20,7 @@ export async function captureWebViewContent(leaf: WorkspaceLeaf): Promise<string
         }
 
         // Check if executeJavaScript is available (desktop only)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (typeof (webviewEl as any).executeJavaScript !== 'function') {
             console.warn('Web Sidecar: executeJavaScript not available (mobile or unsupported)');
             return null;
@@ -30,6 +31,7 @@ export async function captureWebViewContent(leaf: WorkspaceLeaf): Promise<string
         // SECURITY NOTE: This is a READ operation from an isolated webview context.
         // The extracted HTML is sanitized by Defuddle and converted to Markdown text,
         // never directly injected into Obsidian's DOM.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const html = await (webviewEl as any).executeJavaScript('document.documentElement.outerHTML');
 
         if (typeof html !== 'string' || !html.trim()) {

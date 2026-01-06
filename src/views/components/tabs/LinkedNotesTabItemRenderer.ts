@@ -500,6 +500,7 @@ export class LinkedNotesTabItemRenderer {
                 // Verify if the candidate active leaf is still attached to the workspace
                 // If not (e.g. it was just closed), try to find the mostly likely new active leaf
                 // by looking for the most recent markdown leaf that isn't the one we just checked
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (activeLeaf && (activeLeaf as any).parent === undefined) {
                     // Leaf is detached
                     const allMarkdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
@@ -522,24 +523,6 @@ export class LinkedNotesTabItemRenderer {
                 }
 
                 // Re-check activeLeaf from workspace if we reset it or it was null
-                if (!activeLeaf || activeLeaf === this.view.leaf) {
-                    // Try to find a markdown leaf that looks active (heuristics)
-                    // This is tricky. 
-                    // Let's stick to: if lastActiveLeaf is invalid, we don't show focus UNTIL user interacts with a note
-                    // OR until active-leaf-change fires (which should happen shortly after close).
-                    // However, since we DELAYED the render by 150ms in ContextMenus, 
-                    // `this.view.app.workspace.activeLeaf` SHOULD be correct now (the new note),
-                    // UNLESS the sidecar still has focus.
-
-                    // If sidecar has focus, `this.view.app.workspace.activeLeaf` is sidecar.
-                    // The "background" active tab is not exposed commonly.
-                    // But we can check `this.view.app.workspace.getLeavesOfType('markdown')`
-                    // and see if any have `view.containerEl.ownerDocument.activeElement`? No.
-
-                    const leaves = this.view.app.workspace.getLeavesOfType('markdown');
-                    // Find the one that corresponds to the file path of matches?
-                    // No we want to know WHICH ONE is active.
-                }
 
                 const isNoteFocused = activeLeaf?.view instanceof MarkdownView
                     && activeLeaf.view.file?.path === match.file.path

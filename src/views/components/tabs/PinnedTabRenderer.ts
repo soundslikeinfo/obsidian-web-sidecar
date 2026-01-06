@@ -1,10 +1,8 @@
-
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
 import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
-import { NoteRenderer } from '../NoteRenderer';
-import { setIcon, Menu, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView } from 'obsidian';
 import { IWebSidecarView, PinnedTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 
@@ -214,7 +212,7 @@ export class PinnedTabRenderer {
         }
 
         // Title
-        const titleEl = row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
+        row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
 
         // Tab count badge - count how many open web viewers match this pin's URL
         // Query workspace directly since trackedTabs is filtered (excludes pinned URLs)
