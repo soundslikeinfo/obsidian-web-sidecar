@@ -116,7 +116,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     getDisplayText(): string {
-        // eslint-disable-next-line obsidianmd/ui/sentence-case
         return 'Web Sidecar';
     }
 
@@ -283,7 +282,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 if (cmd) {
                     app.commands.executeCommandById(cmd.id);
                 } else {
-                    // eslint-disable-next-line obsidianmd/ui/sentence-case
                     new Notice('Web Sidecar: Command "Show history" not found.');
                     console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
                 }
@@ -322,7 +320,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 if (cmd) {
                     app.commands.executeCommandById(cmd.id);
                 } else {
-                    // eslint-disable-next-line obsidianmd/ui/sentence-case
                     new Notice('Web Sidecar: Command "Search the web" not found.');
                     console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));
                 }
@@ -375,7 +372,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.settings.isGithubExplorerOpen = newState;
 
         // Persist changes
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
 
         // Expand/Collapse global tab state
         if (newState) {
@@ -448,68 +445,68 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     setSubredditExplorerOpen(open: boolean): void {
         this.isSubredditExplorerOpen = open;
         this.settings.isSubredditExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setDomainGroupOpen(open: boolean): void {
         this.isDomainGroupOpen = open;
         this.settings.isDomainGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setRecentNotesOpen(open: boolean): void {
         this.isRecentNotesOpen = open;
         this.settings.isRecentNotesOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
         // No auto-refresh needed here, as it's just state tracking for next render
     }
 
     setTagGroupOpen(open: boolean): void {
         this.isTagGroupOpen = open;
         this.settings.isTagGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setSelectedTagGroupOpen(open: boolean): void {
         this.isSelectedTagGroupOpen = open;
         this.settings.isSelectedTagGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.youtubeChannelSort = sort;
         this.settings.youtubeChannelSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setYouTubeChannelExplorerOpen(open: boolean): void {
         this.isYouTubeChannelExplorerOpen = open;
         this.settings.isYouTubeChannelExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.twitterSort = sort;
         this.settings.twitterSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setTwitterExplorerOpen(open: boolean): void {
         this.isTwitterExplorerOpen = open;
         this.settings.isTwitterExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGithubSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.githubSort = sort;
         this.settings.githubSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGithubExplorerOpen(open: boolean): void {
         this.isGithubExplorerOpen = open;
         this.settings.isGithubExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGroupExpanded(id: string, expanded: boolean): void {
@@ -519,7 +516,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             this.expandedGroupIds.delete(id);
         }
         this.settings.expandedGroupIds = Array.from(this.expandedGroupIds);
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
         // No auto-refresh needed here
     }
 
@@ -607,7 +604,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // All three steps required for immediate visual feedback of manual sort order
         this.isManualRefresh = true;
-        this.saveManualTabOrder(currentOrder);
+        void this.saveManualTabOrder(currentOrder);
         this.onRefresh();
         this.render(true);
     }
@@ -632,7 +629,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Update settings and persist
         this.settings.sectionOrder = currentOrder;
         this.isManualRefresh = true;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
         this.onRefresh();
     }
 
@@ -706,7 +703,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     focusWebViewer(leafId: string): void {
-        this.navigationService.focusWebViewer(leafId);
+        void this.navigationService.focusWebViewer(leafId);
     }
 
     focusTab(tab: TrackedWebViewer): void {
@@ -778,7 +775,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 // Check if dropped outside pinned section
                 if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
                     e.preventDefault();
-                    this.unpinTab(pinId);
+                    void this.unpinTab(pinId);
                 }
             }
         };
