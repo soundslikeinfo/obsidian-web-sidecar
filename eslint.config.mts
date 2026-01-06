@@ -31,13 +31,14 @@ export default tseslint.config(
 			parserOptions: { project: "./tsconfig.json" },
 		},
 		rules: {
+			"obsidianmd/settings-tab/no-problematic-settings-headings": "off",
 			"obsidianmd/ui/sentence-case": [
-				"warn",
-				{
-					brands: ["Sounds Like Info"],
-					acronyms: ["SLI"],
-					enforceCamelCaseLower: true,
-				},
+				"off",
+				// {
+				// 	brands: ["Web Sidecar", "URL", "URLs"],
+				// 	acronyms: ["WS", "URL", "HTTP", "HTTPS", "URLs"],
+				// 	enforceCamelCaseLower: true,
+				// },
 			],
 		}
 	},

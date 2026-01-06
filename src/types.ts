@@ -1,5 +1,5 @@
 
-import { App, EventRef, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import type { UrlIndex } from './services/UrlIndex';
 import type { TabStateService } from './services/TabStateService';
 

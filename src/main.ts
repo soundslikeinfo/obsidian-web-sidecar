@@ -1,10 +1,9 @@
 
-import { Plugin, WorkspaceLeaf, Menu, TFile } from 'obsidian';
+import { Plugin, WorkspaceLeaf, Menu } from 'obsidian';
 import { WebSidecarSettings, DEFAULT_SETTINGS } from './types';
 import { WebSidecarSettingTab } from './settings/settingsTab';
 import { WebSidecarView, VIEW_TYPE_WEB_SIDECAR } from './views/webSidecarView';
 import { WebViewerManager } from './experimental/WebViewerManager';
-import { CreateNoteModal } from './modals/createNoteModal';
 import { UrlIndex } from './services/UrlIndex';
 import { TabStateService } from './services/TabStateService';
 import { capturePageAsMarkdown, findWebViewerLeafById } from './services/contentCapture';

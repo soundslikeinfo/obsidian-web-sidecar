@@ -1,5 +1,5 @@
 
-import { Plugin, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { WorkspaceLeaf, MarkdownView } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
 import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';

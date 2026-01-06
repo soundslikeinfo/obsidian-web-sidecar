@@ -1,5 +1,5 @@
 
-import { App, TFile, WorkspaceLeaf, MarkdownView, WorkspaceSplit } from 'obsidian';
+import { App, TFile, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
 import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import { findMatchingNotes } from './noteMatcher';

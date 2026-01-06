@@ -2,7 +2,7 @@
 import { setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
 import { getFaviconUrl } from '../../services/faviconUtils';
-import { getRecentNotesWithUrls, getAllRedditNotes, getAllYouTubeNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
+import { getRecentNotesWithUrls, getAllRedditNotes, getAllYouTubeNotes, getNotesGroupedByTags } from '../../services/noteMatcher';
 import { IWebSidecarView, MatchedNote } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
 import { ContextMenus } from './ContextMenus';
