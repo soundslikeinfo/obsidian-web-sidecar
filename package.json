@@ -4,6 +4,7 @@
 	"description": "Obsidian plugin that watches active web viewer URLs and displays related notes in a sidebar",
 	"main": "main.js",
 	"type": "module",
+	"homepage": "https://github.com/soundslikeinfo/obsidian-web-sidecar",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
