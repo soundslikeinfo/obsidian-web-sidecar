@@ -1,5 +1,5 @@
 
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, View } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { findMatchingNotes } from '../../../services/noteMatcher';
 import { ContextMenus } from '../ContextMenus';
@@ -121,7 +121,7 @@ export class LinkedNotesTabRenderer {
 
             const row = newTabBtn.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
             // Click listener on ROW, matching standard tabs, ensures padding is clickable
-            row.addEventListener('click', () => this.view.openNewWebViewer());
+            row.addEventListener('click', () => { void this.view.openNewWebViewer(); });
 
             const iconContainer = row.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
             setIcon(iconContainer, 'plus');
@@ -173,7 +173,7 @@ export class LinkedNotesTabRenderer {
             const newKeys = new Set<string>();
 
             // Get current focus state for updating existing tabs
-            let activeLeaf = this.view.app.workspace.activeLeaf;
+            let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
             if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                 activeLeaf = this.view.lastActiveLeaf;
             }
@@ -333,7 +333,7 @@ export class LinkedNotesTabRenderer {
 
                 this.view.settings.manualTabOrder = currentOrder;
                 this.view.setManualRefresh(true);
-                this.view.saveSettingsFn(); // Persist changes
+                this.view.saveSettingsFn().then(() => { /* nothing */ }, console.error); // Persist changes
                 this.view.onRefresh();
             }
         };

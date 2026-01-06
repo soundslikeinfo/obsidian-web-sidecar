@@ -2,7 +2,7 @@ import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
 import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, View } from 'obsidian';
 import { IWebSidecarView, PinnedTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 
@@ -95,7 +95,7 @@ export class PinnedTabRenderer {
                 const tabs = this.view.trackedTabs;
                 const tab = tabs.find(t => t.leafId === leafId);
                 if (tab) {
-                    this.view.pinTab(tab).then(() => {
+                    void this.view.pinTab(tab).then(() => {
                         // Force UI update
                         this.view.render(true);
                     });
@@ -170,7 +170,7 @@ export class PinnedTabRenderer {
 
         pinEl.addEventListener('click', (e) => {
             // Check if user clicked on context menu trigger or something else if we add buttons
-            this.handlePinClick(pin, e);
+            void this.handlePinClick(pin, e);
         });
 
         pinEl.addEventListener('contextmenu', (e) => {
@@ -299,7 +299,7 @@ export class PinnedTabRenderer {
         }
 
         // 2. Is it active?
-        let activeLeaf = this.view.app.workspace.activeLeaf;
+        let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
         if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
             activeLeaf = this.view.lastActiveLeaf;
@@ -330,7 +330,7 @@ export class PinnedTabRenderer {
                 li.setAttribute('data-note-path', match.file.path);
 
                 // Check if this note is the currently focused leaf
-                let activeLeaf = this.view.app.workspace.activeLeaf;
+                let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
                 if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                     activeLeaf = this.view.lastActiveLeaf;
                 }
@@ -361,7 +361,7 @@ export class PinnedTabRenderer {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
-                    this.view.openNoteSmartly(match.file, e);
+                    void this.view.openNoteSmartly(match.file, e);
                 });
 
                 link.addEventListener('contextmenu', (e) => {
@@ -420,7 +420,7 @@ export class PinnedTabRenderer {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
-                    this.view.openNoteSmartly(match.file, e);
+                    void this.view.openNoteSmartly(match.file, e);
                 });
                 link.addEventListener('contextmenu', (e) => {
                     e.stopPropagation();
@@ -442,7 +442,7 @@ export class PinnedTabRenderer {
         const openLeaf = freshPin.leafId ? this.view.app.workspace.getLeafById(freshPin.leafId) : null;
 
         // Check if this pinned tab is already focused
-        let checkLeaf = this.view.app.workspace.activeLeaf;
+        let checkLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
         if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
             checkLeaf = this.view.lastActiveLeaf;
         }
@@ -498,7 +498,7 @@ export class PinnedTabRenderer {
                 type: 'webviewer',
                 state: { url: urlToOpen, navigate: true }
             });
-            this.view.app.workspace.revealLeaf(leaf);
+            await this.view.app.workspace.revealLeaf(leaf);
 
             // Explicitly link the new Leaf ID to this Pin immediately
             const leafId = getLeafId(leaf);
@@ -545,7 +545,7 @@ export class PinnedTabRenderer {
 
             if (droppedPinId && droppedPinId !== pin.id) {
                 // Reorder
-                this.view.reorderPinnedTabs(droppedPinId, pin.id);
+                void this.view.reorderPinnedTabs(droppedPinId, pin.id);
             }
         });
     }

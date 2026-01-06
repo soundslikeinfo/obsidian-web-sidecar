@@ -1,8 +1,8 @@
 
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, View } from 'obsidian';
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
-import { getLeafId, getViewFile, getViewFilePath, leafHasFile } from '../../../services/obsidianHelpers';
+import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
@@ -99,7 +99,7 @@ export class LinkedNotesTabItemRenderer {
 
         // On-demand title fetch (if enabled and no cached title anywhere)
         if (this.view.settings.fetchVirtualTabTitles && !serviceCachedTitle && !virtualTab.cachedTitle && domain) {
-            this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
+            void this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
                 if (title) {
                     // Push to TabStateService urlTitleCache so it persists when virtual tab becomes real tab
                     this.view.tabStateService.setCachedTitle(virtualTab.url, title);
@@ -146,7 +146,7 @@ export class LinkedNotesTabItemRenderer {
             const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
             // Auto-expand logic: Check if a linked note is currently focused
-            let activeLeaf = this.view.app.workspace.activeLeaf;
+            let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
             // Fallback to last active leaf if sidecar is focused
             if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                 activeLeaf = this.view.lastActiveLeaf;
@@ -207,7 +207,7 @@ export class LinkedNotesTabItemRenderer {
         const isDeduped = allTabs && allTabs.length > 1;
 
         // Check if this tab is the currently active/focused one OR if active note is linked
-        let activeLeaf = this.view.app.workspace.activeLeaf;
+        let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
         // If the sidecar itself is active (e.g. user clicked sort button), fall back to last active leaf
         if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
@@ -331,7 +331,7 @@ export class LinkedNotesTabItemRenderer {
 
             // Check if this tab (or any in group) is already the active/focused tab
             // Use lastActiveLeaf fallback when sidecar itself is focused
-            let checkLeaf = this.view.app.workspace.activeLeaf;
+            let checkLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
             if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                 checkLeaf = this.view.lastActiveLeaf;
             }
@@ -551,7 +551,7 @@ export class LinkedNotesTabItemRenderer {
                 li.setAttribute('data-note-path', match.file.path);
 
                 // Check if this note is the currently focused leaf
-                let activeLeaf = this.view.app.workspace.activeLeaf;
+                let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
                 // If sidecar is active, check last active leaf
                 if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
@@ -561,15 +561,14 @@ export class LinkedNotesTabItemRenderer {
                 // Verify if the candidate active leaf is still attached to the workspace
                 // If not (e.g. it was just closed), try to find the mostly likely new active leaf
                 // by looking for the most recent markdown leaf that isn't the one we just checked
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (activeLeaf && (activeLeaf as any).parent === undefined) {
+                if (activeLeaf && (activeLeaf as unknown as { parent: unknown }).parent === undefined) {
                     // Leaf is detached
                     const allMarkdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
                     // Simple heuristic: grab the last one (often the most recently active/created)
                     // A better approach would be to trust Obsidian's focus logic which should settle soon,
                     // but for immediate render, this is a reasonable guess.
                     if (allMarkdownLeaves.length > 0) {
-                        activeLeaf = allMarkdownLeaves[allMarkdownLeaves.length - 1] || null; // active leaf is usually last in list? Not necessarily.
+                        activeLeaf = allMarkdownLeaves[allMarkdownLeaves.length - 1] || undefined; // active leaf is usually last in list? Not necessarily.
                         // Actually, this.view.app.workspace.activeLeaf might be null if sidecar has focus.
                         // But we want the "visual" active note.
                         // Let's assume the first visible one if we can't tell?
@@ -579,7 +578,7 @@ export class LinkedNotesTabItemRenderer {
                         // Hard to access reliably without private API.
                         // Fallback: If `lastActiveLeaf` is detached, checking `app.workspace.getMostRecentLeaf()` might work if we ignore sidecar?
                         // `getMostRecentLeaf` takes a root.
-                        activeLeaf = null; // Reset if invalid
+                        activeLeaf = undefined; // Reset if invalid
                     }
                 }
 
@@ -623,7 +622,7 @@ export class LinkedNotesTabItemRenderer {
                         this.view.focusNextNoteInstance(match.file.path);
                     } else {
                         // No cycle needed, open smartly
-                        this.view.openNoteSmartly(match.file, e);
+                        void this.view.openNoteSmartly(match.file, e);
                     }
                 });
 
@@ -685,7 +684,7 @@ export class LinkedNotesTabItemRenderer {
                 });
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    this.view.openNoteSmartly(match.file, e);
+                    void this.view.openNoteSmartly(match.file, e);
                 });
                 link.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, match.file, match.url));
             }
