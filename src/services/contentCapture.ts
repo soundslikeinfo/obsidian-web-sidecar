@@ -1,6 +1,7 @@
 
 import { WorkspaceLeaf, App, htmlToMarkdown } from 'obsidian';
 import Defuddle from 'defuddle';
+import { getLeafId } from './obsidianHelpers';
 
 /**
  * Capture the content of a web viewer's page as HTML.
@@ -26,6 +27,9 @@ export async function captureWebViewContent(leaf: WorkspaceLeaf): Promise<string
 
         // Execute JavaScript in the webview context to get the FULL document HTML
         // We need document.documentElement.outerHTML for Defuddle to work properly
+        // SECURITY NOTE: This is a READ operation from an isolated webview context.
+        // The extracted HTML is sanitized by Defuddle and converted to Markdown text,
+        // never directly injected into Obsidian's DOM.
         const html = await (webviewEl as any).executeJavaScript('document.documentElement.outerHTML');
 
         if (typeof html !== 'string' || !html.trim()) {
@@ -138,14 +142,12 @@ export function findWebViewerLeafById(app: App, leafId: string): WorkspaceLeaf |
         .concat(app.workspace.getLeavesOfType('surfing-view'));
 
     for (const leaf of webViewerLeaves) {
-        // Obsidian stores the leaf ID as leaf.id (internal property)
-        const id = (leaf as any).id;
+        // Use type-safe helper for leaf ID access
+        const id = getLeafId(leaf);
         if (id === leafId) {
             return leaf;
         }
     }
 
-    console.debug('Web Sidecar: Could not find leaf with ID:', leafId,
-        'Available IDs:', webViewerLeaves.map(l => (l as any).id));
     return null;
 }

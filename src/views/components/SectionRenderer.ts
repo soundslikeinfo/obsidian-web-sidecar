@@ -1,6 +1,7 @@
 
 import { setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
+import { getFaviconUrl } from '../../services/faviconUtils';
 import { getRecentNotesWithUrls, getAllRedditNotes, getAllYouTubeNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
 import { IWebSidecarView } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
@@ -295,7 +296,7 @@ export class SectionRenderer {
         const favicon = summaryIcon.createEl('img', {
             cls: 'web-sidecar-favicon-small',
             attr: {
-                src: `https://www.google.com/s2/favicons?domain=reddit.com&sz=16`,
+                src: getFaviconUrl('reddit.com', 16),
                 alt: 'Reddit',
                 width: '14',
                 height: '14'
@@ -396,7 +397,7 @@ export class SectionRenderer {
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
             attr: {
-                src: `https://www.google.com/s2/favicons?domain=reddit.com&sz=16`,
+                src: getFaviconUrl('reddit.com', 16),
                 alt: '',
                 width: '14',
                 height: '14'
@@ -579,7 +580,7 @@ export class SectionRenderer {
         if (!isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '14',
                     height: '14'
@@ -853,7 +854,7 @@ export class SectionRenderer {
         summaryIcon.createEl('img', {
             cls: 'web-sidecar-favicon-small',
             attr: {
-                src: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=16',
+                src: getFaviconUrl('youtube.com', 16),
                 alt: 'YouTube',
                 width: '14',
                 height: '14'
@@ -902,7 +903,7 @@ export class SectionRenderer {
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
             attr: {
-                src: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=16',
+                src: getFaviconUrl('youtube.com', 16),
                 alt: '',
                 width: '14',
                 height: '14'

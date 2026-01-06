@@ -160,7 +160,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 
 		// Opening Behavior for Tab Groups (only show when notes open to the right)
 		if (this.plugin.settings.noteOpenBehavior === 'split') {
-			containerEl.createEl('h3', { text: 'Opening behavior for tab groups' });
+			new Setting(containerEl).setName('Opening behavior for tab groups').setHeading();
 
 			new Setting(containerEl)
 				.setName('Prefer to open web viewers in the left tab group')
@@ -271,7 +271,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		const domainRulesContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
 		domainRulesContainer.createEl('div', { text: 'Domain Rules', cls: 'web-sidecar-settings-group-title' });
 
-		domainRulesContainer.createEl('h4', { text: 'reddit.com', cls: 'web-sidecar-sub-heading' });
+		new Setting(domainRulesContainer).setName('reddit.com').setHeading();
 
 		new Setting(domainRulesContainer)
 			.setName('Reveal other notes from the same subreddit')
@@ -284,7 +284,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		domainRulesContainer.createEl('h4', { text: 'youtube.com', cls: 'web-sidecar-sub-heading' });
+		new Setting(domainRulesContainer).setName('youtube.com').setHeading();
 
 		new Setting(domainRulesContainer)
 			.setName('Reveal other notes from the same YouTube channel')
@@ -319,7 +319,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		});
 
 		// Experimental Section
-		containerEl.createEl('h3', { text: 'Experimental features' });
+		new Setting(containerEl).setName('Experimental features').setHeading();
 
 		containerEl.createEl('div', {
 			text: '⚠️ Disclaimer: Experimental features may be unstable or break with Obsidian updates. Use with caution.',
@@ -327,7 +327,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		});
 
 		// Pinned Tabs Section (Moved)
-		containerEl.createEl('h4', { text: 'Pinned Tabs', cls: 'web-sidecar-sub-heading' });
+		new Setting(containerEl).setName('Pinned Tabs').setHeading();
 
 		new Setting(containerEl)
 			.setName('Enable Pinned Web View Tabs')
@@ -381,7 +381,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Sub-options (only show if main toggle is enabled)
 		if (this.plugin.settings.enableWebViewerActions) {
 			// Header buttons section
-			containerEl.createEl('h4', { text: 'Action row', cls: 'web-sidecar-sub-heading' });
+			new Setting(containerEl).setName('Action row').setHeading();
 
 			new Setting(containerEl)
 				.setName('New web viewer button')
@@ -415,7 +415,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 
 			// Menu options section
-			containerEl.createEl('h4', { text: 'More options menu', cls: 'web-sidecar-sub-heading' });
+			new Setting(containerEl).setName('More options menu').setHeading();
 
 			new Setting(containerEl)
 				.setName('New web view tab')

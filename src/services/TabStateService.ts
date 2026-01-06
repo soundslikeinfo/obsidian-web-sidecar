@@ -3,6 +3,7 @@ import { Plugin, WorkspaceLeaf, MarkdownView } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
 import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';
+import { getLeafId } from './obsidianHelpers';
 
 /**
  * Supported web viewer types
@@ -268,7 +269,7 @@ export class TabStateService {
             .concat(this.plugin.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            const leafId = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            const leafId = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {
@@ -329,7 +330,7 @@ export class TabStateService {
             .concat(this.plugin.app.workspace.getLeavesOfType('surfing-view'));
 
         const activeLeafIds = new Set(
-            leaves.map((leaf, index) => (leaf as any).id || leaf.view.getViewType() + '-' + index)
+            leaves.map((leaf, index) => getLeafId(leaf) || leaf.view.getViewType() + '-' + index)
         );
 
         for (const leafId of this.trackedTabs.keys()) {
@@ -357,7 +358,7 @@ export class TabStateService {
         const viewType = leaf.view.getViewType();
 
         if (WEB_VIEW_TYPES.includes(viewType)) {
-            const leafId = (leaf as any).id || viewType + '-0';
+            const leafId = getLeafId(leaf) || viewType + '-0';
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {

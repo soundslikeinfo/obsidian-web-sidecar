@@ -36,12 +36,12 @@ export class CreateNoteModal extends Modal {
      */
     private getFolderPath(): string {
         if (this.settings.useVaultDefaultLocation) {
-            // Access Obsidian's vault config (internal API)
-            const vault = this.app.vault as any;
-            const newFileLocation = vault.getConfig?.('newFileLocation') ?? 'root';
+            // @ts-expect-error - Internal API: vault.getConfig is not typed
+            const newFileLocation: 'root' | 'current' | 'folder' = this.app.vault.getConfig?.('newFileLocation') ?? 'root';
 
             if (newFileLocation === 'folder') {
-                return vault.getConfig?.('newFileFolderPath') || '';
+                // @ts-expect-error - Internal API: vault.getConfig is not typed
+                return this.app.vault.getConfig?.('newFileFolderPath') || '';
             } else if (newFileLocation === 'current') {
                 // Use folder of currently active file
                 const activeFile = this.app.workspace.getActiveFile();

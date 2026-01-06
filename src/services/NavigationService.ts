@@ -1,10 +1,11 @@
 
-import { App, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TFile, WorkspaceLeaf, MarkdownView } from 'obsidian';
 import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import { findMatchingNotes } from './noteMatcher';
 import type { UrlIndex } from './UrlIndex';
 import { getWebViewerHomepage } from './webViewerUtils';
+import { getLeafId, getViewFile, leafHasFile } from './obsidianHelpers';
 
 export class NavigationService {
     private app: App;
@@ -36,8 +37,8 @@ export class NavigationService {
             .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            // Replicate original ID generation logic for matching
-            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            // Use getLeafId helper for type-safe access
+            const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
                 this.app.workspace.revealLeaf(leaf);
                 this.app.workspace.setActiveLeaf(leaf, { focus: true });
@@ -86,7 +87,7 @@ export class NavigationService {
      */
     focusNextNoteInstance(filePath: string): void {
         const leaves = this.app.workspace.getLeavesOfType('markdown')
-            .filter(leaf => (leaf.view as any).file?.path === filePath);
+            .filter(leaf => leafHasFile(leaf, filePath));
 
         if (leaves.length === 0) return;
 
@@ -126,7 +127,7 @@ export class NavigationService {
         // Check if note is already open anywhere
         const leaves = this.app.workspace.getLeavesOfType('markdown');
         for (const leaf of leaves) {
-            const viewFile = (leaf.view as any).file;
+            const viewFile = getViewFile(leaf.view);
             if (viewFile && viewFile.path === file.path) {
                 // Already open, just focus it
                 this.app.workspace.revealLeaf(leaf);
@@ -282,7 +283,7 @@ export class NavigationService {
         const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
         let noteLeaf: WorkspaceLeaf | null = null;
         for (const leaf of markdownLeaves) {
-            const viewFile = (leaf.view as any).file;
+            const viewFile = getViewFile(leaf.view);
             if (viewFile && viewFile.path === file.path) {
                 noteLeaf = leaf;
                 break;
@@ -370,7 +371,7 @@ export class NavigationService {
             .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
                 leaf.detach();
                 // break; // Don't return, we need to refresh
@@ -433,7 +434,7 @@ export class NavigationService {
         const leaves = this.app.workspace.getLeavesOfType('markdown');
 
         for (const leaf of leaves) {
-            const file = (leaf.view as any).file;
+            const file = getViewFile(leaf.view);
             if (file && filePaths.has(file.path)) {
                 leaf.detach();
             }

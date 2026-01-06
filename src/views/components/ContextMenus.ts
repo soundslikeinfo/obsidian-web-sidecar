@@ -2,6 +2,7 @@
 import { Menu, TFile } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, PinnedTab } from '../../types';
 import { findMatchingNotes } from '../../services/noteMatcher';
+import { leafHasFile } from '../../services/obsidianHelpers';
 
 export class ContextMenus {
     private view: IWebSidecarView;
@@ -285,10 +286,7 @@ export class ContextMenus {
 
         // Close this note (if open)
         const markdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
-        const openLeaf = markdownLeaves.find(leaf => {
-            const viewFile = (leaf.view as any).file;
-            return viewFile && viewFile.path === file.path;
-        });
+        const openLeaf = markdownLeaves.find(leaf => leafHasFile(leaf, file.path));
 
         if (openLeaf) {
             menu.addItem((item) => {

@@ -1,8 +1,10 @@
 
 import { extractDomain } from '../../../services/urlUtils';
+import { getFaviconUrl } from '../../../services/faviconUtils';
+import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
 import { NoteRenderer } from '../NoteRenderer';
-import { setIcon, Menu } from 'obsidian';
+import { setIcon, Menu, MarkdownView } from 'obsidian';
 import { IWebSidecarView, PinnedTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 
@@ -42,11 +44,11 @@ export class PinnedTabRenderer {
             // But if it has 0 height, we can't drop.
             // Let's give it a specialized class for empty state
             pinnedSection.addClass('is-empty-state');
-            pinnedSection.style.display = 'block';
+            pinnedSection.removeClass('web-sidecar-hidden');
             // We don't return here, we let it setup drag events.
         } else {
             pinnedSection.removeClass('is-empty-state');
-            pinnedSection.style.display = 'block';
+            pinnedSection.removeClass('web-sidecar-hidden');
         }
 
         // Render Drop Zone for Reordering at the top? No, individual items act as drop targets usually.
@@ -197,7 +199,7 @@ export class PinnedTabRenderer {
         if (domain) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -306,7 +308,7 @@ export class PinnedTabRenderer {
         }
 
         if (pin.leafId && activeLeaf) {
-            const activeLeafId = (activeLeaf as any).id;
+            const activeLeafId = getLeafId(activeLeaf);
             if (activeLeafId && activeLeafId === pin.leafId) {
                 el.addClass('is-active');
             }
@@ -334,8 +336,8 @@ export class PinnedTabRenderer {
                 if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                     activeLeaf = this.view.lastActiveLeaf;
                 }
-                const isNoteFocused = activeLeaf?.view?.getViewType() === 'markdown'
-                    && (activeLeaf.view as any)?.file?.path === match.file.path;
+                const isNoteFocused = activeLeaf?.view instanceof MarkdownView
+                    && activeLeaf.view.file?.path === match.file.path;
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
@@ -345,7 +347,7 @@ export class PinnedTabRenderer {
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
                     this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if ((leaf.view as any).file?.path === match.file.path) {
+                        if (leafHasFile(leaf, match.file.path)) {
                             isOpen = true;
                         }
                     });
@@ -405,7 +407,7 @@ export class PinnedTabRenderer {
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
                     this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if ((leaf.view as any).file?.path === match.file.path) {
+                        if (leafHasFile(leaf, match.file.path)) {
                             isOpen = true;
                         }
                     });
@@ -466,7 +468,7 @@ export class PinnedTabRenderer {
             // FIX: Explicitly link the new Leaf ID to this Pin immediately.
             // This ensures that even if the page redirects immediately (changing URL),
             // the service knows this leaf belongs to this pin.
-            const leafId = (leaf as any).id;
+            const leafId = getLeafId(leaf);
             if (leafId && 'setPinnedTabLeaf' in (this.view as any).tabStateService) {
                 await (this.view as any).tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
             }

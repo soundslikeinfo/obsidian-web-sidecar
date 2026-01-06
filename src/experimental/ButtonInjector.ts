@@ -4,6 +4,7 @@ import type { WebSidecarSettings } from '../types';
 import { findMatchingNotes } from '../services/noteMatcher';
 import type { UrlIndex } from '../services/UrlIndex';
 import { getWebViewerHomepage } from '../services/webViewerUtils';
+import { getLeafId as getLeafIdHelper } from '../services/obsidianHelpers';
 
 const WEB_VIEW_TYPES = ['webviewer', 'surfing-view'];
 
@@ -369,6 +370,6 @@ export class ButtonInjector {
     }
 
     private getLeafId(leaf: WorkspaceLeaf): string {
-        return (leaf as any).id || leaf.view.getViewType() + '-' + Date.now();
+        return getLeafIdHelper(leaf) || leaf.view.getViewType() + '-' + Date.now();
     }
 }

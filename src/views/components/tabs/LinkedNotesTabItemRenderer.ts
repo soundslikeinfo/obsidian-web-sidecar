@@ -1,6 +1,8 @@
 
-import { setIcon } from 'obsidian';
+import { setIcon, MarkdownView } from 'obsidian';
 import { extractDomain } from '../../../services/urlUtils';
+import { getFaviconUrl } from '../../../services/faviconUtils';
+import { getLeafId, getViewFile, getViewFilePath, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
@@ -64,7 +66,7 @@ export class LinkedNotesTabItemRenderer {
         if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -154,7 +156,7 @@ export class LinkedNotesTabItemRenderer {
 
         let isActive = false;
         if (activeLeaf) {
-            const activeLeafId = (activeLeaf as any).id;
+            const activeLeafId = getLeafId(activeLeaf);
 
             // 1. Direct match (Web Viewer is active)
             // For grouped tabs, check if ANY tab in the group is the active leaf
@@ -174,12 +176,12 @@ export class LinkedNotesTabItemRenderer {
             }
 
             // 2. Linked Note match (Note is active)
-            if (!isActive && activeLeaf.view.getViewType() === 'markdown') {
+            if (!isActive && activeLeaf.view instanceof MarkdownView) {
                 // Matches - compute early so we know if expandable AND for active check checking
                 const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
-                const view = activeLeaf.view as any; // Cast to access file safely
-                if (view.file) {
-                    const activePath = view.file.path;
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    const activePath = viewFile.path;
                     // Check if active note is in our matches
                     if (matches.exactMatches.some(m => m.file.path === activePath)) {
                         isActive = true;
@@ -276,7 +278,7 @@ export class LinkedNotesTabItemRenderer {
             let isAlreadyActive = false;
 
             if (checkLeaf) {
-                const checkLeafId = (checkLeaf as any).id;
+                const checkLeafId = getLeafId(checkLeaf);
 
                 // For grouped tabs, check if ANY tab in the group is active
                 if (isDeduped && allTabs) {
@@ -334,7 +336,7 @@ export class LinkedNotesTabItemRenderer {
         if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -402,10 +404,10 @@ export class LinkedNotesTabItemRenderer {
             // Check if a linked note is currently focused - if so, auto-expand
             let linkedNoteFocused = false;
             let focusedNotePath: string | null = null;
-            if (activeLeaf?.view?.getViewType() === 'markdown') {
-                const view = activeLeaf.view as any;
-                if (view.file) {
-                    focusedNotePath = view.file.path;
+            if (activeLeaf?.view instanceof MarkdownView) {
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    focusedNotePath = viewFile.path;
                     // Check if this note is linked to the current tab
                     if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
                         linkedNoteFocused = true;
@@ -539,8 +541,8 @@ export class LinkedNotesTabItemRenderer {
                     // No we want to know WHICH ONE is active.
                 }
 
-                const isNoteFocused = activeLeaf?.view?.getViewType() === 'markdown'
-                    && (activeLeaf.view as any)?.file?.path === match.file.path
+                const isNoteFocused = activeLeaf?.view instanceof MarkdownView
+                    && activeLeaf.view.file?.path === match.file.path
                     && activeLeaf.getRoot() === this.view.app.workspace.rootSplit; // Ensure it's in main area? Optional.
 
                 if (isNoteFocused) {
@@ -552,10 +554,8 @@ export class LinkedNotesTabItemRenderer {
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
                     this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if ((leaf.view as any).file?.path === match.file.path) {
+                        if (leafHasFile(leaf, match.file.path)) {
                             isOpen = true;
-                            // return true; // iterateAllLeaves doesn't support early exit in all versions, depends on callback signature?
-                            // Actually it's a void function typically.
                         }
                     });
 
@@ -572,7 +572,7 @@ export class LinkedNotesTabItemRenderer {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     const openLeaves = this.view.app.workspace.getLeavesOfType('markdown')
-                        .filter(leaf => (leaf.view as any).file?.path === match.file.path);
+                        .filter(leaf => leafHasFile(leaf, match.file.path));
 
                     if (openLeaves.length > 1) {
                         // Multiple instances - use cycling
@@ -627,7 +627,7 @@ export class LinkedNotesTabItemRenderer {
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
                     this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if ((leaf.view as any).file?.path === match.file.path) {
+                        if (leafHasFile(leaf, match.file.path)) {
                             isOpen = true;
                         }
                     });
