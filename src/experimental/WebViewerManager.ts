@@ -172,7 +172,7 @@ export class WebViewerManager {
                         type: 'webviewer',
                         state: { url: homepage, navigate: true }
                     });
-                    this.app.workspace.revealLeaf(newLeaf);
+                    void this.app.workspace.revealLeaf(newLeaf);
                 });
         });
     }
