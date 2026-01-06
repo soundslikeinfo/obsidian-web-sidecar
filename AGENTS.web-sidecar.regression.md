@@ -4,6 +4,35 @@ This document details the recurring regression regarding **Active Tab Highlighti
 
 ---
 
+## Tab Clickable Area Regression
+
+**Symptom:** The bottom portion of tab rows (below the title text) is not clickable. Users expect to click anywhere on the tab row to select it, like in a normal browser.
+
+**Cause:** `.web-sidecar-tab-drop-zone-end::after` pseudo-element had `z-index: 10` and extended `-12px` above and below the drop zone to create a large drag target. It always blocked clicks on the tabs above it - even when not dragging.
+
+**Fix (2026-01-05):**
+1. Replaced the `::after` pseudo-element approach with **padding** on the drop zone itself
+2. Using `background-clip: content-box` to keep visual appearance minimal while having large hit area
+3. Added `min-height: 28px` to both `.web-sidecar-browser-tab-row` and `.web-sidecar-pinned-tab-row`
+
+```css
+.web-sidecar-tab-drop-zone-end {
+  height: 4px;
+  padding: 10px 0;  /* Large padding creates hit area for drag */
+  background-clip: content-box;  /* Only show background in content area */
+}
+```
+
+**Why padding works:** Padding is part of the element's hit area for drag events, but doesn't block clicks on elements above/below like an absolutely-positioned pseudo-element with z-index does.
+
+**Checklist:**
+- [ ] Is the `::after` pseudo-element removed from drop zone?
+- [ ] Does drop zone use padding for larger hit area?
+- [ ] Can you click anywhere on the tab row to select it?
+- [ ] Can you drag tabs to the bottommost position?
+
+---
+
 ## Pinned Tabs Setting Toggle Regression
 
 **Symptom:** When disabling pinned tabs in settings, the pinned tabs section stays visible. When re-enabling, tabs don't move back to the pinned section.
@@ -175,6 +204,39 @@ async openUrlSmartly(url: string, e: MouseEvent): Promise<void> {
 - [ ] Is there an immediate refresh BEFORE the delay?
 - [ ] Is there a second refresh AFTER a 100ms delay?
 - [ ] Is `isManualRefreshCallback(true)` set before EACH refresh call?
+
+### Anti-Pattern: Redundant refreshState Calls
+
+> [!CAUTION]
+> **DO NOT** add additional `refreshState` calls to the refresh chain.
+
+**What went wrong (2026-01-06):**
+An attempt to "fix" tab sync by adding a `refreshTabStateCallback` parameter to `NavigationService` caused a **regression**. The issue was that:
+
+1. `onRefreshCallback` already calls `tabStateService.refreshState()` (via `main.ts` wiring)
+2. Adding `refreshTabStateCallback` that also calls `refreshState()` caused **double calls** per refresh cycle
+3. The race condition from 4x `refreshState` calls (2 immediate + 2 delayed) broke the sync
+
+**The correct pattern is:**
+- `triggerRefresh()` calls `onRefreshCallback()` only (which internally triggers `refreshState`)
+- One immediate refresh + one delayed (100ms) refresh = 2 total `refreshState` calls
+- Adding any additional `refreshState` wrappers breaks this
+
+```typescript
+// CORRECT - NavigationService.triggerRefresh()
+private async triggerRefresh(): Promise<void> {
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();  // This calls refreshState internally
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    this.isManualRefreshCallback(true);
+    this.onRefreshCallback();  // Second call after delay
+}
+
+// WRONG - adding redundant calls
+this.refreshTabStateCallback();  // DON'T add this
+this.onRefreshCallback();        // This already refreshes state
+```
 
 ---
 
@@ -349,4 +411,91 @@ state: { url: homepage, navigate: true }
 - [ ] Is `getWebViewerHomepage()` being called before creating new web viewers?
 - [ ] Did you check all four files where `openNewWebViewer` or similar functions exist?
 - [ ] Falls back to `about:blank` if homepage setting is unavailable?
+
+---
+
+## Manual Tab Expansion Failure (isInteracting)
+
+**Symptom:** "Expand All" works, but manually clicking individual expand buttons (Pinned Tabs, Web Viewer groups, Virtual Tabs) does nothing.
+
+**Cause:** The click handler calls `this.view.render()` to update the UI based on the new expansion state. However, `WebSidecarView.render()` has a check `if (this.isInteracting && !force) return;`. Since the user is hovering/clicking within the sidecar, `isInteracting` is true (set by mouseenter). `render()` (without force) exits early, so the UI never updates to reflect the toggled state.
+
+**Fix:** Must explicitly pass `true` (force) to `render()` in all interactive handlers that require immediate UI updates.
+
+```typescript
+// BrowserTabItemRenderer.ts / PinnedTabRenderer.ts
+expandBtn.onclick = (e) => {
+    // ... update state ...
+    this.view.render(true); // FORCE render
+};
+```
+
+**Checklist:**
+- [ ] Do all click handlers that toggle UI state use `render(true)`?
+- [ ] Is `isInteracting` correctly blocking passive updates (polls) but allowing user interactions (clicks)?
+
+---
+
+## Pinned Tab Focus State Failure
+
+**Symptom:** Clicking a pinned tab opens the tab, but the pinned tab icon/row does not look active. The previously active web viewer often remains highlighted.
+
+**Cause:** Clicking the pinned tab focuses the Sidecar view. The logic to reveal the pinned tab leaf runs, but without a delay, the Sidecar's focus event might override or interfere with the active leaf check during the render cycle. This is identical to the "Focus Stealing" regression seen in normal tabs.
+
+**Fix:** 
+1. Wrap the `revealLeaf` (or focus logic) in `handlePinClick` with `setTimeout(..., 50)`.
+2. Add `lastActiveLeaf` fallback to the active leaf check in `render/updatePinnedTab`.
+
+```typescript
+// PinnedTabRenderer.ts
+// 1. Delay
+setTimeout(() => { this.view.app.workspace.revealLeaf(openLeaf); }, 50);
+
+// 2. Fallback
+let activeLeaf = this.view.app.workspace.activeLeaf;
+if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+    activeLeaf = this.view.lastActiveLeaf;
+}
+```
+
+**Checklist:**
+- [ ] Does `handlePinClick` use `setTimeout` for focusing?
+- [ ] Does the pinned tab visually become active immediately?
+- [ ] Does `updatePinnedTab` or `renderPinnedTab` use `lastActiveLeaf` fallback?
+
+---
+
+## Virtual Tab Auto-Expand & Stale Cleanup Failure
+
+**Symptom 1:** Opening a note from an auxiliary section (e.g., "GitHub repos") creates a virtual tab but fails to expand it, leaving the user guessing which tab contains the active note.
+**Symptom 2:** Closing the last note associated with a virtual tab leaves the virtual tab visible (stale) until a manual refresh or web viewer navigation occurs.
+
+**Cause 1 (Expansion):** `LinkedNotesTabItemRenderer.renderVirtualTab()` behavior didn't mirror `populateLinkedNotesTab()`. It was missing the logic to check if `app.workspace.activeLeaf` matched the virtual tab's context and auto-expand.
+**Cause 2 (Stale Tabs):** `TabStateService` primarily polled `trackedTabs` (Web Viewers) for changes. Note closures (which affect Virtual Tabs) trigger a `layout-change` event but not necessarily a web-viewer state change, so `refreshState()` wasn't called immediately.
+
+**Fix (2026-01-06):**
+1.  **Auto-Expand:** Copied the active leaf check and `setGroupExpanded` logic from `populateLinkedNotesTab` to `renderVirtualTab`.
+2.  **Stale Cleanup:** Added a `layout-change` listener to `TabStateService.initialize()` to trigger `refreshState()` whenever the workspace layout changes (e.g., closing a note).
+
+```typescript
+// TabStateService.ts
+this.plugin.registerEvent(
+    this.plugin.app.workspace.on('layout-change', () => {
+        this.refreshState();
+    })
+);
+
+// LinkedNotesTabItemRenderer.ts (renderVirtualTab)
+let activeLeaf = this.view.app.workspace.activeLeaf;
+// ... check logic ...
+if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
+    this.view.setGroupExpanded(key, true);
+}
+```
+
+**Checklist:**
+- [ ] Does opening a note from an aux section auto-expand the resulting virtual tab?
+- [ ] Does closing a note immediately remove its virtual tab (if it was the last one)?
+- [ ] Is the `layout-change` listener active?
+
 

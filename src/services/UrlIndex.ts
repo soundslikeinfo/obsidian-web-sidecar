@@ -1,11 +1,12 @@
 import { App, TFile, EventRef, Events } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
-import { extractDomain, isValidUrl } from './urlUtils';
+import { extractDomain, isValidUrl, normalizeUrl } from './urlUtils';
 
 export class UrlIndex extends Events {
     private app: App;
     private getSettings: () => WebSidecarSettings;
     private urlToFiles: Map<string, Set<TFile>> = new Map();
+    private normalizedUrlToFiles: Map<string, Set<TFile>> = new Map();
     private domainToFiles: Map<string, Set<TFile>> = new Map();
     // Reverse index to quickly clear file entries on update
     private fileToUrls: Map<string, Set<string>> = new Map();
@@ -64,6 +65,7 @@ export class UrlIndex extends Events {
         this.listeners.forEach(ref => this.app.metadataCache.offref(ref));
         this.listeners.forEach(ref => this.app.vault.offref(ref));
         this.urlToFiles.clear();
+        this.normalizedUrlToFiles.clear();
         this.domainToFiles.clear();
         this.fileToUrls.clear();
     }
@@ -73,6 +75,16 @@ export class UrlIndex extends Events {
      */
     getFilesForUrl(url: string): TFile[] {
         const files = this.urlToFiles.get(url);
+        return files ? Array.from(files) : [];
+    }
+
+    /**
+     * Get files referencing this URL (normalized)
+     */
+    getFilesForNormalizedUrl(url: string): TFile[] {
+        const normalized = normalizeUrl(url);
+        if (!normalized) return [];
+        const files = this.normalizedUrlToFiles.get(normalized);
         return files ? Array.from(files) : [];
     }
 
@@ -99,17 +111,45 @@ export class UrlIndex extends Events {
     }
 
     /**
+     * Cache -- LIMIT Configurable
+     * Safety measure to prevent performance issues in large vaults
+     */
+    private recentFiles: TFile[] = [];
+
+    /**
+     * Get recent files with URLs, limited by the safety cap
+     */
+    getRecentFiles(limit?: number): TFile[] {
+        const maxCache = this.getSettings().recentNotesCacheLimit;
+        // Return up to 'limit' or the safety cap
+        const max = limit ? Math.min(limit, maxCache) : maxCache;
+        return this.recentFiles.slice(0, max);
+    }
+
+    /**
      * Full rebuild
      */
     rebuildIndex(): void {
         this.urlToFiles.clear();
+        this.normalizedUrlToFiles.clear();
         this.domainToFiles.clear();
         this.fileToUrls.clear();
 
         const files = this.app.vault.getMarkdownFiles();
+
+        // Populate maps
         for (const file of files) {
             this.updateFileIndex(file, true); // suppress event during loop
         }
+
+        // Build initial recent cache
+        const maxCache = this.getSettings().recentNotesCacheLimit;
+        // sort all files with URLs by mtime
+        const filesWithUrls = this.getAllFilesWithUrls();
+        this.recentFiles = filesWithUrls
+            .sort((a, b) => b.stat.mtime - a.stat.mtime)
+            .slice(0, maxCache);
+
         this.trigger('index-updated');
     }
 
@@ -125,6 +165,7 @@ export class UrlIndex extends Events {
         const frontmatter = cache?.frontmatter;
 
         let hasChanges = false;
+        let hasUrls = false;
 
         if (frontmatter) {
             const settings = this.getSettings();
@@ -146,6 +187,7 @@ export class UrlIndex extends Events {
 
             // 3. Add to indices
             if (foundUrls.size > 0) {
+                hasUrls = true;
                 this.fileToUrls.set(file.path, foundUrls);
 
                 for (const url of foundUrls) {
@@ -154,6 +196,15 @@ export class UrlIndex extends Events {
                         this.urlToFiles.set(url, new Set());
                     }
                     this.urlToFiles.get(url)!.add(file);
+
+                    // Index by Normalized URL
+                    const normalized = normalizeUrl(url);
+                    if (normalized) {
+                        if (!this.normalizedUrlToFiles.has(normalized)) {
+                            this.normalizedUrlToFiles.set(normalized, new Set());
+                        }
+                        this.normalizedUrlToFiles.get(normalized)!.add(file);
+                    }
 
                     // Index by Domain
                     const domain = extractDomain(url);
@@ -168,6 +219,20 @@ export class UrlIndex extends Events {
             }
         }
 
+        // Update Recent Cache
+        if (hasUrls) {
+            // Remove if exists (it shouldn't because we declared it removed in step 1, 
+            // but removeFileFromIndex handles recentFiles removal too)
+
+            // Add to top (most recent)
+            this.recentFiles.unshift(file);
+            // Cap size
+            const maxCache = this.getSettings().recentNotesCacheLimit;
+            if (this.recentFiles.length > maxCache) {
+                this.recentFiles.pop();
+            }
+        }
+
         if (hasChanges && !suppressEvent) {
             this.trigger('index-updated');
         }
@@ -177,6 +242,12 @@ export class UrlIndex extends Events {
      * Remove file from all indices
      */
     removeFileFromIndex(file: TFile): void {
+        // Remove from recent cache
+        const idx = this.recentFiles.indexOf(file);
+        if (idx !== -1) {
+            this.recentFiles.splice(idx, 1);
+        }
+
         const urls = this.fileToUrls.get(file.path);
         if (!urls) return;
 
@@ -187,6 +258,18 @@ export class UrlIndex extends Events {
                 filesForUrl.delete(file);
                 if (filesForUrl.size === 0) {
                     this.urlToFiles.delete(url);
+                }
+            }
+
+            // Remove from Normalized URL index
+            const normalized = normalizeUrl(url);
+            if (normalized) {
+                const filesForNormalized = this.normalizedUrlToFiles.get(normalized);
+                if (filesForNormalized) {
+                    filesForNormalized.delete(file);
+                    if (filesForNormalized.size === 0) {
+                        this.normalizedUrlToFiles.delete(normalized);
+                    }
                 }
             }
 

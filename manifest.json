@@ -1,7 +1,7 @@
 {
 	"id": "web-sidecar",
 	"name": "Web Sidecar",
-	"version": "1.0.0",
+	"version": "0.0.5",
 	"minAppVersion": "1.8.0",
 	"description": "Sidebar that watches active web viewer URLs and displays related notes",
 	"author": "grrstine",

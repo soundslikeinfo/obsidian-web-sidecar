@@ -1,9 +1,10 @@
 
-import { App, WorkspaceLeaf, setIcon, TFile } from 'obsidian';
+import { App, WorkspaceLeaf, setIcon, TFile, WorkspaceSplit } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 import { findMatchingNotes } from '../services/noteMatcher';
 import type { UrlIndex } from '../services/UrlIndex';
 import { getWebViewerHomepage } from '../services/webViewerUtils';
+import { getLeafId as getLeafIdHelper } from '../services/obsidianHelpers';
 
 const WEB_VIEW_TYPES = ['webviewer', 'surfing-view'];
 
@@ -279,7 +280,7 @@ export class ButtonInjector {
         }
 
         const sourceParent = sourceLeaf.parent;
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
 
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
@@ -289,8 +290,8 @@ export class ButtonInjector {
             tabGroups.get(leaf.parent)!.push(leaf);
         }
 
-        let targetParent: any = null;
-        let fallbackParent: any = null;
+        let targetParent: WorkspaceSplit | null = null;
+        let fallbackParent: WorkspaceSplit | null = null;
 
         for (const [parent, leaves] of tabGroups.entries()) {
             if (parent === sourceParent) continue;
@@ -315,7 +316,7 @@ export class ButtonInjector {
     }
 
     private isInMainArea(leaf: WorkspaceLeaf): boolean {
-        let current: any = leaf.parent;
+        let current: WorkspaceSplit | null = leaf.parent;
         const rootSplit = this.app.workspace.rootSplit;
 
         while (current) {
@@ -344,9 +345,11 @@ export class ButtonInjector {
             return;
         }
 
-        // Trigger a custom event that main.ts can listen to, or directly open modal
+        const leafId = this.getLeafId(leaf);
+
+        // Trigger a custom event that main.ts can listen to
         const event = new CustomEvent('web-sidecar:create-note', {
-            detail: { url }
+            detail: { url, leafId }
         });
         window.dispatchEvent(event);
     }
@@ -367,6 +370,6 @@ export class ButtonInjector {
     }
 
     private getLeafId(leaf: WorkspaceLeaf): string {
-        return (leaf as any).id || leaf.view.getViewType() + '-' + Date.now();
+        return getLeafIdHelper(leaf) || leaf.view.getViewType() + '-' + Date.now();
     }
 }

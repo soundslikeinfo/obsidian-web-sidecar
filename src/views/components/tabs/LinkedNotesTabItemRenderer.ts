@@ -1,40 +1,50 @@
 
-import { setIcon } from 'obsidian';
+import { setIcon, MarkdownView } from 'obsidian';
 import { extractDomain } from '../../../services/urlUtils';
+import { getFaviconUrl } from '../../../services/faviconUtils';
+import { getLeafId, getViewFile, getViewFilePath, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
+import { PageTitleService } from '../../../services/PageTitleService';
 
-export class BrowserTabItemRenderer {
+export class LinkedNotesTabItemRenderer {
     private view: IWebSidecarView;
     private contextMenus: ContextMenus;
+    private pageTitleService: PageTitleService;
+    private isBasicMode: boolean = false;
 
     constructor(view: IWebSidecarView, contextMenus: ContextMenus) {
         this.view = view;
         this.contextMenus = contextMenus;
+        this.pageTitleService = new PageTitleService();
     }
 
-    renderBrowserTab(container: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
-        const tabWrapper = container.createDiv({ cls: 'web-sidecar-browser-tab' });
-        this.populateBrowserTab(tabWrapper, tab, allTabs);
+    setBasicMode(basic: boolean): void {
+        this.isBasicMode = basic;
     }
 
-    updateBrowserTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
+    renderLinkedNotesTab(container: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
+        const tabWrapper = container.createDiv({ cls: 'web-sidecar-linked-notes-tab' });
+        this.populateLinkedNotesTab(tabWrapper, tab, allTabs);
+    }
+
+    updateLinkedNotesTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
         // Preserve the notes container and its expanded state
-        const existingNotesContainer = tabEl.querySelector('.web-sidecar-browser-notes') as HTMLElement | null;
+        const existingNotesContainer = tabEl.querySelector('.web-sidecar-linked-notes-notes');
         const wasExpanded = !!(existingNotesContainer && !existingNotesContainer.hasClass('hidden'));
 
         // Remove only the tab row, keep notes container if it exists
-        const existingRow = tabEl.querySelector('.web-sidecar-browser-tab-row');
+        const existingRow = tabEl.querySelector('.web-sidecar-linked-notes-tab-row');
         if (existingRow) existingRow.remove();
 
         // Rebuild the tab content, passing preserved state
-        this.populateBrowserTab(tabEl, tab, allTabs, existingNotesContainer, wasExpanded);
+        this.populateLinkedNotesTab(tabEl, tab, allTabs, existingNotesContainer as HTMLElement, wasExpanded);
     }
 
     renderVirtualTab(container: HTMLElement, virtualTab: VirtualTab): void {
-        const tabWrapper = container.createDiv({ cls: 'web-sidecar-browser-tab' });
-        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+        const tabWrapper = container.createDiv({ cls: 'web-sidecar-linked-notes-tab' });
+        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
 
         // Click -> Open web viewer and track original URL for redirect detection
         tabRow.onclick = async (e) => {
@@ -43,7 +53,7 @@ export class BrowserTabItemRenderer {
             // Set pending original URL BEFORE opening - this gets applied when the new tab is registered
             this.view.setPendingOriginalUrl(originalUrl);
 
-            await this.view.openUrlSmartly(originalUrl, e as MouseEvent);
+            await this.view.openUrlSmartly(originalUrl, e);
         };
 
         // Context menu for virtual tab
@@ -51,15 +61,15 @@ export class BrowserTabItemRenderer {
 
         const domain = extractDomain(virtualTab.url);
 
-        // Favicon (Same styling as browser tab)
-        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
+        // Favicon (Same styling as linked tab)
+        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
         // Skip favicon for internal pages
         const isInternal = virtualTab.url.startsWith('about:') || virtualTab.url.startsWith('chrome:') || virtualTab.url.startsWith('obsidian:');
 
         if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -74,19 +84,43 @@ export class BrowserTabItemRenderer {
         }
 
         // Title (Italicized)
-        const displayTitle = virtualTab.cachedTitle || domain || virtualTab.url;
+        // Check service cache first (survives re-renders), then virtualTab cache, then fallback to domain
+        const serviceCachedTitle = this.view.settings.fetchVirtualTabTitles
+            ? this.pageTitleService.getCachedTitle(virtualTab.url)
+            : undefined;
+        const displayTitle = serviceCachedTitle || virtualTab.cachedTitle || domain || virtualTab.url;
         const titleSpan = tabRow.createSpan({
             text: displayTitle,
-            cls: 'web-sidecar-browser-tab-title web-sidecar-virtual-tab-title'
+            cls: 'web-sidecar-linked-notes-tab-title web-sidecar-virtual-tab-title'
         });
+
+        // Set initial aria-label for accessibility
+        titleSpan.setAttribute('aria-label', `Open web view for ${displayTitle}`);
+
+        // On-demand title fetch (if enabled and no cached title anywhere)
+        if (this.view.settings.fetchVirtualTabTitles && !serviceCachedTitle && !virtualTab.cachedTitle && domain) {
+            this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
+                if (title) {
+                    // Push to TabStateService urlTitleCache so it persists when virtual tab becomes real tab
+                    this.view.tabStateService.setCachedTitle(virtualTab.url, title);
+
+                    // CRITICAL: Check if element is still attached to DOM before updating
+                    // (polling may have re-rendered and replaced this element)
+                    if (titleSpan.isConnected) {
+                        titleSpan.textContent = title;
+                        titleSpan.setAttribute('aria-label', `Open web view for ${title}`);
+                    }
+                }
+            });
+        }
 
         // Match handling for counts and expand logic
         const matches = findMatchingNotes(this.view.app, virtualTab.url, this.view.settings, this.view.urlIndex);
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
 
-        // Note count badge
-        if (exactCount > 0) {
+        // Note count badge (skip in basic mode)
+        if (!this.isBasicMode && exactCount > 0) {
             tabRow.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -97,8 +131,8 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Inline new note (unlikely for virtual tab since it IS a note, but good for consistency)
-        if (exactCount === 0) {
+        // Inline new note (skip in basic mode)
+        if (!this.isBasicMode && exactCount === 0) {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.onclick = (e) => {
@@ -107,28 +141,63 @@ export class BrowserTabItemRenderer {
             };
         }
 
-        // Expand button
-        if (exactCount > 0 || hasSameDomain) {
+        // Expand button (skip in basic mode)
+        if (!this.isBasicMode && (exactCount > 0 || hasSameDomain)) {
             const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
-            setIcon(expandBtn, 'chevron-right');
 
-            const notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes hidden' });
+            // Auto-expand logic: Check if a linked note is currently focused
+            let activeLeaf = this.view.app.workspace.activeLeaf;
+            // Fallback to last active leaf if sidecar is focused
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+                activeLeaf = this.view.lastActiveLeaf;
+            }
+
+            let linkedNoteFocused = false;
+            let focusedNotePath: string | null = null;
+            if (activeLeaf?.view instanceof MarkdownView) {
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    focusedNotePath = viewFile.path;
+                    // Check if this note is linked to the current virtual tab (exact matches)
+                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
+                        linkedNoteFocused = true;
+                    }
+                    // Also check tld matches if enabled? Usually we prioritize exact matches for virtual tabs
+                    // But if it's in the "More web notes" section it should also trigger expand?
+                    // matches.tldMatches check:
+                    else if (hasSameDomain && matches.tldMatches.some(m => m.file.path === focusedNotePath)) {
+                        linkedNoteFocused = true;
+                    }
+                }
+            }
+
+            const key = `virtual:${virtualTab.url}`;
+
+            // Auto-expand if linked note is focused (and not already expanded)
+            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
+                this.view.setGroupExpanded(key, true);
+            }
+
+            const isExpanded = this.view.expandedGroupIds.has(key);
+
+            setIcon(expandBtn, isExpanded ? 'chevron-down' : 'chevron-right');
+
+            const notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-notes' });
+            if (!isExpanded) notesContainer.addClass('hidden');
+            else {
+                this.renderLinkedNotesTabNotes(notesContainer, virtualTab.url, matches);
+            }
 
             expandBtn.onclick = (e) => {
                 e.stopPropagation();
-                const isExpanded = !notesContainer.hasClass('hidden');
-                notesContainer.toggleClass('hidden', isExpanded);
-                expandBtn.empty();
-                setIcon(expandBtn, isExpanded ? 'chevron-right' : 'chevron-down');
-
-                if (!isExpanded && notesContainer.children.length === 0) {
-                    this.renderBrowserTabNotes(notesContainer, virtualTab.url, matches);
-                }
+                const newState = !this.view.expandedGroupIds.has(key);
+                this.view.setGroupExpanded(key, newState);
+                this.view.render(true);
             };
         }
     }
 
-    private populateBrowserTab(
+    private populateLinkedNotesTab(
         tabWrapper: HTMLElement,
         tab: TrackedWebViewer,
         allTabs?: TrackedWebViewer[],
@@ -147,7 +216,7 @@ export class BrowserTabItemRenderer {
 
         let isActive = false;
         if (activeLeaf) {
-            const activeLeafId = (activeLeaf as any).id;
+            const activeLeafId = getLeafId(activeLeaf);
 
             // 1. Direct match (Web Viewer is active)
             // For grouped tabs, check if ANY tab in the group is the active leaf
@@ -167,12 +236,12 @@ export class BrowserTabItemRenderer {
             }
 
             // 2. Linked Note match (Note is active)
-            if (!isActive && activeLeaf.view.getViewType() === 'markdown') {
+            if (!isActive && activeLeaf.view instanceof MarkdownView) {
                 // Matches - compute early so we know if expandable AND for active check checking
                 const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
-                const view = activeLeaf.view as any; // Cast to access file safely
-                if (view.file) {
-                    const activePath = view.file.path;
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    const activePath = viewFile.path;
                     // Check if active note is in our matches
                     if (matches.exactMatches.some(m => m.file.path === activePath)) {
                         isActive = true;
@@ -191,7 +260,8 @@ export class BrowserTabItemRenderer {
         const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
-        const hasExpandableContent = exactCount > 0 || hasSameDomain;
+        // In basic mode, we don't show expandable content
+        const hasExpandableContent = !this.isBasicMode && (exactCount > 0 || hasSameDomain);
 
         // Notes container - create/reuse early so onclick can reference it
         let notesContainer: HTMLElement | null = null;
@@ -201,12 +271,12 @@ export class BrowserTabItemRenderer {
             if (existingNotesContainer) {
                 notesContainer = existingNotesContainer;
             } else {
-                notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes hidden' });
+                notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-notes hidden' });
             }
         }
 
         // Main tab row - insert at beginning so it's before the notes container
-        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
         if (notesContainer) {
             // Insert row before the notes container to maintain order
             tabWrapper.insertBefore(tabRow, notesContainer);
@@ -248,17 +318,11 @@ export class BrowserTabItemRenderer {
             }
         };
 
-        // Helper function to toggle expand state
         const toggleExpand = () => {
-            if (!notesContainer || !expandBtn) return;
-            const isExpanded = !notesContainer.hasClass('hidden');
-            notesContainer.toggleClass('hidden', isExpanded);
-            expandBtn.empty();
-            setIcon(expandBtn, isExpanded ? 'chevron-right' : 'chevron-down');
-
-            if (!isExpanded && notesContainer.children.length === 0) {
-                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
-            }
+            const key = `tab:${tab.url}`;
+            const newState = !this.view.expandedGroupIds.has(key);
+            this.view.setGroupExpanded(key, newState);
+            this.view.render(true);
         };
 
         tabRow.onclick = async (e) => {
@@ -274,7 +338,7 @@ export class BrowserTabItemRenderer {
             let isAlreadyActive = false;
 
             if (checkLeaf) {
-                const checkLeafId = (checkLeaf as any).id;
+                const checkLeafId = getLeafId(checkLeaf);
 
                 // For grouped tabs, check if ANY tab in the group is active
                 if (isDeduped && allTabs) {
@@ -294,8 +358,9 @@ export class BrowserTabItemRenderer {
             }
 
             // 3-state click behavior:
+            // Click behavior for open web viewer tabs (NOT pinned tabs - see PinnedTabRenderer):
             // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
-            // - Grouped tabs: always cycle through instances (expand button handles expand/collapse)
+            // - Grouped tabs: cycle through instances (expand button handles expand/collapse)
 
             if (!isAlreadyActive) {
                 // Not focused - focus the tab (or start cycling for grouped)
@@ -325,14 +390,14 @@ export class BrowserTabItemRenderer {
         const domain = extractDomain(tab.url);
 
         // Favicon
-        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
+        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
         // Skip favicon for internal pages
         const isInternal = tab.url.startsWith('about:') || tab.url.startsWith('chrome:') || tab.url.startsWith('obsidian:');
 
         if (domain && !isInternal) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -349,11 +414,11 @@ export class BrowserTabItemRenderer {
         // Title
         tabRow.createSpan({
             text: tab.title || domain || 'Untitled',
-            cls: 'web-sidecar-browser-tab-title'
+            cls: 'web-sidecar-linked-notes-tab-title'
         });
 
         // Pop-out icon
-        const showPopout = isDeduped ? allTabs!.some(t => t.isPopout) : tab.isPopout;
+        const showPopout = isDeduped ? allTabs.some(t => t.isPopout) : tab.isPopout;
         if (showPopout) {
             const popoutIcon = tabRow.createSpan({ cls: 'web-sidecar-popout-icon' });
             setIcon(popoutIcon, 'picture-in-picture-2');
@@ -371,8 +436,8 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Note count
-        if (exactCount > 0) {
+        // Note count (skip in basic mode)
+        if (!this.isBasicMode && exactCount > 0) {
             tabRow.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -382,14 +447,14 @@ export class BrowserTabItemRenderer {
             });
         }
 
-        // Inline new note
-        if (exactCount === 0) {
+        // Inline new note (skip in basic mode)
+        if (!this.isBasicMode && exactCount === 0) {
             const newNoteBtn = tabRow.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.setAttribute('aria-label', 'New linked note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.view.openCreateNoteModal(tab.url);
+                this.view.openCreateNoteModal(tab.url, tab.leafId);
             };
         }
 
@@ -400,10 +465,10 @@ export class BrowserTabItemRenderer {
             // Check if a linked note is currently focused - if so, auto-expand
             let linkedNoteFocused = false;
             let focusedNotePath: string | null = null;
-            if (activeLeaf?.view?.getViewType() === 'markdown') {
-                const view = activeLeaf.view as any;
-                if (view.file) {
-                    focusedNotePath = view.file.path;
+            if (activeLeaf?.view instanceof MarkdownView) {
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    focusedNotePath = viewFile.path;
                     // Check if this note is linked to the current tab
                     if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
                         linkedNoteFocused = true;
@@ -411,17 +476,19 @@ export class BrowserTabItemRenderer {
                 }
             }
 
+            const key = `tab:${tab.url}`;
             // Auto-expand if linked note is focused (and not already expanded)
-            const wasAlreadyExpanded = existingNotesContainer && wasExpanded;
-            if (linkedNoteFocused && !wasAlreadyExpanded) {
-                notesContainer.removeClass('hidden');
+            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
+                this.view.setGroupExpanded(key, true);
             }
 
-            // Set icon based on current expanded state
-            const isCurrentlyExpanded = !notesContainer.hasClass('hidden');
+            const isCurrentlyExpanded = this.view.expandedGroupIds.has(key);
+
             if (isCurrentlyExpanded) {
+                notesContainer.removeClass('hidden');
                 setIcon(expandBtn, 'chevron-down');
             } else {
+                notesContainer.addClass('hidden');
                 setIcon(expandBtn, 'chevron-right');
             }
 
@@ -435,11 +502,11 @@ export class BrowserTabItemRenderer {
             // (clearing and rebuilding is fast enough and ensures consistency)
             if (isCurrentlyExpanded) {
                 notesContainer.empty();
-                this.renderBrowserTabNotes(notesContainer, tab.url, matches);
+                this.renderLinkedNotesTabNotes(notesContainer, tab.url, matches, tab.leafId);
             }
 
             // CRITICAL: Update is-focused class on existing note items when focus changes
-            // (renderBrowserTabNotes handled this, but we leave this here if we later optimize to not full re-render)
+            // (renderLinkedTabNotes handled this, but we leave this here if we later optimize to not full re-render)
             if (isCurrentlyExpanded && notesContainer.children.length > 0) {
                 this.updateNoteFocusState(notesContainer, focusedNotePath);
             }
@@ -451,9 +518,9 @@ export class BrowserTabItemRenderer {
      * This is called on every render to ensure the blue dot follows focus changes
      */
     updateNoteFocusState(container: HTMLElement, focusedNotePath: string | null): void {
-        const noteItems = container.querySelectorAll('.web-sidecar-browser-note-list li');
+        const noteItems = container.querySelectorAll('.web-sidecar-linked-notes-note-list li');
         noteItems.forEach((li) => {
-            const link = li.querySelector('.web-sidecar-browser-note-link');
+            const link = li.querySelector('.web-sidecar-linked-notes-note-link');
             if (!link) return;
 
             // Get the file path from the data attribute we'll add during render
@@ -467,10 +534,17 @@ export class BrowserTabItemRenderer {
         });
     }
 
-    renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
+    renderLinkedNotesTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
+        // Add style-mode class if using 'style' option (for italic closed notes)
+        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
+            container.addClass('style-mode');
+        } else {
+            container.removeClass('style-mode');
+        }
+
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
-            const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
                 // Store path for focus tracking
@@ -478,19 +552,63 @@ export class BrowserTabItemRenderer {
 
                 // Check if this note is the currently focused leaf
                 let activeLeaf = this.view.app.workspace.activeLeaf;
+
+                // If sidecar is active, check last active leaf
                 if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                     activeLeaf = this.view.lastActiveLeaf;
                 }
-                const isNoteFocused = activeLeaf?.view?.getViewType() === 'markdown'
-                    && (activeLeaf.view as any)?.file?.path === match.file.path;
+
+                // Verify if the candidate active leaf is still attached to the workspace
+                // If not (e.g. it was just closed), try to find the mostly likely new active leaf
+                // by looking for the most recent markdown leaf that isn't the one we just checked
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if (activeLeaf && (activeLeaf as any).parent === undefined) {
+                    // Leaf is detached
+                    const allMarkdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
+                    // Simple heuristic: grab the last one (often the most recently active/created)
+                    // A better approach would be to trust Obsidian's focus logic which should settle soon,
+                    // but for immediate render, this is a reasonable guess.
+                    if (allMarkdownLeaves.length > 0) {
+                        activeLeaf = allMarkdownLeaves[allMarkdownLeaves.length - 1] || null; // active leaf is usually last in list? Not necessarily.
+                        // Actually, this.view.app.workspace.activeLeaf might be null if sidecar has focus.
+                        // But we want the "visual" active note.
+                        // Let's assume the first visible one if we can't tell?
+                        // Better: don't highlight any if we aren't sure, rather than highlighting wrong one.
+                        // BUT the user WANTS to see the new focus.
+                        // Let's try to get the active leaf of the main workspace container?
+                        // Hard to access reliably without private API.
+                        // Fallback: If `lastActiveLeaf` is detached, checking `app.workspace.getMostRecentLeaf()` might work if we ignore sidecar?
+                        // `getMostRecentLeaf` takes a root.
+                        activeLeaf = null; // Reset if invalid
+                    }
+                }
+
+                // Re-check activeLeaf from workspace if we reset it or it was null
+
+                const isNoteFocused = activeLeaf?.view instanceof MarkdownView
+                    && activeLeaf.view.file?.path === match.file.path
+                    && activeLeaf.getRoot() === this.view.app.workspace.rootSplit; // Ensure it's in main area? Optional.
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
                 }
 
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if (leafHasFile(leaf, match.file.path)) {
+                            isOpen = true;
+                        }
+                    });
+
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link',
+                    cls: 'web-sidecar-linked-notes-note-link',
                     attr: { href: '#' }
                 });
 
@@ -498,7 +616,7 @@ export class BrowserTabItemRenderer {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     const openLeaves = this.view.app.workspace.getLeavesOfType('markdown')
-                        .filter(leaf => (leaf.view as any).file?.path === match.file.path);
+                        .filter(leaf => leafHasFile(leaf, match.file.path));
 
                     if (openLeaves.length > 1) {
                         // Multiple instances - use cycling
@@ -521,7 +639,7 @@ export class BrowserTabItemRenderer {
         newNoteBtn.setAttribute('aria-label', 'New linked note');
         newNoteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.view.openCreateNoteModal(url);
+            this.view.openCreateNoteModal(url, leafId);
         });
 
         // 3. Same domain notes (if enabled) - collapsible section
@@ -541,15 +659,28 @@ export class BrowserTabItemRenderer {
 
             // Create collapsible details element
             const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-browser-subtitle' });
+            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
             summary.createSpan({ text: headerText });
 
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
+
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if (leafHasFile(leaf, match.file.path)) {
+                            isOpen = true;
+                        }
+                    });
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link web-sidecar-muted',
+                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
                     attr: { href: '#' }
                 });
                 link.addEventListener('click', (e) => {

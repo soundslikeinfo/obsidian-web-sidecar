@@ -1,6 +1,7 @@
 
-import { TFile } from 'obsidian';
+import { TFile, setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
+import { getFaviconUrl } from '../../services/faviconUtils';
 import { IWebSidecarView } from '../../types';
 import { ContextMenus } from './ContextMenus';
 
@@ -17,19 +18,35 @@ export class NoteRenderer {
      * Render a single note item in a list
      * @param pairedOpen - If true, clicking note name opens both web viewer AND note (for recent/domain sections)
      */
-    renderNoteItem(list: HTMLElement, file: TFile, url: string, pairedOpen: boolean = false): void {
-        const li = list.createEl('li', { cls: 'web-sidecar-item' });
+    renderNoteItem(list: HTMLElement, file: TFile, url: string, pairedOpen: boolean = false, showDomain: boolean = true): void {
+        const li = list.createEl('li', { cls: 'web-sidecar-item web-sidecar-row-item' });
 
-        // Context menu on the entire item, not just the link
+        // Context menu on the entire item
         li.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, file, url));
 
-        const link = li.createEl('div', {
-            text: file.basename,
-            cls: 'web-sidecar-link clickable',
-            attr: { tabindex: '0' }
+        const domain = extractDomain(url);
+
+        // 1. Note Link (Left side - Title + Subtitle)
+        const noteLink = li.createEl('div', {
+            cls: 'web-sidecar-row-main clickable',
+            attr: { 'aria-label': 'Open note' }
         });
 
-        link.addEventListener('click', async (e) => {
+        // Title
+        noteLink.createDiv({
+            text: file.basename,
+            cls: 'web-sidecar-row-title'
+        });
+
+        // Subtitle
+        if (showDomain) {
+            noteLink.createDiv({
+                text: domain || url,
+                cls: 'web-sidecar-row-subtitle'
+            });
+        }
+
+        noteLink.addEventListener('click', async (e) => {
             e.preventDefault();
             if (pairedOpen) {
                 await this.view.openPaired(file, url, e);
@@ -38,14 +55,30 @@ export class NoteRenderer {
             }
         });
 
-        // Show URL snippet - always just opens web viewer (not paired)
-        const urlSnippet = li.createEl('div', {
-            cls: 'web-sidecar-url-snippet clickable',
-            attr: { tabindex: '0', 'aria-label': 'Open in web viewer' }
+        // 2. Web Link (Right side - Favicon/Icon)
+
+        const webBtn = li.createEl('div', {
+            cls: 'web-sidecar-row-action clickable-icon',
+            attr: { 'aria-label': `Open ${domain || 'link'}` }
         });
-        const domain = extractDomain(url);
-        urlSnippet.setText(domain || url);
-        urlSnippet.addEventListener('click', async (e) => {
+
+        if (domain) {
+            const img = webBtn.createEl('img', {
+                cls: 'web-sidecar-row-favicon',
+                attr: {
+                    src: getFaviconUrl(domain, 16),
+                    width: '14',
+                    height: '14',
+                    alt: ''
+                }
+            });
+            // Fallback handled by CSS or generic icon if src fails (hard to detect sync)
+            // But we can fallback if domain is missing
+        } else {
+            setIcon(webBtn, 'external-link');
+        }
+
+        webBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.view.openUrlSmartly(url, e);

@@ -48,15 +48,42 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 
 
 
-		// New Note Folder Path
+		// Use Vault's Default Location Toggle
 		new Setting(containerEl)
-			.setName('New note folder')
-			.setDesc('Default folder for new notes created from this plugin (leave empty for vault root)')
-			.addText(text => text
-				.setPlaceholder('Folder/Subfolder')
-				.setValue(this.plugin.settings.newNoteFolderPath)
+			.setName('Use vault\'s default location')
+			.setDesc('Use the location configured in Obsidian\'s Files & Links settings')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.useVaultDefaultLocation)
 				.onChange(async (value) => {
-					this.plugin.settings.newNoteFolderPath = value.trim();
+					this.plugin.settings.useVaultDefaultLocation = value;
+					await this.plugin.saveSettings();
+					// Re-render to show/hide custom folder input
+					this.display();
+				}));
+
+		// New Note Folder Path (only show if not using vault default)
+		if (!this.plugin.settings.useVaultDefaultLocation) {
+			new Setting(containerEl)
+				.setName('New note folder')
+				.setDesc('Custom folder for new notes created from this plugin (leave empty for vault root)')
+				.setClass('web-sidecar-sub-setting')
+				.addText(text => text
+					.setPlaceholder('Folder/Subfolder')
+					.setValue(this.plugin.settings.newNoteFolderPath)
+					.onChange(async (value) => {
+						this.plugin.settings.newNoteFolderPath = value.trim();
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// Capture Page Content
+		new Setting(containerEl)
+			.setName('Capture page content')
+			.setDesc('When creating a new linked note, extract and include the page content as markdown using Defuddle (desktop only)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.capturePageContent)
+				.onChange(async (value) => {
+					this.plugin.settings.capturePageContent = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -73,32 +100,38 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Tab Appearance Mode
+		// Recent Notes Cache Limit
+		new Setting(containerEl)
+			.setName('Recent notes cache limit')
+			.setDesc('Maximum number of recent notes to cache for performance safety')
+			.addText(text => text
+				.setPlaceholder('150')
+				.setValue(String(this.plugin.settings.recentNotesCacheLimit))
+				.onChange(async (value) => {
+					const limit = parseInt(value);
+					if (!isNaN(limit) && limit > 0) {
+						this.plugin.settings.recentNotesCacheLimit = limit;
+						await this.plugin.saveSettings();
+					}
+				}));
+
 		new Setting(containerEl)
 			.setName('Tab appearance')
 			.setDesc('Choose how tabs are displayed in the sidebar')
-			.addDropdown(dropdown => dropdown
-				.addOption('browser', 'Browser mode (compact, favicon + title)')
-				.addOption('notes', 'Notes mode (detailed, shows URLs)')
-				.setValue(this.plugin.settings.tabAppearance)
-				.onChange(async (value) => {
-					this.plugin.settings.tabAppearance = value as 'notes' | 'browser';
-					await this.plugin.saveSettings();
-				}));
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('basic', 'Basic')
+					.addOption('linked-mode', 'Linked notes');
 
-		// Tab Sort Order
-		new Setting(containerEl)
-			.setName('Tab sort order')
-			.setDesc('How to sort open web viewer tabs')
-			.addDropdown(dropdown => dropdown
-				.addOption('focus', 'Recently focused')
-				.addOption('title', 'Alphabetical by title')
-				.addOption('manual', 'Manual (drag to reorder)')
-				.setValue(this.plugin.settings.tabSortOrder)
-				.onChange(async (value) => {
-					this.plugin.settings.tabSortOrder = value as 'focus' | 'title' | 'manual';
-					await this.plugin.saveSettings();
-				}));
+				dropdown
+					.setValue(this.plugin.settings.tabAppearance)
+					.onChange(async (value) => {
+						this.plugin.settings.tabAppearance = value as 'linked-mode' | 'basic';
+						await this.plugin.saveSettings();
+					});
+			});
+
+
 
 		// Collapse Duplicate URLs
 		new Setting(containerEl)
@@ -108,6 +141,20 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.collapseDuplicateUrls)
 				.onChange(async (value) => {
 					this.plugin.settings.collapseDuplicateUrls = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Linked Note Display Style
+		new Setting(containerEl)
+			.setName('Linked note display style')
+			.setDesc('How to display linked notes based on whether they are open in the workspace')
+			.addDropdown(dropdown => dropdown
+				.addOption('none', 'Do nothing')
+				.addOption('color', 'Muted for closed, accent for open')
+				.addOption('style', 'Muted italic for closed, accent for open')
+				.setValue(this.plugin.settings.linkedNoteDisplayStyle)
+				.onChange(async (value) => {
+					this.plugin.settings.linkedNoteDisplayStyle = value as 'none' | 'color' | 'style';
 					await this.plugin.saveSettings();
 				}));
 
@@ -128,7 +175,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 
 		// Opening Behavior for Tab Groups (only show when notes open to the right)
 		if (this.plugin.settings.noteOpenBehavior === 'split') {
-			containerEl.createEl('h3', { text: 'Opening behavior for tab groups' });
+			new Setting(containerEl).setName('Opening behavior for tab groups').setHeading();
 
 			new Setting(containerEl)
 				.setName('Prefer to open web viewers in the left tab group')
@@ -154,8 +201,10 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// ============================================
 		// AUX SECTIONS
 		// ============================================
-		const auxSectionsContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-		auxSectionsContainer.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
+		const auxGroup = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
+		auxGroup.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
+
+		const auxSectionsContainer = auxGroup.createDiv({ cls: 'web-sidecar-settings-scroll-area' });
 
 		new Setting(auxSectionsContainer)
 			.setName('Recent web notes')
@@ -233,13 +282,33 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(auxSectionsContainer)
+			.setName('Group by X (Twitter) user')
+			.setDesc('Show section with notes grouped by X/Twitter user')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableTwitterExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableTwitterExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(auxSectionsContainer)
+			.setName('Group by GitHub repository')
+			.setDesc('Show section with notes grouped by GitHub repository (owner/repo)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableGithubExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableGithubExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// ============================================
 		// DOMAIN RULES
 		// ============================================
 		const domainRulesContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
 		domainRulesContainer.createEl('div', { text: 'Domain Rules', cls: 'web-sidecar-settings-group-title' });
 
-		domainRulesContainer.createEl('h4', { text: 'reddit.com', cls: 'web-sidecar-sub-heading' });
+		new Setting(domainRulesContainer).setName('reddit.com').setHeading();
 
 		new Setting(domainRulesContainer)
 			.setName('Reveal other notes from the same subreddit')
@@ -252,7 +321,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		domainRulesContainer.createEl('h4', { text: 'youtube.com', cls: 'web-sidecar-sub-heading' });
+		new Setting(domainRulesContainer).setName('youtube.com').setHeading();
 
 		new Setting(domainRulesContainer)
 			.setName('Reveal other notes from the same YouTube channel')
@@ -287,7 +356,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		});
 
 		// Experimental Section
-		containerEl.createEl('h3', { text: 'Experimental features' });
+		new Setting(containerEl).setName('Experimental features').setHeading();
 
 		containerEl.createEl('div', {
 			text: '⚠️ Disclaimer: Experimental features may be unstable or break with Obsidian updates. Use with caution.',
@@ -295,7 +364,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		});
 
 		// Pinned Tabs Section (Moved)
-		containerEl.createEl('h4', { text: 'Pinned Tabs', cls: 'web-sidecar-sub-heading' });
+		new Setting(containerEl).setName('Pinned Tabs').setHeading();
 
 		new Setting(containerEl)
 			.setName('Enable Pinned Web View Tabs')
@@ -349,7 +418,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Sub-options (only show if main toggle is enabled)
 		if (this.plugin.settings.enableWebViewerActions) {
 			// Header buttons section
-			containerEl.createEl('h4', { text: 'Action row', cls: 'web-sidecar-sub-heading' });
+			new Setting(containerEl).setName('Action row').setHeading();
 
 			new Setting(containerEl)
 				.setName('New web viewer button')
@@ -372,8 +441,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 
 			new Setting(containerEl)
-				.setName('Create/Open Note button')
-				.setDesc('Add button to create or open note for current URL')
+				.setName('Open linked web note button')
+				.setDesc('Add button to open linked note for current URL (if it exists)')
 				.setClass('web-sidecar-sub-setting')
 				.addToggle(toggle => toggle
 					.setValue(this.plugin.settings.showWebViewerOpenNoteButton)
@@ -383,7 +452,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 
 			// Menu options section
-			containerEl.createEl('h4', { text: 'More options menu', cls: 'web-sidecar-sub-heading' });
+			new Setting(containerEl).setName('More options menu').setHeading();
 
 			new Setting(containerEl)
 				.setName('New web view tab')

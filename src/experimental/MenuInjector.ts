@@ -1,5 +1,5 @@
 
-import { App, setIcon, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, setIcon, TFile, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 import { findMatchingNotes } from '../services/noteMatcher';
 import type { UrlIndex } from '../services/UrlIndex';
@@ -245,7 +245,7 @@ export class MenuInjector {
         }
 
         const sourceParent = sourceLeaf.parent;
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
 
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
@@ -255,8 +255,8 @@ export class MenuInjector {
             tabGroups.get(leaf.parent)!.push(leaf);
         }
 
-        let targetParent: any = null;
-        let fallbackParent: any = null;
+        let targetParent: WorkspaceSplit | null = null;
+        let fallbackParent: WorkspaceSplit | null = null;
 
         for (const [parent, leaves] of tabGroups.entries()) {
             if (parent === sourceParent) continue;
@@ -281,7 +281,7 @@ export class MenuInjector {
     }
 
     private isInMainArea(leaf: WorkspaceLeaf): boolean {
-        let current: any = leaf.parent;
+        let current: WorkspaceSplit | null = leaf.parent;
         const rootSplit = this.app.workspace.rootSplit;
 
         while (current) {

@@ -1,8 +1,8 @@
-
 import { extractDomain } from '../../../services/urlUtils';
+import { getFaviconUrl } from '../../../services/faviconUtils';
+import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
 import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
-import { NoteRenderer } from '../NoteRenderer';
-import { setIcon, Menu } from 'obsidian';
+import { setIcon, MarkdownView } from 'obsidian';
 import { IWebSidecarView, PinnedTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 
@@ -16,7 +16,7 @@ export class PinnedTabRenderer {
         this.contextMenus = contextMenus;
     }
 
-    render(container: HTMLElement, pinnedTabs: PinnedTab[]): void {
+    render(container: HTMLElement, pinnedTabs: PinnedTab[], isBasicMode: boolean = false): void {
         // Clean up pinned section if feature is disabled
         if (!this.view.settings.enablePinnedTabs) {
             const existingSection = container.querySelector('.web-sidecar-pinned-section');
@@ -28,6 +28,10 @@ export class PinnedTabRenderer {
         let pinnedSection = container.querySelector('.web-sidecar-pinned-section') as HTMLElement;
         if (!pinnedSection) {
             pinnedSection = container.createDiv({ cls: 'web-sidecar-pinned-section' });
+            container.prepend(pinnedSection);
+        } else if (container.firstChild !== pinnedSection) {
+            // Ensure matches top position if existing
+            container.prepend(pinnedSection);
         }
 
         // Hide if no pins and we don't want to show an empty drop zone (User said default empty is fine, but dragged item should allow pin)
@@ -38,11 +42,11 @@ export class PinnedTabRenderer {
             // But if it has 0 height, we can't drop.
             // Let's give it a specialized class for empty state
             pinnedSection.addClass('is-empty-state');
-            pinnedSection.style.display = 'block';
+            pinnedSection.removeClass('web-sidecar-hidden');
             // We don't return here, we let it setup drag events.
         } else {
             pinnedSection.removeClass('is-empty-state');
-            pinnedSection.style.display = 'block';
+            pinnedSection.removeClass('web-sidecar-hidden');
         }
 
         // Render Drop Zone for Reordering at the top? No, individual items act as drop targets usually.
@@ -88,7 +92,7 @@ export class PinnedTabRenderer {
                 // But I'm in the class that imports `WebSidecarView` effectively or types.
                 // Hack: access `(this.view as any).trackedTabs`.
 
-                const tabs = (this.view as any).trackedTabs as any[]; // quick fix
+                const tabs = this.view.trackedTabs;
                 const tab = tabs.find(t => t.leafId === leafId);
                 if (tab) {
                     this.view.pinTab(tab).then(() => {
@@ -119,11 +123,11 @@ export class PinnedTabRenderer {
 
             if (tabEl) {
                 // Update existing
-                this.updatePinnedTab(tabEl, pin);
+                this.updatePinnedTab(tabEl, pin, isBasicMode);
                 pinnedSection.appendChild(tabEl); // Ensure order
             } else {
                 // Create new
-                this.renderPinnedTab(pinnedSection, pin);
+                this.renderPinnedTab(pinnedSection, pin, isBasicMode);
                 // Last element is the new one
                 const newEl = pinnedSection.lastElementChild as HTMLElement;
                 if (newEl) newEl.setAttribute('data-pin-id', key);
@@ -149,12 +153,12 @@ export class PinnedTabRenderer {
         }
     }
 
-    private renderPinnedTab(container: HTMLElement, pin: PinnedTab): void {
+    private renderPinnedTab(container: HTMLElement, pin: PinnedTab, isBasicMode: boolean): void {
         const pinEl = container.createDiv({ cls: 'web-sidecar-pinned-tab clickable' });
         // pinEl.setAttribute('draggable', 'true'); // Handle Dragging
 
 
-        this.updatePinnedTab(pinEl, pin);
+        this.updatePinnedTab(pinEl, pin, isBasicMode);
 
         // Re-apply events (updatePinnedTab clears content but not element)
         // Actually updatePinnedTab empties the element! So we need to re-bind events?
@@ -176,7 +180,7 @@ export class PinnedTabRenderer {
         this.setupDragEvents(pinEl, pin);
     }
 
-    private updatePinnedTab(el: HTMLElement, pin: PinnedTab): void {
+    private updatePinnedTab(el: HTMLElement, pin: PinnedTab, isBasicMode: boolean): void {
         el.empty();
 
         // Preserve expansion state?
@@ -193,7 +197,7 @@ export class PinnedTabRenderer {
         if (domain) {
             const favicon = faviconContainer.createEl('img', {
                 attr: {
-                    src: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                    src: getFaviconUrl(domain, 32),
                     alt: '',
                     width: '16',
                     height: '16'
@@ -208,7 +212,27 @@ export class PinnedTabRenderer {
         }
 
         // Title
-        const titleEl = row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
+        row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
+
+        // Tab count badge - count how many open web viewers match this pin's URL
+        // Query workspace directly since trackedTabs is filtered (excludes pinned URLs)
+        const effectiveUrl = pin.currentUrl || pin.url;
+        const allWebLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));
+        const matchingTabCount = allWebLeaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === effectiveUrl;
+        }).length;
+
+        if (matchingTabCount > 1) {
+            row.createSpan({
+                text: `${matchingTabCount}`,
+                cls: 'web-sidecar-tab-count-badge',
+                attr: {
+                    'aria-label': `${matchingTabCount} tabs`
+                }
+            });
+        }
 
         // Linked Notes Checks
         const matches = findMatchingNotes(this.view.app, pin.url, this.view.settings, this.view.urlIndex);
@@ -216,8 +240,8 @@ export class PinnedTabRenderer {
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
         const hasExpandableContent = exactCount > 0 || hasSameDomain;
 
-        // Note Count Badge
-        if (exactCount > 0) {
+        // Note Count Badge (Skip in Basic Mode)
+        if (!isBasicMode && exactCount > 0) {
             row.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -227,20 +251,20 @@ export class PinnedTabRenderer {
             });
         }
 
-        // Inline New Note Button (if no notes)
-        if (exactCount === 0) {
+        // Inline New Note Button (if no notes) (Skip in Basic Mode)
+        if (!isBasicMode && exactCount === 0) {
             const newNoteBtn = row.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.setAttribute('aria-label', 'New linked note');
             newNoteBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.view.openCreateNoteModal(pin.url);
+                this.view.openCreateNoteModal(pin.url, pin.leafId);
             };
         }
 
-        // Expansion Toggle
+        // Expansion Toggle (Skip in Basic Mode)
         let notesContainer: HTMLElement | null = null;
-        if (hasExpandableContent) {
+        if (!isBasicMode && hasExpandableContent) {
             const expandBtn = row.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
             setIcon(expandBtn, isExpanded ? 'chevron-down' : 'chevron-right');
 
@@ -248,7 +272,7 @@ export class PinnedTabRenderer {
             if (!isExpanded) notesContainer.addClass('hidden');
             else {
                 // Render content
-                this.renderPinnedNotes(notesContainer, pin.url, matches);
+                this.renderPinnedNotes(notesContainer, pin.url, matches, pin.leafId);
             }
 
             expandBtn.onclick = (e) => {
@@ -275,19 +299,31 @@ export class PinnedTabRenderer {
         }
 
         // 2. Is it active?
-        const activeLeaf = this.view.app.workspace.activeLeaf;
-        if (pin.leafId && activeLeaf && (activeLeaf as any).id === pin.leafId) {
-            el.addClass('is-active');
+        let activeLeaf = this.view.app.workspace.activeLeaf;
+
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+            activeLeaf = this.view.lastActiveLeaf;
+        }
+
+        if (pin.leafId && activeLeaf) {
+            const activeLeafId = getLeafId(activeLeaf);
+            if (activeLeafId && activeLeafId === pin.leafId) {
+                el.addClass('is-active');
+            }
         }
     }
 
-    private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult): void {
-        // Duplicate logic from BrowserTabItemRenderer's renderBrowserTabNotes
-        // Ideally this should be shared, but for now we inline to fix the bug quickly.
+    private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
+        // Add style-mode class if using 'style' option (for italic closed notes)
+        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
+            container.addClass('style-mode');
+        } else {
+            container.removeClass('style-mode');
+        }
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
-            const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
                 // Store path for focus tracking
@@ -298,16 +334,27 @@ export class PinnedTabRenderer {
                 if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
                     activeLeaf = this.view.lastActiveLeaf;
                 }
-                const isNoteFocused = activeLeaf?.view?.getViewType() === 'markdown'
-                    && (activeLeaf.view as any)?.file?.path === match.file.path;
+                const isNoteFocused = activeLeaf?.view instanceof MarkdownView
+                    && activeLeaf.view.file?.path === match.file.path;
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
                 }
 
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if (leafHasFile(leaf, match.file.path)) {
+                            isOpen = true;
+                        }
+                    });
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link',
+                    cls: 'web-sidecar-linked-notes-note-link',
                     attr: { href: '#' }
                 });
 
@@ -331,7 +378,7 @@ export class PinnedTabRenderer {
         newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
         newNoteBtn.onclick = (e) => {
             e.stopPropagation();
-            this.view.openCreateNoteModal(url);
+            this.view.openCreateNoteModal(url, leafId);
         };
 
         // 3. Same domain notes
@@ -346,16 +393,28 @@ export class PinnedTabRenderer {
             }
 
             const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-browser-subtitle' });
+            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
             summary.createSpan({ text: headerText });
             summary.onclick = (e) => e.stopPropagation(); // prevent collapsing parent? No, summary usually handles itself.
 
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
+
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if (leafHasFile(leaf, match.file.path)) {
+                            isOpen = true;
+                        }
+                    });
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link web-sidecar-muted',
+                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
                     attr: { href: '#' }
                 });
                 link.addEventListener('click', (e) => {
@@ -372,23 +431,66 @@ export class PinnedTabRenderer {
     }
 
     private async handlePinClick(startPin: PinnedTab, e: MouseEvent) {
-        // FIX: Re-fetch pin from settings to ensure we have the LATEST leafId.
-        // The 'startPin' passed in closure might be stale if a leaf was just created but render loop hasn't fully cycled/updated this specific element's closure yet.
-        const freshPin = this.view.settings.pinnedTabs.find(p => p.id === startPin.id) || startPin;
+        // Skip if clicking on expand button or new note button
+        if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
+        if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 
-        // 1. Check if potential open leaf exists
+        // Re-fetch pin from settings to ensure we have the LATEST leafId
+        const freshPin = this.view.settings.pinnedTabs.find((p: PinnedTab) => p.id === startPin.id) || startPin;
+
+        // Check if potential open leaf exists
         const openLeaf = freshPin.leafId ? this.view.app.workspace.getLeafById(freshPin.leafId) : null;
 
-        if (openLeaf) {
-            // Focus it
-            this.view.app.workspace.revealLeaf(openLeaf);
-        } else {
-            // Check if we are already in the process of opening? (Prevent rapid clicks)
-            // Ideally we'd have a lock or 'isOpening' state.
-            // relying on freshPin.leafId should be enough IF setPinnedTabLeaf is fast enough or synchronous-ish in memory.
+        // Check if this pinned tab is already focused
+        let checkLeaf = this.view.app.workspace.activeLeaf;
+        if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+            checkLeaf = this.view.lastActiveLeaf;
+        }
+        const isAlreadyFocused = openLeaf && checkLeaf && getLeafId(checkLeaf) === freshPin.leafId;
 
-            // Open new
-            // Open in main tab area
+        // Check if has expandable content (for expand/collapse toggle)
+        const matches = findMatchingNotes(this.view.app, freshPin.url, this.view.settings, this.view.urlIndex);
+        const exactCount = matches.exactMatches.length;
+        const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
+        const hasExpandableContent = exactCount > 0 || hasSameDomain;
+
+        // Click behavior for pinned tabs (mirrors open web viewer tabs):
+        // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
+        // - Grouped tabs: cycle through instances (expand button handles expand/collapse)
+
+        const effectiveUrl = freshPin.currentUrl || freshPin.url;
+        const allWebLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));
+
+        const matchingLeaves = allWebLeaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === effectiveUrl;
+        });
+
+        const matchingCount = matchingLeaves.length;
+
+        if (matchingCount > 1) {
+            // Grouped tabs behavior: Cycle
+            this.view.focusNextWebViewerInstance(effectiveUrl);
+            return;
+        }
+
+        if (isAlreadyFocused && hasExpandableContent) {
+            // Already focused - toggle expand/collapse
+            const key = `pin:${freshPin.id}`;
+            const newState = !this.view.expandedGroupIds.has(key);
+            this.view.setGroupExpanded(key, newState);
+            this.view.render(true);
+            return;
+        }
+
+        if (openLeaf) {
+            // Open but not focused - focus it
+            setTimeout(() => {
+                this.view.app.workspace.setActiveLeaf(openLeaf, { focus: true });
+            }, 50);
+        } else {
+            // Closed - open new web viewer
             const leaf = this.view.app.workspace.getLeaf('tab');
             const urlToOpen = freshPin.currentUrl || freshPin.url;
 
@@ -398,17 +500,16 @@ export class PinnedTabRenderer {
             });
             this.view.app.workspace.revealLeaf(leaf);
 
-            // The StateService will detect this new leaf and link it to the pin via URL matching
-            // We might need to manually link it if URL is same but we want explicit ownership?
-            // But existing logic relies on URL matching.
-
-            // FIX: Explicitly link the new Leaf ID to this Pin immediately.
-            // This ensures that even if the page redirects immediately (changing URL),
-            // the service knows this leaf belongs to this pin.
-            const leafId = (leaf as any).id;
-            if (leafId && 'setPinnedTabLeaf' in (this.view as any).tabStateService) {
-                await (this.view as any).tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
+            // Explicitly link the new Leaf ID to this Pin immediately
+            const leafId = getLeafId(leaf);
+            if (leafId && this.view.tabStateService) {
+                await this.view.tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
             }
+
+            // Force UI refresh to show the pin is now open
+            this.view.render(true);
+            setTimeout(() => this.view.render(true), 150);
+            setTimeout(() => this.view.render(true), 400);
         }
     }
 

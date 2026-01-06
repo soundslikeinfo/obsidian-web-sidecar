@@ -1,12 +1,12 @@
 
 
-import { ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
-import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
+import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice } from 'obsidian';
+import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView, AppWithCommands, ObsidianCommand } from '../types';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
-import { TabListRenderer } from './components/tabs/TabListRenderer';
-import { BrowserTabRenderer } from './components/tabs/BrowserTabRenderer';
+
+import { LinkedNotesTabRenderer } from './components/tabs/LinkedNotesTabRenderer';
 import { PinnedTabRenderer } from './components/tabs/PinnedTabRenderer';
 import { NavigationService } from '../services/NavigationService';
 import { TabStateService } from '../services/TabStateService';
@@ -31,12 +31,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     isSelectedTagGroupOpen: boolean = false;
     isYouTubeChannelExplorerOpen: boolean = false;
     youtubeChannelSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    isTwitterExplorerOpen: boolean = false;
+
+    twitterSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    isGithubExplorerOpen: boolean = false;
+    githubSort: 'alpha' | 'count' | 'recent' = 'alpha';
     expandedGroupIds: Set<string> = new Set();
     isManualRefresh: boolean = false;
     urlIndex: UrlIndex;
 
     // Private properties
-    private trackedTabs: TrackedWebViewer[] = [];
+    // Public state for interface
+    public trackedTabs: TrackedWebViewer[] = [];
     private virtualTabs: VirtualTab[] = [];
     private getSettingsFn: () => WebSidecarSettings;
     private onRefreshFn: () => void;
@@ -48,10 +54,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private contextMenus: ContextMenus;
     private noteRenderer: NoteRenderer;
     private sectionRenderer: SectionRenderer;
-    private tabListRenderer: TabListRenderer;
-    private browserTabRenderer: BrowserTabRenderer;
+
+    private linkedNotesTabRenderer: LinkedNotesTabRenderer;
     private pinnedTabRenderer: PinnedTabRenderer;
-    private tabStateService: TabStateService;
+    public tabStateService: TabStateService;
     public saveSettingsFn: () => Promise<void>;
 
     /** Track if user is interacting with the sidebar (prevents re-render) */
@@ -62,6 +68,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     /** Reference to sort button for dynamic updates */
     private sortBtn: HTMLElement | null = null;
+
+    private renderFrameId: number | null = null;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -98,8 +106,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.contextMenus = new ContextMenus(this);
         this.noteRenderer = new NoteRenderer(this, this.contextMenus);
         this.sectionRenderer = new SectionRenderer(this, this.noteRenderer, this.contextMenus);
-        this.tabListRenderer = new TabListRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
-        this.browserTabRenderer = new BrowserTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
+
+        this.linkedNotesTabRenderer = new LinkedNotesTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.pinnedTabRenderer = new PinnedTabRenderer(this, this.contextMenus);
     }
 
@@ -108,6 +116,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     getDisplayText(): string {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case
         return 'Web Sidecar';
     }
 
@@ -128,6 +137,11 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isSelectedTagGroupOpen = this.settings.isSelectedTagGroupOpen;
         this.isYouTubeChannelExplorerOpen = this.settings.isYouTubeChannelExplorerOpen;
         this.youtubeChannelSort = this.settings.youtubeChannelSortOrder || 'alpha';
+        this.isTwitterExplorerOpen = this.settings.isTwitterExplorerOpen;
+        this.twitterSort = this.settings.twitterSortOrder || 'alpha';
+
+        this.isGithubExplorerOpen = this.settings.isGithubExplorerOpen;
+        this.githubSort = this.settings.githubSortOrder || 'alpha';
         this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
 
         // Create nav-header toolbar
@@ -181,7 +195,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         }
 
         // Create nav-header
-        navHeader = createDiv({ cls: 'nav-header web-sidecar-toolbar' });
+        navHeader = this.containerEl.createDiv({ cls: 'nav-header web-sidecar-toolbar', prepend: true });
         const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
 
         // New Web Viewer button (leftmost)
@@ -245,6 +259,76 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             await this.saveSettingsFn();
         };
 
+        // History button (activates "Web Viewer: Show history")
+        const historyBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Show history' }
+        });
+        setIcon(historyBtn, 'clock');
+        historyBtn.onclick = () => {
+            const app = this.app as AppWithCommands;
+            if (app.commands) {
+                const commands = app.commands.commands;
+                const cmdList = Object.values(commands);
+
+                // Try to find the command:
+                // 1. Exact match (case insensitive) "Show history"
+                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'show history');
+
+                // 2. Exact match full string "Web Viewer: Show history"
+                if (!cmd) {
+                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: show history');
+                }
+
+                if (cmd) {
+                    app.commands.executeCommandById(cmd.id);
+                } else {
+                    // eslint-disable-next-line obsidianmd/ui/sentence-case
+                    new Notice('Web Sidecar: Command "Show history" not found.');
+                    console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
+                }
+            }
+        };
+
+        // Search button (activates "Web Viewer: Search the web")
+        const searchBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Search the web' }
+        });
+        setIcon(searchBtn, 'search');
+        searchBtn.onclick = () => {
+            const app = this.app as AppWithCommands;
+            if (app.commands) {
+                const commands = app.commands.commands;
+                const cmdList = Object.values(commands);
+
+                // Try to find the command:
+                // 1. Exact match (case insensitive) "Search the web"
+                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'search the web');
+
+                // 2. Exact match full string "Web Viewer: Search the web"
+                if (!cmd) {
+                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: search the web');
+                }
+
+                // 3. Heuristic: Contains "Search the web" and plugin ID looks relevant
+                if (!cmd) {
+                    cmd = cmdList.find((c: ObsidianCommand) =>
+                        c.name && c.name.toLowerCase().includes('search the web') &&
+                        (c.id.includes('web-viewer') || c.id.includes('web-browser') || c.id.includes('surfing'))
+                    );
+                }
+
+                if (cmd) {
+                    app.commands.executeCommandById(cmd.id);
+                } else {
+                    // eslint-disable-next-line obsidianmd/ui/sentence-case
+                    new Notice('Web Sidecar: Command "Search the web" not found.');
+                    console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));
+                }
+            }
+        };
+
         // Refresh button
         const refreshBtn = buttonContainer.createEl('div', {
             cls: 'clickable-icon nav-action-button',
@@ -287,8 +371,29 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isYouTubeChannelExplorerOpen = newState;
         this.settings.isYouTubeChannelExplorerOpen = newState;
 
+        this.isGithubExplorerOpen = newState;
+        this.settings.isGithubExplorerOpen = newState;
+
         // Persist changes
         this.saveSettingsFn();
+
+        // Expand/Collapse global tab state
+        if (newState) {
+            // 1. Pinned Tabs
+            if (this.settings.pinnedTabs) {
+                this.settings.pinnedTabs.forEach(pin => this.expandedGroupIds.add(`pin:${pin.id}`));
+            }
+            // 2. Linked Tabs (keyed by url for dedupe support)
+            if (this.trackedTabs) {
+                this.trackedTabs.forEach(tab => this.expandedGroupIds.add(`tab:${tab.url}`));
+            }
+            // 3. Virtual Tabs
+            if (this.virtualTabs) {
+                this.virtualTabs.forEach(vtab => this.expandedGroupIds.add(`virtual:${vtab.url}`));
+            }
+        } else {
+            this.expandedGroupIds.clear();
+        }
 
         // Force re-render to populate content with new state
         this.isManualRefresh = true;
@@ -383,6 +488,30 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.saveSettingsFn();
     }
 
+    setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.twitterSort = sort;
+        this.settings.twitterSortOrder = sort;
+        this.saveSettingsFn();
+    }
+
+    setTwitterExplorerOpen(open: boolean): void {
+        this.isTwitterExplorerOpen = open;
+        this.settings.isTwitterExplorerOpen = open;
+        this.saveSettingsFn();
+    }
+
+    setGithubSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.githubSort = sort;
+        this.settings.githubSortOrder = sort;
+        this.saveSettingsFn();
+    }
+
+    setGithubExplorerOpen(open: boolean): void {
+        this.isGithubExplorerOpen = open;
+        this.settings.isGithubExplorerOpen = open;
+        this.saveSettingsFn();
+    }
+
     setGroupExpanded(id: string, expanded: boolean): void {
         if (expanded) {
             this.expandedGroupIds.add(id);
@@ -419,6 +548,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Delegation to NavigationService
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void {
         this.navigationService.focusNextInstance(url, allTabs);
+    }
+
+    focusNextWebViewerInstance(url: string): void {
+        this.navigationService.focusNextWebViewerInstance(url);
     }
 
     focusNextNoteInstance(filePath: string): void {
@@ -472,19 +605,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             currentOrder.push(draggedLeafId);
         }
 
-        // CRITICAL: Force re-render even if user is interacting
+        // All three steps required for immediate visual feedback of manual sort order
         this.isManualRefresh = true;
         this.saveManualTabOrder(currentOrder);
-        this.onRefresh(); // onRefresh calls render? No onRefreshFn calls View.updateTabs calls render.
-        // But onRefreshFn might be debounced or dependent on other things.
-        // Let's force render directly locally if possible, but trackedTabs needs update?
-        // NavigationService/TabStateService updates trackedTabs usually.
-        // Actually handleTabDrop just updates ORDER in settings.
-        // We need to re-sort trackedTabs based on this new order visually.
-        // The render loop does: const tabs = this.trackedTabs.
-        // If we don't update this.trackedTabs order in memory, render will show old order until polling.
-        // But we just updated settings.manualTabOrder.
-        // We should trigger a full refresh cycle.
+        this.onRefresh();
         this.render(true);
     }
 
@@ -512,8 +636,12 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.onRefresh();
     }
 
-    openCreateNoteModal(url: string): void {
-        this.navigationService.openCreateNoteModal(url);
+    openCreateNoteModal(url: string, leafId?: string): void {
+        // Dispatch custom event for main.ts to handle content capture and modal opening
+        const event = new CustomEvent('web-sidecar:create-note', {
+            detail: { url, leafId }
+        });
+        window.dispatchEvent(event);
     }
 
     async openPaired(file: TFile, url: string, evt: MouseEvent): Promise<void> {
@@ -600,18 +728,35 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
+        // Capture manual refresh state at call time (before async delay)
+        const shouldForce = force || this.isManualRefresh;
+        if (this.isManualRefresh) {
+            this.isManualRefresh = false;
+        }
+
+        // Debounce render calls to next animation frame
+        if (this.renderFrameId !== null) {
+            cancelAnimationFrame(this.renderFrameId);
+        }
+
+        this.renderFrameId = requestAnimationFrame(() => {
+            this.renderFrameId = null;
+            this.performRender(shouldForce);
+        });
+    }
+
+    private performRender(force?: boolean): void {
         const container = this.contentEl;
 
         // Prevent re-rendering while user is interacting, unless forced
-        if (this.isInteracting && !this.isManualRefresh && !force) {
+        if (this.isInteracting && !force) {
             return;
         }
-        this.isManualRefresh = false;
 
         container.addClass('web-sidecar-container');
 
         // Track mode changes
-        const wasBrowserMode = container.hasClass('web-sidecar-browser-mode');
+        const wasLinkedMode = container.hasClass('web-sidecar-linked-mode');
         // Drop Target for Main Container (Unpinning)
         // If a pinned tab is dropped anywhere outside the pinned section (i.e. on the main list), unpin it.
         container.ondragover = (e) => {
@@ -638,14 +783,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             }
         };
 
-        const isBrowserMode = this.settings.tabAppearance === 'browser';
-        const modeChanged = wasBrowserMode !== isBrowserMode;
+        const isLinkedMode = this.settings.tabAppearance === 'linked-mode' || this.settings.tabAppearance === 'basic';
+        const isBasicMode = this.settings.tabAppearance === 'basic';
+        const modeChanged = wasLinkedMode !== isLinkedMode;
 
         // Add mode-specific class
-        container.removeClass('web-sidecar-notes-mode', 'web-sidecar-browser-mode');
-        container.addClass(isBrowserMode
-            ? 'web-sidecar-browser-mode'
-            : 'web-sidecar-notes-mode');
+        container.removeClass('web-sidecar-linked-notes-mode', 'web-sidecar-basic-mode');
+        container.addClass(isBasicMode ? 'web-sidecar-basic-mode' : 'web-sidecar-linked-notes-mode');
 
         // Track mouse enter/leave to prevent re-rendering during interaction
         if (!container.getAttribute('data-events-bound')) {
@@ -670,9 +814,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Only empty container when:
         // 1. Mode changed
         // 2. No content (empty state)
-        // 3. Notes mode (doesn't have DOM reconciliation)
-        // 4. Content state changed
-        if (modeChanged || !hasContent || !isBrowserMode || contentStateChanged) {
+        // 3. Content state changed
+        if (modeChanged || !hasContent || contentStateChanged) {
             container.empty();
         }
 
@@ -688,17 +831,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // We render inside container. 
         // If container was cleared, this creates the section. 
         // If not cleared (DOM reconciliation), it updates in place.
-        this.pinnedTabRenderer.render(container, pinnedTabs);
+        this.pinnedTabRenderer.render(container, pinnedTabs, isBasicMode);
 
 
         // Filter out pinned tabs from trackedTabs if they are "active" as pins?
         // TabStateService.getTrackedTabs() ALREADY does this filtering!
 
-        if (isBrowserMode) {
-            this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs);
-        } else {
-            this.tabListRenderer.renderTabList(container, this.trackedTabs, this.virtualTabs);
-        }
+        this.linkedNotesTabRenderer.renderLinkedNotesTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
     }
 }
 

@@ -8,26 +8,27 @@ import { App } from 'obsidian';
 export function getWebViewerHomepage(app: App): string {
     try {
         // Access the internal webviewer plugin settings
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const internalPlugins = (app as any).internalPlugins;
         if (!internalPlugins) {
             return 'about:blank';
         }
 
-        const webviewerPlugin = internalPlugins.getPluginById?.('webviewer') 
+        const webviewerPlugin = internalPlugins.getPluginById?.('webviewer')
             || internalPlugins.plugins?.['webviewer'];
-        
+
         if (!webviewerPlugin) {
             return 'about:blank';
         }
 
         // The settings are stored in the plugin's options
         // Can be accessed via plugin.options or plugin.instance?.options
-        const options = webviewerPlugin.options 
-            || webviewerPlugin.instance?.options 
+        const options = webviewerPlugin.options
+            || webviewerPlugin.instance?.options
             || {};
-        
+
         const homepage = options.homepage;
-        
+
         if (typeof homepage === 'string' && homepage.trim()) {
             return homepage.trim();
         }

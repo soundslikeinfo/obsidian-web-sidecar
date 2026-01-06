@@ -1,6 +1,7 @@
 
-import { App, EventRef, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import type { UrlIndex } from './services/UrlIndex';
+import type { TabStateService } from './services/TabStateService';
 
 /**
  * Interface to decouple View components from the main View class
@@ -11,6 +12,10 @@ export interface IWebSidecarView {
     urlIndex: UrlIndex;
     leaf: WorkspaceLeaf;
     lastActiveLeaf: WorkspaceLeaf | null;
+
+    // State
+    trackedTabs: TrackedWebViewer[];
+    tabStateService: TabStateService;
 
     // Actions
     closeLeaf(leafId: string): void;
@@ -28,7 +33,7 @@ export interface IWebSidecarView {
     openPaired(file: TFile, url: string, e: MouseEvent): Promise<void>;
     openNoteSmartly(file: TFile, e: MouseEvent): Promise<void>;
     openUrlSmartly(url: string, e: MouseEvent): Promise<void>;
-    openCreateNoteModal(url: string): void;
+    openCreateNoteModal(url: string, leafId?: string): void;
 
     openNewWebViewer(): Promise<void>;
     getOrCreateRightLeaf(): WorkspaceLeaf;
@@ -38,6 +43,7 @@ export interface IWebSidecarView {
     focusWebViewer(leafId: string): void;
     focusTab(tab: TrackedWebViewer): void;
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void;
+    focusNextWebViewerInstance(url: string): void;
     focusNextNoteInstance(filePath: string): void;
 
     // State updates
@@ -54,11 +60,24 @@ export interface IWebSidecarView {
     youtubeChannelSort: 'alpha' | 'count' | 'recent';
     setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void;
 
+    // Twitter User grouping
+    twitterSort: 'alpha' | 'count' | 'recent';
+    setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void;
+
     isSubredditExplorerOpen: boolean;
     setSubredditExplorerOpen(open: boolean): void;
 
     isYouTubeChannelExplorerOpen: boolean;
     setYouTubeChannelExplorerOpen(open: boolean): void;
+
+    isTwitterExplorerOpen: boolean;
+    setTwitterExplorerOpen(open: boolean): void;
+
+    isGithubExplorerOpen: boolean;
+    setGithubExplorerOpen(open: boolean): void;
+
+    githubSort: 'alpha' | 'count' | 'recent';
+    setGithubSort(sort: 'alpha' | 'count' | 'recent'): void;
 
     isDomainGroupOpen: boolean;
     setDomainGroupOpen(open: boolean): void;
@@ -106,10 +125,14 @@ export interface WebSidecarSettings {
     enableRecentNotes: boolean;
     /** Enable grouped by domain auxiliary section */
     enableTldSearch: boolean;
+    /** Use vault's default location for new notes instead of custom path */
+    useVaultDefaultLocation: boolean;
     /** Default folder path for new notes (empty = vault root) */
     newNoteFolderPath: string;
     /** Number of recent notes to show when no web viewer is active */
     recentNotesCount: number;
+    /** Maximum number of recent notes to cache for performance safety */
+    recentNotesCacheLimit: number;
     /** Sort order for web viewer tabs */
     tabSortOrder: TabSortOrder;
     /** Manual ordering of tabs by leafId (only used when tabSortOrder = 'manual') */
@@ -150,6 +173,14 @@ export interface WebSidecarSettings {
     youtubeChannelPropertyFields: string[];
     /** Sort order for YouTube channel explorer section */
     youtubeChannelSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable grouping matches by Twitter/X user */
+    enableTwitterExplorer: boolean;
+    /** Sort order for Twitter user explorer section */
+    twitterSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable grouping matches by GitHub repository */
+    enableGithubExplorer: boolean;
+    /** Sort order for GitHub repository explorer section */
+    githubSortOrder: 'alpha' | 'count' | 'recent';
     /** Enable grouping all web notes by tags */
     enableTagGrouping: boolean;
     /** Enable grouping web notes by selected tags */
@@ -168,6 +199,8 @@ export interface WebSidecarSettings {
     isTagGroupOpen: boolean;
     isSelectedTagGroupOpen: boolean;
     isYouTubeChannelExplorerOpen: boolean;
+    isTwitterExplorerOpen: boolean;
+    isGithubExplorerOpen: boolean;
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
 
@@ -179,8 +212,18 @@ export interface WebSidecarSettings {
     // Tab Group Placement Preferences
     /** Prefer to open new web viewers in the left tab group */
     preferWebViewerLeft: boolean;
+
+    // Content Capture
+    /** Capture page content when creating new linked notes (desktop only) */
+    capturePageContent: boolean;
     /** Prefer to open notes in the right tab group */
     preferNotesRight: boolean;
+
+    // Linked Note Display
+    /** How to display linked notes in web viewer tabs based on open state */
+    linkedNoteDisplayStyle: 'none' | 'color' | 'style';
+    /** Fetch page titles for virtual tabs (web notes not currently open) */
+    fetchVirtualTabTitles: boolean;
 }
 
 /**
@@ -191,7 +234,7 @@ export type TabSortOrder = 'focus' | 'title' | 'manual';
 /**
  * Tab appearance mode for sidebar
  */
-export type TabAppearance = 'notes' | 'browser';
+export type TabAppearance = 'linked-mode' | 'basic';
 
 /**
  * Note opening behavior from sidebar
@@ -206,11 +249,13 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     primaryUrlProperty: 'source',
     enableRecentNotes: true,
     enableTldSearch: true,
+    useVaultDefaultLocation: true,
     newNoteFolderPath: '',
     recentNotesCount: 10,
+    recentNotesCacheLimit: 150,
     tabSortOrder: 'focus',
     manualTabOrder: [],
-    tabAppearance: 'browser',
+    tabAppearance: 'basic',
     enableWebViewerActions: false,
     showWebViewerHeaderButton: true,
     showWebViewerNewNoteButton: true,
@@ -221,9 +266,13 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
-    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'tag', 'selected-tag'],
+    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'twitter', 'github', 'tag', 'selected-tag'],
     domainSortOrder: 'alpha',
     subredditSortOrder: 'alpha',
+    enableTwitterExplorer: false,
+    twitterSortOrder: 'alpha',
+    enableGithubExplorer: false,
+    githubSortOrder: 'alpha',
     enableTagGrouping: false,
     enableSelectedTagGrouping: false,
     selectedTagsAllowlist: '',
@@ -232,8 +281,11 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
 
     // UI Persistence Defaults
     isRecentNotesOpen: false,
+    fetchVirtualTabTitles: true,
     isDomainGroupOpen: false,
     isSubredditExplorerOpen: false,
+    isTwitterExplorerOpen: false,
+    isGithubExplorerOpen: false,
     isTagGroupOpen: false,
     isSelectedTagGroupOpen: false,
     isYouTubeChannelExplorerOpen: false,
@@ -255,6 +307,12 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     // Tab Group Placement Defaults
     preferWebViewerLeft: true,
     preferNotesRight: true,
+
+    // Content Capture
+    capturePageContent: true,
+
+    // Linked Note Display
+    linkedNoteDisplayStyle: 'none',
 };
 
 /**
@@ -352,4 +410,16 @@ export interface PinnedTab {
     notePath?: string;
     /** ID of the active web viewer leaf if one is currently open for this pin */
     leafId?: string;
+}
+
+export interface ObsidianCommand {
+    id: string;
+    name: string;
+}
+
+export interface AppWithCommands extends App {
+    commands: {
+        commands: Record<string, ObsidianCommand>;
+        executeCommandById(id: string): void;
+    };
 }

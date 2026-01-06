@@ -1,8 +1,10 @@
 
-import { Plugin, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { WorkspaceLeaf, MarkdownView } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
 import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';
+import { getLeafId } from './obsidianHelpers';
+import { isSameRedditPost } from './matchers/reddit';
 
 /**
  * Supported web viewer types
@@ -43,6 +45,15 @@ export class TabStateService {
         this.plugin.registerEvent(
             this.plugin.app.workspace.on('active-leaf-change', (leaf) => {
                 this.onActiveLeafChange(leaf);
+            })
+        );
+
+        // Listen for layout changes (e.g. closing a note) to refresh virtual tabs immediately
+        this.plugin.registerEvent(
+            this.plugin.app.workspace.on('layout-change', () => {
+                // Throttle? Or just refresh. Refresh is relatively cheap but we should define it.
+                // refreshState calls scanAllWebViewers which is fast.
+                this.refreshState();
             })
         );
 
@@ -217,18 +228,39 @@ export class TabStateService {
             // Check each URL property field
             for (const propName of settings.urlPropertyFields) {
                 const propValue = frontmatter[propName];
-                if (typeof propValue === 'string' && propValue.startsWith('http')) {
-                    // Skip if URL is already open in a web viewer
-                    if (openUrls.has(propValue)) continue;
+                if (!propValue) continue;
+
+                // Handle string or array
+                const values = Array.isArray(propValue) ? propValue : [propValue];
+
+                let foundUrl: string | undefined;
+
+                for (const val of values) {
+                    if (typeof val === 'string' && val.trim().startsWith('http')) {
+                        foundUrl = val.trim();
+                        break;
+                    }
+                }
+
+                if (foundUrl) {
+                    // Skip if URL is already open in a web viewer (check exact & domain-specific, e.g. Reddit ID)
+                    const isAlreadyOpen = Array.from(openUrls).some(openUrl =>
+                        openUrl === foundUrl || isSameRedditPost(openUrl, foundUrl)
+                    );
+                    if (isAlreadyOpen) continue;
 
                     // Skip if URL belongs to a pinned tab (shown in pinned section instead)
-                    if (pinnedUrls.has(propValue)) continue;
+                    // Pinned tabs might also have redirected, so we check using the same robust logic
+                    const isPinned = Array.from(pinnedUrls).some(pinUrl =>
+                        pinUrl === foundUrl || isSameRedditPost(pinUrl, foundUrl)
+                    );
+                    if (isPinned) continue;
 
                     virtualTabs.push({
                         file,
-                        url: propValue,
+                        url: foundUrl,
                         propertyName: propName,
-                        cachedTitle: this.urlTitleCache.get(propValue),
+                        cachedTitle: this.urlTitleCache.get(foundUrl),
                     });
                     break; // Only add one virtual tab per note
                 }
@@ -254,11 +286,14 @@ export class TabStateService {
             .concat(this.plugin.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            const leafId = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            const leafId = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {
                 // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -315,7 +350,7 @@ export class TabStateService {
             .concat(this.plugin.app.workspace.getLeavesOfType('surfing-view'));
 
         const activeLeafIds = new Set(
-            leaves.map((leaf, index) => (leaf as any).id || leaf.view.getViewType() + '-' + index)
+            leaves.map((leaf, index) => getLeafId(leaf) || leaf.view.getViewType() + '-' + index)
         );
 
         for (const leafId of this.trackedTabs.keys()) {
@@ -343,11 +378,14 @@ export class TabStateService {
         const viewType = leaf.view.getViewType();
 
         if (WEB_VIEW_TYPES.includes(viewType)) {
-            const leafId = (leaf as any).id || viewType + '-0';
+            const leafId = getLeafId(leaf) || viewType + '-0';
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {
                 // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -413,6 +451,11 @@ export class TabStateService {
         }
     }
 
+    setCachedTitle(url: string, title: string): void {
+        this.urlTitleCache.set(url, title);
+        // Persist? We don't persist cache currently, relies on session or fetch.
+    }
+
     // --- Pinned Tabs Logic ---
 
     getPinnedTabs(): PinnedTab[] {
@@ -462,15 +505,19 @@ export class TabStateService {
 
         if ('file' in tab) {
             isNote = true;
-            notePath = (tab as VirtualTab).file.path;
+            notePath = (tab).file.path;
         }
+
+        const title = 'title' in tab ? tab.title : ('cachedTitle' in tab ? tab.cachedTitle : tab.url);
+        const leafId = 'leafId' in tab ? tab.leafId : undefined;
 
         const newPin: PinnedTab = {
             id: crypto.randomUUID(),
             url: tab.url,
-            title: (tab as any).title || (tab as any).cachedTitle || tab.url,
+            title: title || tab.url,
             isNote,
-            notePath
+            notePath,
+            leafId
         };
 
         settings.pinnedTabs.push(newPin);
@@ -644,11 +691,11 @@ export class TabStateService {
         }
     }
 
-    private async createPinFromNote(file: TFile, frontmatter: any, settings: WebSidecarSettings) {
+    private async createPinFromNote(file: TFile, frontmatter: unknown, settings: WebSidecarSettings) {
         // Find first valid URL
         let url: string | undefined;
         for (const field of settings.urlPropertyFields) {
-            const val = frontmatter[field];
+            const val = (frontmatter as Record<string, unknown>)[field];
             if (typeof val === 'string' && val.startsWith('http')) {
                 url = val;
                 break;

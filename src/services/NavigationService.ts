@@ -1,10 +1,11 @@
 
-import { App, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, TFile, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
 import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import { findMatchingNotes } from './noteMatcher';
 import type { UrlIndex } from './UrlIndex';
 import { getWebViewerHomepage } from './webViewerUtils';
+import { getLeafId, getViewFile, leafHasFile } from './obsidianHelpers';
 
 export class NavigationService {
     private app: App;
@@ -36,8 +37,8 @@ export class NavigationService {
             .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            // Replicate original ID generation logic for matching
-            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            // Use getLeafId helper for type-safe access
+            const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
                 this.app.workspace.revealLeaf(leaf);
                 this.app.workspace.setActiveLeaf(leaf, { focus: true });
@@ -78,6 +79,36 @@ export class NavigationService {
         }
     }
 
+    /**
+     * Focus the next instance of a URL by finding all matching leaves directly
+     * Useful for Pinned Tabs where we don't have a pre-built TrackedWebViewer list
+     */
+    focusNextWebViewerInstance(url: string): void {
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+        const matchingLeaves = leaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === url;
+        });
+
+        if (matchingLeaves.length === 0) return;
+
+        if (matchingLeaves.length === 1) {
+            this.app.workspace.revealLeaf(matchingLeaves[0]!);
+            this.app.workspace.setActiveLeaf(matchingLeaves[0]!, { focus: true });
+            return;
+        }
+
+        // Cycle through multiple instances
+        const currentIndex = this.urlCycleIndex.get(url) || 0;
+        const nextIndex = (currentIndex + 1) % matchingLeaves.length;
+        this.urlCycleIndex.set(url, nextIndex);
+
+        this.app.workspace.revealLeaf(matchingLeaves[nextIndex]!);
+        this.app.workspace.setActiveLeaf(matchingLeaves[nextIndex]!, { focus: true });
+    }
+
     /** Cycle index for note instances */
     private noteCycleIndex: Map<string, number> = new Map();
 
@@ -86,7 +117,7 @@ export class NavigationService {
      */
     focusNextNoteInstance(filePath: string): void {
         const leaves = this.app.workspace.getLeavesOfType('markdown')
-            .filter(leaf => (leaf.view as any).file?.path === filePath);
+            .filter(leaf => leafHasFile(leaf, filePath));
 
         if (leaves.length === 0) return;
 
@@ -126,7 +157,7 @@ export class NavigationService {
         // Check if note is already open anywhere
         const leaves = this.app.workspace.getLeavesOfType('markdown');
         for (const leaf of leaves) {
-            const viewFile = (leaf.view as any).file;
+            const viewFile = getViewFile(leaf.view);
             if (viewFile && viewFile.path === file.path) {
                 // Already open, just focus it
                 this.app.workspace.revealLeaf(leaf);
@@ -144,6 +175,13 @@ export class NavigationService {
             const newLeaf = this.app.workspace.getLeaf('tab');
             await newLeaf.openFile(file);
         }
+
+        // CRITICAL: Immediate refresh
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
+
+        // Delayed refresh to catch late registration
+        await new Promise(resolve => setTimeout(resolve, 100));
         this.isManualRefreshCallback(true);
         this.onRefreshCallback();
     }
@@ -194,11 +232,18 @@ export class NavigationService {
     /**
      * Open a new empty web viewer
      * CRITICAL: Must trigger immediate UI refresh showing the new tab
+     * Respects preferWebViewerLeft setting to open in left (web viewer) group
      */
     async openNewWebViewer(): Promise<void> {
         this.isManualRefreshCallback(true);
         const homepage = getWebViewerHomepage(this.app);
-        const leaf = this.app.workspace.getLeaf('tab');
+
+        // Use left-side web viewer group if setting enabled
+        const settings = this.getSettings();
+        const leaf = settings.preferWebViewerLeft
+            ? this.getOrCreateWebViewerLeaf()
+            : this.app.workspace.getLeaf('tab');
+
         await leaf.setViewState({
             type: 'webviewer',
             state: { url: homepage, navigate: true }
@@ -268,7 +313,7 @@ export class NavigationService {
         const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
         let noteLeaf: WorkspaceLeaf | null = null;
         for (const leaf of markdownLeaves) {
-            const viewFile = (leaf.view as any).file;
+            const viewFile = getViewFile(leaf.view);
             if (viewFile && viewFile.path === file.path) {
                 noteLeaf = leaf;
                 break;
@@ -356,7 +401,7 @@ export class NavigationService {
             .concat(this.app.workspace.getLeavesOfType('surfing-view'));
 
         for (const leaf of leaves) {
-            const id = (leaf as any).id || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
+            const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
                 leaf.detach();
                 // break; // Don't return, we need to refresh
@@ -419,7 +464,7 @@ export class NavigationService {
         const leaves = this.app.workspace.getLeavesOfType('markdown');
 
         for (const leaf of leaves) {
-            const file = (leaf.view as any).file;
+            const file = getViewFile(leaf.view);
             if (file && filePaths.has(file.path)) {
                 leaf.detach();
             }
@@ -427,11 +472,16 @@ export class NavigationService {
         this.isManualRefreshCallback(true);
         this.onRefreshCallback();
 
-        // Delayed refresh to ensure UI catches up
+        // Multiple delayed refreshes to ensure UI catches up after bulk close
         setTimeout(() => {
             this.isManualRefreshCallback(true);
             this.onRefreshCallback();
-        }, 100);
+        }, 150);
+
+        setTimeout(() => {
+            this.isManualRefreshCallback(true);
+            this.onRefreshCallback();
+        }, 400);
     }
 
     /**
@@ -480,7 +530,7 @@ export class NavigationService {
         const sourceParent = sourceLeaf.parent;
 
         // Collect all unique tab groups (parents) in the main area
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
             if (!tabGroups.has(leaf.parent)) {
@@ -492,8 +542,8 @@ export class NavigationService {
         // Find the "target" group - a different group from the source
         // Prefer groups that contain markdown notes (those are likely the "notes" pane on the right)
         // Web viewers are typically on the LEFT, notes on the RIGHT
-        let targetParent: any = null;
-        let fallbackParent: any = null;
+        let targetParent: WorkspaceSplit | null = null;
+        let fallbackParent: WorkspaceSplit | null = null;
 
         for (const [parent, leaves] of tabGroups.entries()) {
             if (parent === sourceParent) continue; // Skip source group
@@ -529,7 +579,7 @@ export class NavigationService {
      */
     private isInMainArea(leaf: WorkspaceLeaf): boolean {
         // Traverse up to check if this leaf is under rootSplit
-        let current: any = leaf.parent;
+        let current: WorkspaceSplit | null = leaf.parent;
         const rootSplit = this.app.workspace.rootSplit;
 
         while (current) {
@@ -579,7 +629,7 @@ export class NavigationService {
         }
 
         // No web viewers exist - check if we have multiple groups (paired layout)
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
             if (!tabGroups.has(leaf.parent)) {
