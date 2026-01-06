@@ -18,7 +18,8 @@ export function getRecentNotesWithUrls(
     // Optimization: Use index if available
     let filesToCheck: TFile[] | ReadonlyArray<TFile>;
     if (urlIndex) {
-        filesToCheck = urlIndex.getAllFilesWithUrls();
+        // Use the cached recent files (capped at 150 safety limit)
+        filesToCheck = urlIndex.getRecentFiles(150);
     } else {
         filesToCheck = app.vault.getMarkdownFiles();
     }

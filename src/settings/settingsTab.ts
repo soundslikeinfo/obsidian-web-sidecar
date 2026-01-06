@@ -100,6 +100,21 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// Recent Notes Cache Limit
+		new Setting(containerEl)
+			.setName('Recent notes cache limit')
+			.setDesc('Maximum number of recent notes to cache for performance safety')
+			.addText(text => text
+				.setPlaceholder('150')
+				.setValue(String(this.plugin.settings.recentNotesCacheLimit))
+				.onChange(async (value) => {
+					const limit = parseInt(value);
+					if (!isNaN(limit) && limit > 0) {
+						this.plugin.settings.recentNotesCacheLimit = limit;
+						await this.plugin.saveSettings();
+					}
+				}));
+
 		new Setting(containerEl)
 			.setName('Tab appearance')
 			.setDesc('Choose how tabs are displayed in the sidebar')

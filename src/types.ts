@@ -124,6 +124,8 @@ export interface WebSidecarSettings {
     newNoteFolderPath: string;
     /** Number of recent notes to show when no web viewer is active */
     recentNotesCount: number;
+    /** Maximum number of recent notes to cache for performance safety */
+    recentNotesCacheLimit: number;
     /** Sort order for web viewer tabs */
     tabSortOrder: TabSortOrder;
     /** Manual ordering of tabs by leafId (only used when tabSortOrder = 'manual') */
@@ -238,6 +240,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     useVaultDefaultLocation: true,
     newNoteFolderPath: '',
     recentNotesCount: 10,
+    recentNotesCacheLimit: 150,
     tabSortOrder: 'focus',
     manualTabOrder: [],
     tabAppearance: 'basic',

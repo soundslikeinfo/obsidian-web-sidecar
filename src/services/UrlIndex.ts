@@ -111,6 +111,22 @@ export class UrlIndex extends Events {
     }
 
     /**
+     * Cache -- LIMIT Configurable
+     * Safety measure to prevent performance issues in large vaults
+     */
+    private recentFiles: TFile[] = [];
+
+    /**
+     * Get recent files with URLs, limited by the safety cap
+     */
+    getRecentFiles(limit?: number): TFile[] {
+        const maxCache = this.getSettings().recentNotesCacheLimit;
+        // Return up to 'limit' or the safety cap
+        const max = limit ? Math.min(limit, maxCache) : maxCache;
+        return this.recentFiles.slice(0, max);
+    }
+
+    /**
      * Full rebuild
      */
     rebuildIndex(): void {
@@ -120,9 +136,20 @@ export class UrlIndex extends Events {
         this.fileToUrls.clear();
 
         const files = this.app.vault.getMarkdownFiles();
+
+        // Populate maps
         for (const file of files) {
             this.updateFileIndex(file, true); // suppress event during loop
         }
+
+        // Build initial recent cache
+        const maxCache = this.getSettings().recentNotesCacheLimit;
+        // sort all files with URLs by mtime
+        const filesWithUrls = this.getAllFilesWithUrls();
+        this.recentFiles = filesWithUrls
+            .sort((a, b) => b.stat.mtime - a.stat.mtime)
+            .slice(0, maxCache);
+
         this.trigger('index-updated');
     }
 
@@ -138,6 +165,7 @@ export class UrlIndex extends Events {
         const frontmatter = cache?.frontmatter;
 
         let hasChanges = false;
+        let hasUrls = false;
 
         if (frontmatter) {
             const settings = this.getSettings();
@@ -159,6 +187,7 @@ export class UrlIndex extends Events {
 
             // 3. Add to indices
             if (foundUrls.size > 0) {
+                hasUrls = true;
                 this.fileToUrls.set(file.path, foundUrls);
 
                 for (const url of foundUrls) {
@@ -190,6 +219,20 @@ export class UrlIndex extends Events {
             }
         }
 
+        // Update Recent Cache
+        if (hasUrls) {
+            // Remove if exists (it shouldn't because we declared it removed in step 1, 
+            // but removeFileFromIndex handles recentFiles removal too)
+
+            // Add to top (most recent)
+            this.recentFiles.unshift(file);
+            // Cap size
+            const maxCache = this.getSettings().recentNotesCacheLimit;
+            if (this.recentFiles.length > maxCache) {
+                this.recentFiles.pop();
+            }
+        }
+
         if (hasChanges && !suppressEvent) {
             this.trigger('index-updated');
         }
@@ -199,6 +242,12 @@ export class UrlIndex extends Events {
      * Remove file from all indices
      */
     removeFileFromIndex(file: TFile): void {
+        // Remove from recent cache
+        const idx = this.recentFiles.indexOf(file);
+        if (idx !== -1) {
+            this.recentFiles.splice(idx, 1);
+        }
+
         const urls = this.fileToUrls.get(file.path);
         if (!urls) return;
 
