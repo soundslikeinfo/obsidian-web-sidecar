@@ -157,7 +157,7 @@ export class DomainSection {
         // Notes list
         const notesList = domainDetails.createEl('ul', { cls: 'web-sidecar-list web-sidecar-domain-notes' });
         for (const note of notes) {
-            this.noteRenderer.renderNoteItem(notesList, note.file, note.url);
+            this.noteRenderer.renderNoteItem(notesList, note.file, note.url, false, false);
         }
     }
 }

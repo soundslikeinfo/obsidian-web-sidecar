@@ -178,6 +178,12 @@
   margin: 16px -8px 0 -8px;
   border-top: 1px solid var(--background-modifier-border);
   padding-top: 8px;
+  /* Reverted to top padding only */
+}
+
+/* Specific indentation for Recent Notes list */
+ul.web-sidecar-recent-list {
+  padding: 0 16px;
 }
 
 .web-sidecar-section {
@@ -201,12 +207,78 @@
 
 .web-sidecar-item {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 10px;
+  /* Increased left padding */
+  margin-bottom: 2px;
+  border-radius: 0 4px 4px 0;
+  /* Flat left */
+  border-left: 1px solid var(--background-modifier-border);
+  transition: all 0.15s ease;
+  cursor: default;
+}
+
+.web-sidecar-item:hover {
+  background-color: var(--background-primary-alt);
+}
+
+.web-sidecar-row-main {
+  flex: 1;
+  display: flex;
   flex-direction: column;
-  padding: 6px 8px;
-  margin-bottom: 4px;
-  background: var(--background-primary);
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.web-sidecar-row-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-normal);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.web-sidecar-row-subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.web-sidecar-item:hover .web-sidecar-row-title {
+  color: var(--text-accent);
+}
+
+.web-sidecar-row-action {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
   border-radius: 4px;
-  transition: background 0.15s ease;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.web-sidecar-row-action:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  opacity: 1;
+}
+
+.web-sidecar-row-favicon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .web-sidecar-item:hover {
