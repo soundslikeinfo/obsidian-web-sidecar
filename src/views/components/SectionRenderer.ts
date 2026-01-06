@@ -8,7 +8,9 @@ import { DomainSection } from './sections/DomainSection';
 import { SubredditSection } from './sections/SubredditSection';
 import { TagSection } from './sections/TagSection';
 import { YouTubeSection } from './sections/YouTubeSection';
+
 import { TwitterSection } from './sections/TwitterSection';
+import { GithubSection } from './sections/GithubSection';
 
 export class SectionRenderer {
     private view: IWebSidecarView;
@@ -21,7 +23,9 @@ export class SectionRenderer {
     private subredditSection: SubredditSection;
     private tagSection: TagSection;
     private youtubeSection: YouTubeSection;
+
     private twitterSection: TwitterSection;
+    private githubSection: GithubSection;
 
     constructor(view: IWebSidecarView, noteRenderer: NoteRenderer, contextMenus: ContextMenus) {
         this.view = view;
@@ -35,6 +39,7 @@ export class SectionRenderer {
         this.tagSection = new TagSection(view, noteRenderer);
         this.youtubeSection = new YouTubeSection(view, noteRenderer);
         this.twitterSection = new TwitterSection(view, noteRenderer);
+        this.githubSection = new GithubSection(view, noteRenderer);
     }
 
     /**
@@ -126,6 +131,11 @@ export class SectionRenderer {
                         this.twitterSection.render(auxContainer);
                     }
                     break;
+                case 'github':
+                    if (this.view.settings.enableGithubExplorer) {
+                        this.githubSection.render(auxContainer);
+                    }
+                    break;
             }
         }
 
@@ -157,5 +167,9 @@ export class SectionRenderer {
 
     renderTwitterExplorerSection(container: HTMLElement): void {
         this.twitterSection.render(container);
+    }
+
+    renderGithubExplorerSection(container: HTMLElement): void {
+        this.githubSection.render(container);
     }
 }

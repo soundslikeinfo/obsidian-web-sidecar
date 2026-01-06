@@ -5,6 +5,7 @@ import type { UrlIndex } from '../UrlIndex';
 import { normalizeUrl, urlsMatch, isSameDomain, isValidUrl, extractDomain } from '../urlUtils';
 import { extractSubreddit, isSameRedditPost } from './reddit';
 import { isYouTubeDomain, extractYouTubeChannel } from './youtube';
+export { extractGithubRepo } from './github';
 
 /**
  * Find notes that match the given URL based on configured property fields

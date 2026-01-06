@@ -2,90 +2,90 @@
 import { setIcon } from 'obsidian';
 import { IWebSidecarView, MatchedNote } from '../../../types';
 import { NoteRenderer } from '../NoteRenderer';
-import { getAllTwitterNotes } from '../../../services/matchers/twitter';
+import { getAllGithubNotes } from '../../../services/matchers/github';
 import { getFaviconUrl } from '../../../services/faviconUtils';
 import { addSectionDragHandlers, renderSortButton, sortGroups } from './SectionHelpers';
 
-export class TwitterSection {
+export class GithubSection {
     constructor(
         private view: IWebSidecarView,
         private noteRenderer: NoteRenderer
     ) { }
 
     /**
-     * Render "Twitter/X user notes explorer" collapsible section
+     * Render "GitHub repository notes explorer" collapsible section
      */
     render(container: HTMLElement): void {
-        if (!this.view.settings.enableTwitterExplorer) return;
+        if (!this.view.settings.enableGithubExplorer) return;
 
-        const userMap = getAllTwitterNotes(
+        const repoMap = getAllGithubNotes(
             this.view.app, this.view.settings, this.view.urlIndex
         );
-        if (userMap.size === 0) return;
+        if (repoMap.size === 0) return;
 
         // Remove existing section before creating new one
-        const existingSection = container.querySelector('[data-section-id="twitter"]');
+        const existingSection = container.querySelector('[data-section-id="github"]');
         if (existingSection) existingSection.remove();
 
         const details = container.createEl('details', {
             cls: 'web-sidecar-domain-section web-sidecar-aux-section'
         });
-        details.setAttribute('data-section-id', 'twitter');
+        details.setAttribute('data-section-id', 'github');
         details.setAttribute('draggable', 'true');
 
-        addSectionDragHandlers(this.view, details, 'twitter');
+        addSectionDragHandlers(this.view, details, 'github');
 
         // Preserve open state
-        if (this.view.isTwitterExplorerOpen) {
+        if (this.view.isGithubExplorerOpen) {
             details.setAttribute('open', '');
         }
         details.addEventListener('toggle', () => {
-            this.view.setTwitterExplorerOpen(details.hasAttribute('open'));
+            this.view.setGithubExplorerOpen(details.hasAttribute('open'));
         });
 
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-summary' });
         const summaryIcon = summary.createSpan({ cls: 'web-sidecar-domain-icon' });
 
-        // X favicon
+        // GitHub favicon
         summaryIcon.createEl('img', {
             cls: 'web-sidecar-favicon-small',
             attr: {
-                src: getFaviconUrl('x.com', 16),
-                alt: 'X',
+                src: getFaviconUrl('github.com', 16),
+                alt: 'GitHub',
                 width: '14',
                 height: '14'
             }
         });
 
-        summary.createSpan({ text: `X users (${userMap.size})` });
+        summary.createSpan({ text: `GitHub repos (${repoMap.size})` });
 
         // Sort button
-        renderSortButton(summary, this.view.twitterSort, (sort) => {
-            this.view.setTwitterSort(sort);
+        renderSortButton(summary, this.view.githubSort, (sort) => {
+            this.view.setGithubSort(sort);
             this.view.setManualRefresh(true);
             this.view.onRefresh();
         });
 
         const groupList = details.createDiv({ cls: 'web-sidecar-domain-list' });
-        const sortedUsers = sortGroups(userMap, this.view.twitterSort);
+        const sortedRepos = sortGroups(repoMap, this.view.githubSort);
 
-        for (const [user, notes] of sortedUsers) {
-            this.renderTwitterUserGroup(groupList, user, notes);
+        for (const [repo, notes] of sortedRepos) {
+            this.renderGithubRepoGroup(groupList, repo, notes);
         }
     }
 
     /**
-     * Render a single Twitter user group
+     * Render a single GitHub repo group
      */
-    private renderTwitterUserGroup(
+    private renderGithubRepoGroup(
         container: HTMLElement,
-        user: string,
+        repo: string,
         notes: MatchedNote[]
     ): void {
         const details = container.createEl('details', { cls: 'web-sidecar-domain-group' });
 
         // State persistence
-        const groupId = `twitter:${user}`;
+        const groupId = `github:${repo}`;
         if (this.view.expandedGroupIds.has(groupId)) {
             details.setAttribute('open', '');
         }
@@ -95,55 +95,32 @@ export class TwitterSection {
 
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
 
-        // User avatar/favicon (use X favicon for now, or user profile pic if we could fetch it, but we can't easily)
+        // Repo owner avatar/favicon (hard to get owner avatar easily without API, so reuse GH icon or generic)
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
             attr: {
-                src: getFaviconUrl('x.com', 16),
+                src: getFaviconUrl('github.com', 16),
                 alt: '',
                 width: '14',
                 height: '14'
             }
         });
 
-        // User handle
-        summary.createSpan({ text: user, cls: 'web-sidecar-domain-name' });
+        // Repo name (owner/repo)
+        summary.createSpan({ text: repo, cls: 'web-sidecar-domain-name' });
 
-        // Link buttons if user matches a note in the vault
-        // Notes might be named "@username" or "username"?
-        // `user` is "@username".
-        // Search by name? Or if any note has this URL?
-        // Let's check if there is a note with the exact name "@username" or "username".
-        const cleanName = user.substring(1); // remove @
-        let userNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(user, '');
-        if (!userNoteFile) userNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(cleanName, '');
-
-        if (userNoteFile) {
-            // Note link button
-            const noteLinkBtn = summary.createEl('button', {
-                cls: 'web-sidecar-group-link-btn clickable-icon',
-                attr: { 'aria-label': `Open ${user} note` }
-            });
-            setIcon(noteLinkBtn, 'file-text');
-            noteLinkBtn.onclick = async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                await this.view.app.workspace.getLeaf(false).openFile(userNoteFile!);
-            };
-        }
-
-        // External Link to X profile
-        // https://x.com/username
-        const profileUrl = `https://x.com/${cleanName}`;
+        // External Link to GitHub repo
+        // https://github.com/owner/repo
+        const repoUrl = `https://github.com/${repo}`;
         const extLinkBtn = summary.createEl('button', {
             cls: 'web-sidecar-group-link-btn clickable-icon',
-            attr: { 'aria-label': `Open ${user} on X` }
+            attr: { 'aria-label': `Open ${repo} on GitHub` }
         });
         setIcon(extLinkBtn, 'external-link');
         extLinkBtn.onclick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            await this.view.openUrlSmartly(profileUrl, e);
+            await this.view.openUrlSmartly(repoUrl, e);
         };
 
         // Count badge

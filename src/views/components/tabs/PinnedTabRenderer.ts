@@ -455,8 +455,25 @@ export class PinnedTabRenderer {
         const hasExpandableContent = exactCount > 0 || hasSameDomain;
 
         // Click behavior for pinned tabs (mirrors open web viewer tabs):
-        // - First click = focus (or open if closed)
-        // - Subsequent clicks when already focused = toggle expand/collapse
+        // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
+        // - Grouped tabs: cycle through instances (expand button handles expand/collapse)
+
+        const effectiveUrl = freshPin.currentUrl || freshPin.url;
+        const allWebLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));
+
+        const matchingLeaves = allWebLeaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === effectiveUrl;
+        });
+
+        const matchingCount = matchingLeaves.length;
+
+        if (matchingCount > 1) {
+            // Grouped tabs behavior: Cycle
+            this.view.focusNextWebViewerInstance(effectiveUrl);
+            return;
+        }
 
         if (isAlreadyFocused && hasExpandableContent) {
             // Already focused - toggle expand/collapse

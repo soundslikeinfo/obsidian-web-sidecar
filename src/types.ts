@@ -43,6 +43,7 @@ export interface IWebSidecarView {
     focusWebViewer(leafId: string): void;
     focusTab(tab: TrackedWebViewer): void;
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void;
+    focusNextWebViewerInstance(url: string): void;
     focusNextNoteInstance(filePath: string): void;
 
     // State updates
@@ -71,6 +72,12 @@ export interface IWebSidecarView {
 
     isTwitterExplorerOpen: boolean;
     setTwitterExplorerOpen(open: boolean): void;
+
+    isGithubExplorerOpen: boolean;
+    setGithubExplorerOpen(open: boolean): void;
+
+    githubSort: 'alpha' | 'count' | 'recent';
+    setGithubSort(sort: 'alpha' | 'count' | 'recent'): void;
 
     isDomainGroupOpen: boolean;
     setDomainGroupOpen(open: boolean): void;
@@ -170,6 +177,10 @@ export interface WebSidecarSettings {
     enableTwitterExplorer: boolean;
     /** Sort order for Twitter user explorer section */
     twitterSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable grouping matches by GitHub repository */
+    enableGithubExplorer: boolean;
+    /** Sort order for GitHub repository explorer section */
+    githubSortOrder: 'alpha' | 'count' | 'recent';
     /** Enable grouping all web notes by tags */
     enableTagGrouping: boolean;
     /** Enable grouping web notes by selected tags */
@@ -189,6 +200,7 @@ export interface WebSidecarSettings {
     isSelectedTagGroupOpen: boolean;
     isYouTubeChannelExplorerOpen: boolean;
     isTwitterExplorerOpen: boolean;
+    isGithubExplorerOpen: boolean;
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
 
@@ -254,11 +266,13 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
-    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'twitter', 'tag', 'selected-tag'],
+    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'twitter', 'github', 'tag', 'selected-tag'],
     domainSortOrder: 'alpha',
     subredditSortOrder: 'alpha',
     enableTwitterExplorer: false,
     twitterSortOrder: 'alpha',
+    enableGithubExplorer: false,
+    githubSortOrder: 'alpha',
     enableTagGrouping: false,
     enableSelectedTagGrouping: false,
     selectedTagsAllowlist: '',
@@ -271,6 +285,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     isDomainGroupOpen: false,
     isSubredditExplorerOpen: false,
     isTwitterExplorerOpen: false,
+    isGithubExplorerOpen: false,
     isTagGroupOpen: false,
     isSelectedTagGroupOpen: false,
     isYouTubeChannelExplorerOpen: false,

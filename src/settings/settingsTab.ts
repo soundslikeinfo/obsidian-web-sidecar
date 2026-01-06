@@ -292,6 +292,16 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(auxSectionsContainer)
+			.setName('Group by GitHub repository')
+			.setDesc('Show section with notes grouped by GitHub repository (owner/repo)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableGithubExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableGithubExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// ============================================
 		// DOMAIN RULES
 		// ============================================

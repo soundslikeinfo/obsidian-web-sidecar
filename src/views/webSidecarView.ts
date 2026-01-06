@@ -32,7 +32,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     isYouTubeChannelExplorerOpen: boolean = false;
     youtubeChannelSort: 'alpha' | 'count' | 'recent' = 'alpha';
     isTwitterExplorerOpen: boolean = false;
+
     twitterSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    isGithubExplorerOpen: boolean = false;
+    githubSort: 'alpha' | 'count' | 'recent' = 'alpha';
     expandedGroupIds: Set<string> = new Set();
     isManualRefresh: boolean = false;
     urlIndex: UrlIndex;
@@ -136,6 +139,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.youtubeChannelSort = this.settings.youtubeChannelSortOrder || 'alpha';
         this.isTwitterExplorerOpen = this.settings.isTwitterExplorerOpen;
         this.twitterSort = this.settings.twitterSortOrder || 'alpha';
+
+        this.isGithubExplorerOpen = this.settings.isGithubExplorerOpen;
+        this.githubSort = this.settings.githubSortOrder || 'alpha';
         this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
 
         // Create nav-header toolbar
@@ -365,6 +371,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isYouTubeChannelExplorerOpen = newState;
         this.settings.isYouTubeChannelExplorerOpen = newState;
 
+        this.isGithubExplorerOpen = newState;
+        this.settings.isGithubExplorerOpen = newState;
+
         // Persist changes
         this.saveSettingsFn();
 
@@ -491,6 +500,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.saveSettingsFn();
     }
 
+    setGithubSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.githubSort = sort;
+        this.settings.githubSortOrder = sort;
+        this.saveSettingsFn();
+    }
+
+    setGithubExplorerOpen(open: boolean): void {
+        this.isGithubExplorerOpen = open;
+        this.settings.isGithubExplorerOpen = open;
+        this.saveSettingsFn();
+    }
+
     setGroupExpanded(id: string, expanded: boolean): void {
         if (expanded) {
             this.expandedGroupIds.add(id);
@@ -527,6 +548,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Delegation to NavigationService
     focusNextInstance(url: string, allTabs: TrackedWebViewer[]): void {
         this.navigationService.focusNextInstance(url, allTabs);
+    }
+
+    focusNextWebViewerInstance(url: string): void {
+        this.navigationService.focusNextWebViewerInstance(url);
     }
 
     focusNextNoteInstance(filePath: string): void {

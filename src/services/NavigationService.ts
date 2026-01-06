@@ -79,6 +79,36 @@ export class NavigationService {
         }
     }
 
+    /**
+     * Focus the next instance of a URL by finding all matching leaves directly
+     * Useful for Pinned Tabs where we don't have a pre-built TrackedWebViewer list
+     */
+    focusNextWebViewerInstance(url: string): void {
+        const leaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+        const matchingLeaves = leaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === url;
+        });
+
+        if (matchingLeaves.length === 0) return;
+
+        if (matchingLeaves.length === 1) {
+            this.app.workspace.revealLeaf(matchingLeaves[0]!);
+            this.app.workspace.setActiveLeaf(matchingLeaves[0]!, { focus: true });
+            return;
+        }
+
+        // Cycle through multiple instances
+        const currentIndex = this.urlCycleIndex.get(url) || 0;
+        const nextIndex = (currentIndex + 1) % matchingLeaves.length;
+        this.urlCycleIndex.set(url, nextIndex);
+
+        this.app.workspace.revealLeaf(matchingLeaves[nextIndex]!);
+        this.app.workspace.setActiveLeaf(matchingLeaves[nextIndex]!, { focus: true });
+    }
+
     /** Cycle index for note instances */
     private noteCycleIndex: Map<string, number> = new Map();
 
