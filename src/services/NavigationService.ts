@@ -441,11 +441,16 @@ export class NavigationService {
         this.isManualRefreshCallback(true);
         this.onRefreshCallback();
 
-        // Delayed refresh to ensure UI catches up
+        // Multiple delayed refreshes to ensure UI catches up after bulk close
         setTimeout(() => {
             this.isManualRefreshCallback(true);
             this.onRefreshCallback();
-        }, 100);
+        }, 150);
+
+        setTimeout(() => {
+            this.isManualRefreshCallback(true);
+            this.onRefreshCallback();
+        }, 400);
     }
 
     /**

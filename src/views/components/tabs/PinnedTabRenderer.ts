@@ -214,6 +214,26 @@ export class PinnedTabRenderer {
         // Title
         const titleEl = row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
 
+        // Tab count badge - count how many open web viewers match this pin's URL
+        // Query workspace directly since trackedTabs is filtered (excludes pinned URLs)
+        const effectiveUrl = pin.currentUrl || pin.url;
+        const allWebLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));
+        const matchingTabCount = allWebLeaves.filter(leaf => {
+            const state = leaf.view.getState();
+            return state?.url === effectiveUrl;
+        }).length;
+
+        if (matchingTabCount > 1) {
+            row.createSpan({
+                text: `${matchingTabCount}`,
+                cls: 'web-sidecar-tab-count-badge',
+                attr: {
+                    'aria-label': `${matchingTabCount} tabs`
+                }
+            });
+        }
+
         // Linked Notes Checks
         const matches = findMatchingNotes(this.view.app, pin.url, this.view.settings, this.view.urlIndex);
         const exactCount = matches.exactMatches.length;
@@ -450,6 +470,13 @@ export class PinnedTabRenderer {
             if (leafId && 'setPinnedTabLeaf' in (this.view as any).tabStateService) {
                 await (this.view as any).tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
             }
+
+            // CRITICAL: Force UI refresh to show the pin is now open
+            this.view.render(true);
+
+            // Additional delayed refreshes for robustness
+            setTimeout(() => this.view.render(true), 150);
+            setTimeout(() => this.view.render(true), 400);
         }
     }
 

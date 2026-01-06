@@ -11,6 +11,29 @@ export class ContextMenus {
     }
 
     /**
+     * Helper: Open a web viewer and trigger triple forced refresh for UI update
+     */
+    private async openWebViewerAndRefresh(
+        leafGetter: () => any,
+        url: string,
+        reveal: boolean = false
+    ): Promise<void> {
+        const leaf = leafGetter();
+        await leaf.setViewState({
+            type: 'webviewer',
+            state: { url, navigate: true }
+        });
+        if (reveal) {
+            this.view.app.workspace.revealLeaf(leaf);
+        }
+
+        // Triple forced refresh for immediate UI update
+        this.view.render(true);
+        setTimeout(() => this.view.render(true), 150);
+        setTimeout(() => this.view.render(true), 400);
+    }
+
+    /**
      * Show context menu for a web viewer tab
      */
     showWebViewerContextMenu(event: MouseEvent, tab: TrackedWebViewer): void {
@@ -22,13 +45,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new web viewer')
                 .setIcon('file-plus')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('tab');
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: tab.url, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        tab.url,
+                        true
+                    );
                 });
         });
 
@@ -47,12 +69,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new window')
                 .setIcon('picture-in-picture-2')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.openPopoutLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: tab.url, navigate: true }
-                    });
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.openPopoutLeaf(),
+                        tab.url,
+                        false
+                    );
                 });
         });
 
@@ -61,13 +83,12 @@ export class ContextMenus {
             item
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
-                .onClick(async () => {
-                    const leaf = this.view.getOrCreateRightLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: tab.url, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.getOrCreateRightLeaf(),
+                        tab.url,
+                        true
+                    );
                 });
         });
 
@@ -341,13 +362,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in web viewer')
                 .setIcon('globe')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('tab');
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        url,
+                        true
+                    );
                 });
         });
 
@@ -396,13 +416,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new web viewer')
                 .setIcon('globe')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('tab');
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        url,
+                        true
+                    );
                 });
         });
 
@@ -421,12 +440,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new window')
                 .setIcon('picture-in-picture-2')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.openPopoutLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url, navigate: true }
-                    });
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.openPopoutLeaf(),
+                        url,
+                        false
+                    );
                 });
         });
 
@@ -435,13 +454,12 @@ export class ContextMenus {
             item
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
-                .onClick(async () => {
-                    const leaf = this.view.getOrCreateRightLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.getOrCreateRightLeaf(),
+                        url,
+                        true
+                    );
                 });
         });
 
@@ -526,13 +544,12 @@ export class ContextMenus {
             item
                 .setTitle(`Open ${domain}`)
                 .setIcon('globe')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('tab');
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: domainUrl, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        domainUrl,
+                        true
+                    );
                 });
         });
 
@@ -541,12 +558,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new window')
                 .setIcon('picture-in-picture-2')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.openPopoutLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: domainUrl, navigate: true }
-                    });
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.openPopoutLeaf(),
+                        domainUrl,
+                        false
+                    );
                 });
         });
 
@@ -555,13 +572,12 @@ export class ContextMenus {
             item
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
-                .onClick(async () => {
-                    const leaf = this.view.getOrCreateRightLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: domainUrl, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.getOrCreateRightLeaf(),
+                        domainUrl,
+                        true
+                    );
                 });
         });
 
@@ -595,13 +611,12 @@ export class ContextMenus {
             item
                 .setTitle(`Open ${subreddit}`)
                 .setIcon('globe')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.getLeaf('tab');
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: subredditUrl, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        subredditUrl,
+                        true
+                    );
                 });
         });
 
@@ -610,12 +625,12 @@ export class ContextMenus {
             item
                 .setTitle('Open in new window')
                 .setIcon('picture-in-picture-2')
-                .onClick(async () => {
-                    const leaf = this.view.app.workspace.openPopoutLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: subredditUrl, navigate: true }
-                    });
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.openPopoutLeaf(),
+                        subredditUrl,
+                        false
+                    );
                 });
         });
 
@@ -624,13 +639,12 @@ export class ContextMenus {
             item
                 .setTitle('Open to the right')
                 .setIcon('separator-vertical')
-                .onClick(async () => {
-                    const leaf = this.view.getOrCreateRightLeaf();
-                    await leaf.setViewState({
-                        type: 'webviewer',
-                        state: { url: subredditUrl, navigate: true }
-                    });
-                    this.view.app.workspace.revealLeaf(leaf);
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.getOrCreateRightLeaf(),
+                        subredditUrl,
+                        true
+                    );
                 });
         });
 
@@ -674,27 +688,127 @@ export class ContextMenus {
         event.preventDefault();
         const menu = new Menu();
 
-        // Open options (New Window, Right)
+        const effectiveUrl = pin.currentUrl || pin.url;
+
+        // --- Standard Open Options ---
+
+        // Open in new web viewer
         menu.addItem((item) => {
-            item.setTitle('Open in new window')
-                .setIcon('picture-in-picture-2')
+            item
+                .setTitle('Open in new web viewer')
+                .setIcon('file-plus')
                 .onClick(() => {
-                    const leaf = this.view.app.workspace.openPopoutLeaf();
-                    leaf.setViewState({ type: 'webviewer', state: { url: pin.currentUrl || pin.url } });
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.getLeaf('tab'),
+                        effectiveUrl,
+                        true
+                    );
                 });
         });
 
-        // Open in default browser (NEW)
+        // Open in default browser
         menu.addItem((item) => {
             item
                 .setTitle('Open in default browser')
                 .setIcon('external-link')
                 .onClick(() => {
-                    this.openInDefaultBrowser(pin.currentUrl || pin.url);
+                    this.openInDefaultBrowser(effectiveUrl);
+                });
+        });
+
+        // Open in new window
+        menu.addItem((item) => {
+            item
+                .setTitle('Open in new window')
+                .setIcon('picture-in-picture-2')
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.app.workspace.openPopoutLeaf(),
+                        effectiveUrl,
+                        false
+                    );
+                });
+        });
+
+        // Open to the right
+        menu.addItem((item) => {
+            item
+                .setTitle('Open to the right')
+                .setIcon('separator-vertical')
+                .onClick(() => {
+                    this.openWebViewerAndRefresh(
+                        () => this.view.getOrCreateRightLeaf(),
+                        effectiveUrl,
+                        true
+                    );
+                });
+        });
+
+        // New linked note from URL
+        menu.addItem((item) => {
+            item
+                .setTitle('New linked note from URL')
+                .setIcon('file-plus')
+                .onClick(() => {
+                    this.view.openCreateNoteModal(effectiveUrl, pin.leafId);
                 });
         });
 
         menu.addSeparator();
+
+        // --- Close Options ---
+
+        // Close web view (without unpinning) - only if leaf is open
+        if (pin.leafId) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close web view')
+                    .setIcon('x')
+                    .onClick(() => {
+                        this.view.closeLeaf(pin.leafId!);
+                    });
+            });
+        }
+
+        // Close all linked web views
+        menu.addItem((item) => {
+            item
+                .setTitle('Close all linked web views')
+                .setIcon('x-circle')
+                .onClick(() => {
+                    this.view.closeAllLeavesForUrl(effectiveUrl);
+                });
+        });
+
+        // Close linked notes
+        const matches = findMatchingNotes(this.view.app, effectiveUrl, this.view.settings);
+        const hasLinkedNotes = matches.exactMatches.length > 0;
+
+        if (hasLinkedNotes) {
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close all linked notes')
+                    .setIcon('file-minus')
+                    .onClick(() => {
+                        this.view.closeLinkedNoteLeaves(effectiveUrl);
+                    });
+            });
+
+            // Close ALL - web views + linked notes
+            menu.addItem((item) => {
+                item
+                    .setTitle('Close all web views + linked notes')
+                    .setIcon('trash-2')
+                    .onClick(() => {
+                        this.view.closeAllLeavesForUrl(effectiveUrl);
+                        this.view.closeLinkedNoteLeaves(effectiveUrl);
+                    });
+            });
+        }
+
+        menu.addSeparator();
+
+        // --- Pin-specific Options ---
 
         // Unpin
         menu.addItem((item) => {
@@ -705,10 +819,10 @@ export class ContextMenus {
                 });
         });
 
-        menu.addSeparator();
-
-        // Reset URL (if currentUrl exists)
+        // Reset URL (if currentUrl exists and differs from home)
         if (pin.currentUrl && pin.currentUrl !== pin.url) {
+            menu.addSeparator();
+
             menu.addItem((item) => {
                 item.setTitle('Reset to pinned URL')
                     .setIcon('rotate-ccw')
@@ -742,12 +856,23 @@ export class ContextMenus {
             });
         }
 
+        menu.addSeparator();
+
         // Copy URL
         menu.addItem((item) => {
-            item.setTitle('Copy pinned URL')
+            item.setTitle('Copy URL')
                 .setIcon('copy')
-                .onClick(() => navigator.clipboard.writeText(pin.url));
+                .onClick(() => navigator.clipboard.writeText(effectiveUrl));
         });
+
+        // Copy pinned (home) URL if different
+        if (pin.currentUrl && pin.currentUrl !== pin.url) {
+            menu.addItem((item) => {
+                item.setTitle('Copy pinned URL')
+                    .setIcon('copy')
+                    .onClick(() => navigator.clipboard.writeText(pin.url));
+            });
+        }
 
         menu.showAtMouseEvent(event);
     }

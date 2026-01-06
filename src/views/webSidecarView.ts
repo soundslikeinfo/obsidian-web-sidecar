@@ -692,6 +692,12 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
+        // Capture manual refresh state at call time (before async delay)
+        const shouldForce = force || this.isManualRefresh;
+        if (this.isManualRefresh) {
+            this.isManualRefresh = false;
+        }
+
         // Debounce render calls to next animation frame
         if (this.renderFrameId !== null) {
             cancelAnimationFrame(this.renderFrameId);
@@ -699,7 +705,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         this.renderFrameId = requestAnimationFrame(() => {
             this.renderFrameId = null;
-            this.performRender(force);
+            this.performRender(shouldForce);
         });
     }
 
@@ -707,10 +713,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         const container = this.contentEl;
 
         // Prevent re-rendering while user is interacting, unless forced
-        if (this.isInteracting && !this.isManualRefresh && !force) {
+        if (this.isInteracting && !force) {
             return;
         }
-        this.isManualRefresh = false;
 
         container.addClass('web-sidecar-container');
 
