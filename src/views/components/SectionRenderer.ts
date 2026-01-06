@@ -8,6 +8,7 @@ import { DomainSection } from './sections/DomainSection';
 import { SubredditSection } from './sections/SubredditSection';
 import { TagSection } from './sections/TagSection';
 import { YouTubeSection } from './sections/YouTubeSection';
+import { TwitterSection } from './sections/TwitterSection';
 
 export class SectionRenderer {
     private view: IWebSidecarView;
@@ -20,6 +21,7 @@ export class SectionRenderer {
     private subredditSection: SubredditSection;
     private tagSection: TagSection;
     private youtubeSection: YouTubeSection;
+    private twitterSection: TwitterSection;
 
     constructor(view: IWebSidecarView, noteRenderer: NoteRenderer, contextMenus: ContextMenus) {
         this.view = view;
@@ -32,6 +34,7 @@ export class SectionRenderer {
         this.subredditSection = new SubredditSection(view, noteRenderer, contextMenus);
         this.tagSection = new TagSection(view, noteRenderer);
         this.youtubeSection = new YouTubeSection(view, noteRenderer);
+        this.twitterSection = new TwitterSection(view, noteRenderer);
     }
 
     /**
@@ -118,6 +121,11 @@ export class SectionRenderer {
                         this.youtubeSection.render(auxContainer);
                     }
                     break;
+                case 'twitter':
+                    if (this.view.settings.enableTwitterExplorer) {
+                        this.twitterSection.render(auxContainer);
+                    }
+                    break;
             }
         }
 
@@ -145,5 +153,9 @@ export class SectionRenderer {
 
     renderYouTubeChannelExplorerSection(container: HTMLElement): void {
         this.youtubeSection.render(container);
+    }
+
+    renderTwitterExplorerSection(container: HTMLElement): void {
+        this.twitterSection.render(container);
     }
 }

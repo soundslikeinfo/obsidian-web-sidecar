@@ -31,6 +31,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     isSelectedTagGroupOpen: boolean = false;
     isYouTubeChannelExplorerOpen: boolean = false;
     youtubeChannelSort: 'alpha' | 'count' | 'recent' = 'alpha';
+    isTwitterExplorerOpen: boolean = false;
+    twitterSort: 'alpha' | 'count' | 'recent' = 'alpha';
     expandedGroupIds: Set<string> = new Set();
     isManualRefresh: boolean = false;
     urlIndex: UrlIndex;
@@ -132,6 +134,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.isSelectedTagGroupOpen = this.settings.isSelectedTagGroupOpen;
         this.isYouTubeChannelExplorerOpen = this.settings.isYouTubeChannelExplorerOpen;
         this.youtubeChannelSort = this.settings.youtubeChannelSortOrder || 'alpha';
+        this.isTwitterExplorerOpen = this.settings.isTwitterExplorerOpen;
+        this.twitterSort = this.settings.twitterSortOrder || 'alpha';
         this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
 
         // Create nav-header toolbar
@@ -472,6 +476,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     setYouTubeChannelExplorerOpen(open: boolean): void {
         this.isYouTubeChannelExplorerOpen = open;
         this.settings.isYouTubeChannelExplorerOpen = open;
+        this.saveSettingsFn();
+    }
+
+    setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void {
+        this.twitterSort = sort;
+        this.settings.twitterSortOrder = sort;
+        this.saveSettingsFn();
+    }
+
+    setTwitterExplorerOpen(open: boolean): void {
+        this.isTwitterExplorerOpen = open;
+        this.settings.isTwitterExplorerOpen = open;
         this.saveSettingsFn();
     }
 

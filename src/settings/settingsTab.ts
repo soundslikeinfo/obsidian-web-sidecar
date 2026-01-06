@@ -186,8 +186,10 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// ============================================
 		// AUX SECTIONS
 		// ============================================
-		const auxSectionsContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-		auxSectionsContainer.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
+		const auxGroup = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
+		auxGroup.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
+
+		const auxSectionsContainer = auxGroup.createDiv({ cls: 'web-sidecar-settings-scroll-area' });
 
 		new Setting(auxSectionsContainer)
 			.setName('Recent web notes')
@@ -262,6 +264,16 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.enableYouTubeChannelExplorer)
 				.onChange(async (value) => {
 					this.plugin.settings.enableYouTubeChannelExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(auxSectionsContainer)
+			.setName('Group by X (Twitter) user')
+			.setDesc('Show section with notes grouped by X/Twitter user')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableTwitterExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.enableTwitterExplorer = value;
 					await this.plugin.saveSettings();
 				}));
 

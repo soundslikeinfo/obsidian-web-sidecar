@@ -59,11 +59,18 @@ export interface IWebSidecarView {
     youtubeChannelSort: 'alpha' | 'count' | 'recent';
     setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void;
 
+    // Twitter User grouping
+    twitterSort: 'alpha' | 'count' | 'recent';
+    setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void;
+
     isSubredditExplorerOpen: boolean;
     setSubredditExplorerOpen(open: boolean): void;
 
     isYouTubeChannelExplorerOpen: boolean;
     setYouTubeChannelExplorerOpen(open: boolean): void;
+
+    isTwitterExplorerOpen: boolean;
+    setTwitterExplorerOpen(open: boolean): void;
 
     isDomainGroupOpen: boolean;
     setDomainGroupOpen(open: boolean): void;
@@ -157,6 +164,10 @@ export interface WebSidecarSettings {
     youtubeChannelPropertyFields: string[];
     /** Sort order for YouTube channel explorer section */
     youtubeChannelSortOrder: 'alpha' | 'count' | 'recent';
+    /** Enable grouping matches by Twitter/X user */
+    enableTwitterExplorer: boolean;
+    /** Sort order for Twitter user explorer section */
+    twitterSortOrder: 'alpha' | 'count' | 'recent';
     /** Enable grouping all web notes by tags */
     enableTagGrouping: boolean;
     /** Enable grouping web notes by selected tags */
@@ -175,6 +186,7 @@ export interface WebSidecarSettings {
     isTagGroupOpen: boolean;
     isSelectedTagGroupOpen: boolean;
     isYouTubeChannelExplorerOpen: boolean;
+    isTwitterExplorerOpen: boolean;
     /** JSON string of Set<string> for expanded groups */
     expandedGroupIds: string[];
 
@@ -239,9 +251,11 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     noteOpenBehavior: 'split',
     enableSubredditFilter: false,
     enableSubredditExplorer: false,
-    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'tag', 'selected-tag'],
+    sectionOrder: ['recent', 'domain', 'subreddit', 'youtube', 'twitter', 'tag', 'selected-tag'],
     domainSortOrder: 'alpha',
     subredditSortOrder: 'alpha',
+    enableTwitterExplorer: false,
+    twitterSortOrder: 'alpha',
     enableTagGrouping: false,
     enableSelectedTagGrouping: false,
     selectedTagsAllowlist: '',
@@ -253,6 +267,7 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
     fetchVirtualTabTitles: true,
     isDomainGroupOpen: false,
     isSubredditExplorerOpen: false,
+    isTwitterExplorerOpen: false,
     isTagGroupOpen: false,
     isSelectedTagGroupOpen: false,
     isYouTubeChannelExplorerOpen: false,

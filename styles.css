@@ -174,6 +174,12 @@
   transform: rotate(90deg);
 }
 
+.web-sidecar-aux-sections {
+  margin: 16px -8px 0 -8px;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+}
+
 .web-sidecar-section {
   margin-bottom: 16px;
   /* Ensure full width for sections too */
@@ -1258,4 +1264,14 @@
 
 .web-sidecar-pinned-notes.hidden {
   display: none;
+}
+
+/* Aux settings scroll area */
+.web-sidecar-settings-scroll-area {
+  max-height: 350px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background-color: var(--background-primary-alt);
 }
