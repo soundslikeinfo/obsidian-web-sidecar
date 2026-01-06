@@ -5,7 +5,7 @@ import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView 
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
-import { TabListRenderer } from './components/tabs/TabListRenderer';
+
 import { BrowserTabRenderer } from './components/tabs/BrowserTabRenderer';
 import { PinnedTabRenderer } from './components/tabs/PinnedTabRenderer';
 import { NavigationService } from '../services/NavigationService';
@@ -48,7 +48,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private contextMenus: ContextMenus;
     private noteRenderer: NoteRenderer;
     private sectionRenderer: SectionRenderer;
-    private tabListRenderer: TabListRenderer;
+
     private browserTabRenderer: BrowserTabRenderer;
     private pinnedTabRenderer: PinnedTabRenderer;
     private tabStateService: TabStateService;
@@ -98,7 +98,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.contextMenus = new ContextMenus(this);
         this.noteRenderer = new NoteRenderer(this, this.contextMenus);
         this.sectionRenderer = new SectionRenderer(this, this.noteRenderer, this.contextMenus);
-        this.tabListRenderer = new TabListRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
+
         this.browserTabRenderer = new BrowserTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.pinnedTabRenderer = new PinnedTabRenderer(this, this.contextMenus);
     }
@@ -728,15 +728,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             }
         };
 
-        const isBrowserMode = this.settings.tabAppearance === 'browser' || this.settings.tabAppearance === 'basic';
         const isBasicMode = this.settings.tabAppearance === 'basic';
+        const isBrowserMode = !isBasicMode; // Default to browser/linked note mode
         const modeChanged = wasBrowserMode !== isBrowserMode;
 
         // Add mode-specific class
-        container.removeClass('web-sidecar-notes-mode', 'web-sidecar-browser-mode', 'web-sidecar-basic-mode');
-        container.addClass(isBasicMode
-            ? 'web-sidecar-basic-mode'
-            : (isBrowserMode ? 'web-sidecar-browser-mode' : 'web-sidecar-notes-mode'));
+        container.removeClass('web-sidecar-browser-mode', 'web-sidecar-basic-mode');
+        container.addClass(isBasicMode ? 'web-sidecar-basic-mode' : 'web-sidecar-browser-mode');
 
         // Track mouse enter/leave to prevent re-rendering during interaction
         if (!container.getAttribute('data-events-bound')) {
@@ -761,9 +759,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Only empty container when:
         // 1. Mode changed
         // 2. No content (empty state)
-        // 3. Notes mode (doesn't have DOM reconciliation)
-        // 4. Content state changed
-        if (modeChanged || !hasContent || !isBrowserMode || contentStateChanged) {
+        // 3. Content state changed
+        if (modeChanged || !hasContent || contentStateChanged) {
             container.empty();
         }
 
@@ -779,17 +776,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // We render inside container. 
         // If container was cleared, this creates the section. 
         // If not cleared (DOM reconciliation), it updates in place.
-        this.pinnedTabRenderer.render(container, pinnedTabs);
+        this.pinnedTabRenderer.render(container, pinnedTabs, isBasicMode);
 
 
         // Filter out pinned tabs from trackedTabs if they are "active" as pins?
         // TabStateService.getTrackedTabs() ALREADY does this filtering!
 
-        if (isBrowserMode) {
-            this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
-        } else {
-            this.tabListRenderer.renderTabList(container, this.trackedTabs, this.virtualTabs);
-        }
+        this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
     }
 }
 

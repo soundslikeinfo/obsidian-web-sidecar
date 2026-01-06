@@ -144,6 +144,13 @@ export class NavigationService {
             const newLeaf = this.app.workspace.getLeaf('tab');
             await newLeaf.openFile(file);
         }
+
+        // CRITICAL: Immediate refresh
+        this.isManualRefreshCallback(true);
+        this.onRefreshCallback();
+
+        // Delayed refresh to catch late registration
+        await new Promise(resolve => setTimeout(resolve, 100));
         this.isManualRefreshCallback(true);
         this.onRefreshCallback();
     }

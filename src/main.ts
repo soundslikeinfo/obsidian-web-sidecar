@@ -19,24 +19,14 @@ export default class WebSidecarPlugin extends Plugin {
 	private webViewerManager: WebViewerManager | null = null;
 	private urlIndex!: UrlIndex;
 	private tabStateService!: TabStateService;
-	private _isDeveloperMode: boolean = false;
 
-	/**
-	 * Check if developer mode is enabled (.hotreload file exists in plugin directory)
-	 */
-	get isDeveloperMode(): boolean {
-		return this._isDeveloperMode;
-	}
+
+
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		// Check for developer mode (.hotreload file in plugin directory)
-		const pluginDir = this.manifest.dir;
-		if (pluginDir) {
-			const hotreloadPath = `${pluginDir}/.hotreload`;
-			this._isDeveloperMode = await this.app.vault.adapter.exists(hotreloadPath);
-		}
+
 
 		// 1. Initialize Services
 		// UrlIndex for fast lookups

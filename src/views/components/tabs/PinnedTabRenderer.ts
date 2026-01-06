@@ -16,7 +16,7 @@ export class PinnedTabRenderer {
         this.contextMenus = contextMenus;
     }
 
-    render(container: HTMLElement, pinnedTabs: PinnedTab[]): void {
+    render(container: HTMLElement, pinnedTabs: PinnedTab[], isBasicMode: boolean = false): void {
         // Clean up pinned section if feature is disabled
         if (!this.view.settings.enablePinnedTabs) {
             const existingSection = container.querySelector('.web-sidecar-pinned-section');
@@ -123,11 +123,11 @@ export class PinnedTabRenderer {
 
             if (tabEl) {
                 // Update existing
-                this.updatePinnedTab(tabEl, pin);
+                this.updatePinnedTab(tabEl, pin, isBasicMode);
                 pinnedSection.appendChild(tabEl); // Ensure order
             } else {
                 // Create new
-                this.renderPinnedTab(pinnedSection, pin);
+                this.renderPinnedTab(pinnedSection, pin, isBasicMode);
                 // Last element is the new one
                 const newEl = pinnedSection.lastElementChild as HTMLElement;
                 if (newEl) newEl.setAttribute('data-pin-id', key);
@@ -153,12 +153,12 @@ export class PinnedTabRenderer {
         }
     }
 
-    private renderPinnedTab(container: HTMLElement, pin: PinnedTab): void {
+    private renderPinnedTab(container: HTMLElement, pin: PinnedTab, isBasicMode: boolean): void {
         const pinEl = container.createDiv({ cls: 'web-sidecar-pinned-tab clickable' });
         // pinEl.setAttribute('draggable', 'true'); // Handle Dragging
 
 
-        this.updatePinnedTab(pinEl, pin);
+        this.updatePinnedTab(pinEl, pin, isBasicMode);
 
         // Re-apply events (updatePinnedTab clears content but not element)
         // Actually updatePinnedTab empties the element! So we need to re-bind events?
@@ -180,7 +180,7 @@ export class PinnedTabRenderer {
         this.setupDragEvents(pinEl, pin);
     }
 
-    private updatePinnedTab(el: HTMLElement, pin: PinnedTab): void {
+    private updatePinnedTab(el: HTMLElement, pin: PinnedTab, isBasicMode: boolean): void {
         el.empty();
 
         // Preserve expansion state?
@@ -220,8 +220,8 @@ export class PinnedTabRenderer {
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
         const hasExpandableContent = exactCount > 0 || hasSameDomain;
 
-        // Note Count Badge
-        if (exactCount > 0) {
+        // Note Count Badge (Skip in Basic Mode)
+        if (!isBasicMode && exactCount > 0) {
             row.createSpan({
                 text: exactCount.toString(),
                 cls: 'web-sidecar-note-count-badge',
@@ -231,8 +231,8 @@ export class PinnedTabRenderer {
             });
         }
 
-        // Inline New Note Button (if no notes)
-        if (exactCount === 0) {
+        // Inline New Note Button (if no notes) (Skip in Basic Mode)
+        if (!isBasicMode && exactCount === 0) {
             const newNoteBtn = row.createDiv({ cls: 'web-sidecar-inline-new-note clickable-icon' });
             setIcon(newNoteBtn, 'file-plus');
             newNoteBtn.setAttribute('aria-label', 'New linked note');
@@ -242,9 +242,9 @@ export class PinnedTabRenderer {
             };
         }
 
-        // Expansion Toggle
+        // Expansion Toggle (Skip in Basic Mode)
         let notesContainer: HTMLElement | null = null;
-        if (hasExpandableContent) {
+        if (!isBasicMode && hasExpandableContent) {
             const expandBtn = row.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
             setIcon(expandBtn, isExpanded ? 'chevron-down' : 'chevron-right');
 

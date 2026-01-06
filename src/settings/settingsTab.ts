@@ -105,19 +105,13 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.setDesc('Choose how tabs are displayed in the sidebar')
 			.addDropdown(dropdown => {
 				dropdown
-					.addOption('basic', 'Basic tabs (vertical tabs only)')
-					.addOption('browser', 'Browser mode (compact, favicon + title)');
-
-				// Only show "Notes mode" if in developer mode (.hotreload exists)
-				// OR if the user is already stuck on it (so they can switch away)
-				if (this.plugin.isDeveloperMode || this.plugin.settings.tabAppearance === 'notes') {
-					dropdown.addOption('notes', 'Notes mode (detailed, shows URLs)');
-				}
+					.addOption('basic', 'Basic')
+					.addOption('browser', 'Linked notes');
 
 				dropdown
 					.setValue(this.plugin.settings.tabAppearance)
 					.onChange(async (value) => {
-						this.plugin.settings.tabAppearance = value as 'notes' | 'browser' | 'basic';
+						this.plugin.settings.tabAppearance = value as 'browser' | 'basic';
 						await this.plugin.saveSettings();
 					});
 			});

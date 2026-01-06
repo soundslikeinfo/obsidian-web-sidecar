@@ -52,8 +52,7 @@ src/
 │       ├── NoteRenderer.ts       # Renders note items in lists
 │       ├── SectionRenderer.ts    # Renders collapsible sections (Recent, Domain groups)
 │       └── tabs/
-│           ├── TabListRenderer.ts    # "Notes mode" tab list rendering
-│           └── BrowserTabRenderer.ts # "Browser mode" compact tab rendering
+│           └── BrowserTabRenderer.ts # "Linked Note mode" compact tab rendering
 ├── services/
 │   ├── TabStateService.ts        # Tracks all web viewer tabs with focus timestamps
 │   ├── NavigationService.ts      # Handles opening notes/URLs, paired opening, focus
@@ -426,25 +425,20 @@ if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.pat
 - No note expansion, no virtual tabs section
 - No note counts, new note buttons, or expand chevrons
 - Auxiliary sections still render normally (controlled by separate settings)
-- Uses same renderer as Browser Mode with `isBasicMode` flag
+- Uses same renderer as Linked Note Mode with `isBasicMode` flag
 
-**Browser Mode** (`tabAppearance: 'browser'`):
+**Linked Note Mode** (`tabAppearance: 'browser'`):
 - Compact favicon + title display
 - Expandable cards for matching notes
 - "More web notes" collapsible sections
 - **Uses DOM reconciliation to preserve expanded state and minimize flashing**
 
-**Notes Mode** (`tabAppearance: 'notes'`):
-> [!NOTE] Developer Only
-> This mode is currently hidden unless a `.hotreload` file is present in the plugin directory.
-- Detailed cards with URL display
-- Full note matching results inline
-- Full re-render on each update (simpler, no reconciliation)
 
-### DOM Reconciliation (Browser Mode)
+
+### DOM Reconciliation (Linked Note Mode)
 
 **Expected behavior:**
-- Browser mode preserves expanded/collapsed states during updates
+- Linked Note mode preserves expanded/collapsed states during updates
 - Only changed elements are modified; unchanged tabs are left in place
 - Tab elements are keyed by `data-tab-key` attribute (`group:<url>` or `leaf:<leafId>`)
 
@@ -474,7 +468,7 @@ for (const [key, el] of currentElements) {
 > [!CAUTION]
 > This button placement has regressed 8+ times. Follow these rules EXACTLY.
 
-**DOM Order in browser mode (top to bottom):**
+**DOM Order in Linked Note mode (top to bottom):**
 1. `web-sidecar-browser-tabs` — Tab list container (all web viewer tabs)
 2. `web-sidecar-new-tab-btn` — "New web viewer" button row
 3. `web-sidecar-virtual-section` — "Opened web notes" heading + virtual tabs
