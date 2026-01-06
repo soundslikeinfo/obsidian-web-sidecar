@@ -1,5 +1,5 @@
 import { setIcon, TFile } from 'obsidian';
-import { IWebSidecarView, MatchedNote } from '../../../types';
+import { IWebSidecarView } from '../../../types';
 
 /**
  * Add a drop zone at the end of the aux container for dropping sections to be last
@@ -36,7 +36,7 @@ export function addEndDropZone(view: IWebSidecarView, container: HTMLElement): v
             currentOrder.push(draggedId);
             view.settings.sectionOrder = currentOrder;
             view.setManualRefresh(true);
-            view.saveSettingsFn(); // Persist changes
+            void view.saveSettingsFn(); // Persist changes
             view.onRefresh();
         }
     };

@@ -46,12 +46,12 @@ export class NoteRenderer {
             });
         }
 
-        noteLink.addEventListener('click', async (e) => {
+        noteLink.addEventListener('click', (e) => {
             e.preventDefault();
             if (pairedOpen) {
-                await this.view.openPaired(file, url, e);
+                void this.view.openPaired(file, url, e);
             } else {
-                this.view.openNoteSmartly(file, e);
+                void this.view.openNoteSmartly(file, e);
             }
         });
 
@@ -63,7 +63,7 @@ export class NoteRenderer {
         });
 
         if (domain) {
-            const img = webBtn.createEl('img', {
+            webBtn.createEl('img', {
                 cls: 'web-sidecar-row-favicon',
                 attr: {
                     src: getFaviconUrl(domain, 16),
@@ -78,10 +78,10 @@ export class NoteRenderer {
             setIcon(webBtn, 'external-link');
         }
 
-        webBtn.addEventListener('click', async (e) => {
+        webBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            this.view.openUrlSmartly(url, e);
+            void this.view.openUrlSmartly(url, e);
         });
     }
 }

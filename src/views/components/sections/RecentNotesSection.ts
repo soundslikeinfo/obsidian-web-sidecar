@@ -67,7 +67,7 @@ export class RecentNotesSection {
             const plusIcon = newTabBtn.createSpan({ cls: 'web-sidecar-new-tab-icon' });
             setIcon(plusIcon, 'plus');
             newTabBtn.createSpan({ text: 'New web viewer', cls: 'web-sidecar-new-tab-text' });
-            newTabBtn.addEventListener('click', () => this.view.openNewWebViewer());
+            newTabBtn.addEventListener('click', () => { void this.view.openNewWebViewer(); });
             // Orchestration of aux sections happens in SectionRenderer
             return;
         }

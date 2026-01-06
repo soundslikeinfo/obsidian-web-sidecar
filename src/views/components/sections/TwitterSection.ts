@@ -128,7 +128,7 @@ export class TwitterSection {
             noteLinkBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                await this.view.app.workspace.getLeaf(false).openFile(userNoteFile!);
+                await this.view.app.workspace.getLeaf(false).openFile(userNoteFile);
             };
         }
 

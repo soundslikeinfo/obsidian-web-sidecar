@@ -20,7 +20,7 @@ export function showWebViewerContextMenu(
             .setTitle('Open in new web viewer')
             .setIcon('file-plus')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     tab.url,
@@ -45,7 +45,7 @@ export function showWebViewerContextMenu(
             .setTitle('Open in new window')
             .setIcon('picture-in-picture-2')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.openPopoutLeaf(),
                     tab.url,
@@ -60,7 +60,7 @@ export function showWebViewerContextMenu(
             .setTitle('Open to the right')
             .setIcon('separator-vertical')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.getOrCreateRightLeaf(),
                     tab.url,
@@ -76,7 +76,7 @@ export function showWebViewerContextMenu(
                 .setTitle('Pin web view')
                 .setIcon('pin')
                 .onClick(() => {
-                    view.pinTab(tab);
+                    void view.pinTab(tab);
                 });
         });
     }
@@ -87,7 +87,7 @@ export function showWebViewerContextMenu(
             .setTitle('New linked note from URL')
             .setIcon('file-plus')
             .onClick(() => {
-                view.openCreateNoteModal(tab.url, tab.leafId);
+                void view.openCreateNoteModal(tab.url, tab.leafId);
             });
     });
 
@@ -99,7 +99,7 @@ export function showWebViewerContextMenu(
             .setTitle('Close web view')
             .setIcon('x')
             .onClick(() => {
-                view.closeLeaf(tab.leafId);
+                void view.closeLeaf(tab.leafId);
             });
     });
 
@@ -109,7 +109,7 @@ export function showWebViewerContextMenu(
             .setTitle('Close all linked web views')
             .setIcon('x-circle')
             .onClick(() => {
-                view.closeAllLeavesForUrl(tab.url);
+                void view.closeAllLeavesForUrl(tab.url);
             });
     });
 
@@ -123,7 +123,7 @@ export function showWebViewerContextMenu(
                 .setTitle('Close all linked notes')
                 .setIcon('file-minus')
                 .onClick(() => {
-                    view.closeLinkedNoteLeaves(tab.url);
+                    void view.closeLinkedNoteLeaves(tab.url);
                 });
         });
 
@@ -133,8 +133,8 @@ export function showWebViewerContextMenu(
                 .setTitle('Close all web views + linked notes')
                 .setIcon('trash-2')
                 .onClick(() => {
-                    view.closeAllLeavesForUrl(tab.url);
-                    view.closeLinkedNoteLeaves(tab.url);
+                    void view.closeAllLeavesForUrl(tab.url);
+                    void view.closeLinkedNoteLeaves(tab.url);
                 });
         });
     }
@@ -146,8 +146,8 @@ export function showWebViewerContextMenu(
             item
                 .setTitle('Update linked note(s) url to current view')
                 .setIcon('file-symlink')
-                .onClick(async () => {
-                    await view.updateTrackedTabNotes(tab.leafId);
+                .onClick(() => {
+                    void view.updateTrackedTabNotes(tab.leafId);
                 });
         });
     }
@@ -160,7 +160,7 @@ export function showWebViewerContextMenu(
             .setTitle('Copy URL')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(tab.url);
+                void navigator.clipboard.writeText(tab.url);
             });
     });
 
