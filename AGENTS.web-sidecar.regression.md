@@ -463,3 +463,39 @@ if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
 - [ ] Does the pinned tab visually become active immediately?
 - [ ] Does `updatePinnedTab` or `renderPinnedTab` use `lastActiveLeaf` fallback?
 
+---
+
+## Virtual Tab Auto-Expand & Stale Cleanup Failure
+
+**Symptom 1:** Opening a note from an auxiliary section (e.g., "GitHub repos") creates a virtual tab but fails to expand it, leaving the user guessing which tab contains the active note.
+**Symptom 2:** Closing the last note associated with a virtual tab leaves the virtual tab visible (stale) until a manual refresh or web viewer navigation occurs.
+
+**Cause 1 (Expansion):** `LinkedNotesTabItemRenderer.renderVirtualTab()` behavior didn't mirror `populateLinkedNotesTab()`. It was missing the logic to check if `app.workspace.activeLeaf` matched the virtual tab's context and auto-expand.
+**Cause 2 (Stale Tabs):** `TabStateService` primarily polled `trackedTabs` (Web Viewers) for changes. Note closures (which affect Virtual Tabs) trigger a `layout-change` event but not necessarily a web-viewer state change, so `refreshState()` wasn't called immediately.
+
+**Fix (2026-01-06):**
+1.  **Auto-Expand:** Copied the active leaf check and `setGroupExpanded` logic from `populateLinkedNotesTab` to `renderVirtualTab`.
+2.  **Stale Cleanup:** Added a `layout-change` listener to `TabStateService.initialize()` to trigger `refreshState()` whenever the workspace layout changes (e.g., closing a note).
+
+```typescript
+// TabStateService.ts
+this.plugin.registerEvent(
+    this.plugin.app.workspace.on('layout-change', () => {
+        this.refreshState();
+    })
+);
+
+// LinkedNotesTabItemRenderer.ts (renderVirtualTab)
+let activeLeaf = this.view.app.workspace.activeLeaf;
+// ... check logic ...
+if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
+    this.view.setGroupExpanded(key, true);
+}
+```
+
+**Checklist:**
+- [ ] Does opening a note from an aux section auto-expand the resulting virtual tab?
+- [ ] Does closing a note immediately remove its virtual tab (if it was the last one)?
+- [ ] Is the `layout-change` listener active?
+
+

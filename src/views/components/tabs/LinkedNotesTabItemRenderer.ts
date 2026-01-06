@@ -144,7 +144,40 @@ export class LinkedNotesTabItemRenderer {
         // Expand button (skip in basic mode)
         if (!this.isBasicMode && (exactCount > 0 || hasSameDomain)) {
             const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
+
+            // Auto-expand logic: Check if a linked note is currently focused
+            let activeLeaf = this.view.app.workspace.activeLeaf;
+            // Fallback to last active leaf if sidecar is focused
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+                activeLeaf = this.view.lastActiveLeaf;
+            }
+
+            let linkedNoteFocused = false;
+            let focusedNotePath: string | null = null;
+            if (activeLeaf?.view instanceof MarkdownView) {
+                const viewFile = activeLeaf.view.file;
+                if (viewFile) {
+                    focusedNotePath = viewFile.path;
+                    // Check if this note is linked to the current virtual tab (exact matches)
+                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
+                        linkedNoteFocused = true;
+                    }
+                    // Also check tld matches if enabled? Usually we prioritize exact matches for virtual tabs
+                    // But if it's in the "More web notes" section it should also trigger expand?
+                    // matches.tldMatches check:
+                    else if (hasSameDomain && matches.tldMatches.some(m => m.file.path === focusedNotePath)) {
+                        linkedNoteFocused = true;
+                    }
+                }
+            }
+
             const key = `virtual:${virtualTab.url}`;
+
+            // Auto-expand if linked note is focused (and not already expanded)
+            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
+                this.view.setGroupExpanded(key, true);
+            }
+
             const isExpanded = this.view.expandedGroupIds.has(key);
 
             setIcon(expandBtn, isExpanded ? 'chevron-down' : 'chevron-right');

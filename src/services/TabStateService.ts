@@ -48,6 +48,15 @@ export class TabStateService {
             })
         );
 
+        // Listen for layout changes (e.g. closing a note) to refresh virtual tabs immediately
+        this.plugin.registerEvent(
+            this.plugin.app.workspace.on('layout-change', () => {
+                // Throttle? Or just refresh. Refresh is relatively cheap but we should define it.
+                // refreshState calls scanAllWebViewers which is fast.
+                this.refreshState();
+            })
+        );
+
         // Start polling
         this.startPolling();
 
