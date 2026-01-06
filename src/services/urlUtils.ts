@@ -54,7 +54,7 @@ export function extractDomain(url: string): string | null {
     } catch {
         // If URL parsing fails, try manual extraction
         const normalized = normalizeUrl(url);
-        const match = normalized.match(/^([^\/]+)/);
+        const match = normalized.match(/^([^/]+)/);
         return match ? match[1] ?? null : null;
     }
 }

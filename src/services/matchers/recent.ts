@@ -32,7 +32,7 @@ export function getRecentNotesWithUrls(
 
         // Check each configured property field
         for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
+            const propValue = frontmatter[propName] as unknown;
 
             if (!propValue) continue;
 

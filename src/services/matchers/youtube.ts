@@ -30,7 +30,7 @@ export function extractYouTubeChannel(
 
         // Handle array values (take first string)
         if (Array.isArray(value) && value.length > 0) {
-            const first = value[0];
+            const first = value[0] as unknown;
             if (typeof first === 'string' && first.trim()) {
                 return first.trim().replace(/^\[\[|\]\]$/g, '');
             }
@@ -69,7 +69,7 @@ export function getAllYouTubeNotes(
 
         // Check each configured property field for a URL
         for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
+            const propValue = frontmatter[propName] as unknown;
             if (!propValue) continue;
 
             const values = Array.isArray(propValue) ? propValue : [propValue];

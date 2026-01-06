@@ -61,7 +61,7 @@ export class TabStateService {
         this.startPolling();
 
         // Initial scan and notify view
-        this.syncAllPinnedNotes(); // Initial sync from notes
+        void this.syncAllPinnedNotes(); // Initial sync from notes
         this.refreshState();
     }
 
@@ -166,7 +166,7 @@ export class TabStateService {
         switch (settings.tabSortOrder) {
             case 'title':
                 return tabs.sort((a, b) => a.title.localeCompare(b.title));
-            case 'manual':
+            case 'manual': {
                 // Sort by position in manualTabOrder, new tabs go to end
                 const order = settings.manualTabOrder;
                 return tabs.sort((a, b) => {
@@ -178,6 +178,7 @@ export class TabStateService {
                     if (bIdx === -1) return -1;
                     return aIdx - bIdx;
                 });
+            }
             case 'focus':
             default:
                 return tabs.sort((a, b) => b.lastFocused - a.lastFocused);
@@ -227,7 +228,7 @@ export class TabStateService {
 
             // Check each URL property field
             for (const propName of settings.urlPropertyFields) {
-                const propValue = frontmatter[propName];
+                const propValue = frontmatter[propName] as unknown;
                 if (!propValue) continue;
 
                 // Handle string or array
@@ -293,8 +294,7 @@ export class TabStateService {
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const leafWindow = (leaf.getRoot() as any).containerEl?.win;
+                const leafWindow = (leaf.getRoot() as unknown as { containerEl: { win: Window } }).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
                 // Cache title if available (for virtual tabs)
@@ -363,7 +363,7 @@ export class TabStateService {
                 if (pin) {
                     pin.leafId = undefined;
                     // Persist?
-                    this.plugin.saveSettings();
+                    void this.plugin.saveSettings();
                 }
             }
         }
@@ -385,8 +385,7 @@ export class TabStateService {
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const leafWindow = (leaf.getRoot() as any).containerEl?.win;
+                const leafWindow = (leaf.getRoot() as unknown as { containerEl: { win: Window } }).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
                 // Update focus time
@@ -584,12 +583,12 @@ export class TabStateService {
         if (newUrl === pin.url) {
             if (pin.currentUrl !== undefined) {
                 pin.currentUrl = undefined;
-                this.plugin.saveSettings(); // Async but we don't await
+                this.plugin.saveSettings().then(() => { /* nothing */ }, console.error); // Async but we don't await
             }
         } else if (pin.currentUrl !== newUrl) {
             // URL changed - update currentUrl
             pin.currentUrl = newUrl;
-            this.plugin.saveSettings(); // Async but we don't await
+            this.plugin.saveSettings().then(() => { /* nothing */ }, console.error); // Async but we don't await
         }
     }
 
@@ -665,7 +664,7 @@ export class TabStateService {
         let hasPinProp = false;
 
         if (frontmatter) {
-            const propVal = frontmatter[key];
+            const propVal = frontmatter[key] as unknown;
             if (propVal) {
                 if (Array.isArray(propVal)) {
                     hasPinProp = propVal.includes(value);
@@ -681,13 +680,13 @@ export class TabStateService {
         if (hasPinProp && !existingPin) {
             // Add pin (need to find URL first)
             // We reuse getVirtualTabs-like logic or just simpler logic
-            this.createPinFromNote(file, frontmatter, settings);
+            void this.createPinFromNote(file, frontmatter, settings);
         } else if (!hasPinProp && existingPin) {
             // Remove pin
             // Only if we trust the note is the source of truth? 
             // "Another option if it is enabled for the note property where it should update the status"
             // Implies property drives status.
-            this.removePinnedTab(existingPin.id);
+            void this.removePinnedTab(existingPin.id);
         }
     }
 
@@ -720,7 +719,7 @@ export class TabStateService {
         const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
         if (!(file instanceof TFile)) return;
 
-        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
             const settings = this.getSettings();
             const key = settings.pinnedPropertyKey;
             const value = settings.pinnedPropertyValue;
@@ -779,10 +778,10 @@ export class TabStateService {
 
         // 1. Find all files linking to oldUrl
         const files = this.plugin.app.vault.getMarkdownFiles();
-        let updatedCount = 0;
+
 
         for (const file of files) {
-            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
                 let changed = false;
                 for (const field of settings.urlPropertyFields) {
                     const val = frontmatter[field];
@@ -799,7 +798,7 @@ export class TabStateService {
                         changed = true;
                     }
                 }
-                if (changed) updatedCount++;
+                if (changed) { /* no-op count */ }
             });
         }
 
@@ -861,7 +860,7 @@ export class TabStateService {
         const files = this.plugin.app.vault.getMarkdownFiles();
 
         for (const file of files) {
-            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
                 for (const field of settings.urlPropertyFields) {
                     const val = frontmatter[field];
                     if (!val) continue;

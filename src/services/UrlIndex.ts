@@ -172,7 +172,7 @@ export class UrlIndex extends Events {
             const foundUrls = new Set<string>();
 
             for (const propName of settings.urlPropertyFields) {
-                const propValue = frontmatter[propName];
+                const propValue = frontmatter[propName] as unknown;
                 if (!propValue) continue;
 
                 // Handle string or array of strings
