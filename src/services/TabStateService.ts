@@ -274,6 +274,7 @@ export class TabStateService {
 
             if (info) {
                 // Detect if leaf is in a popout window
+                // Detect if leaf is in a popout window
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -362,6 +363,7 @@ export class TabStateService {
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {
+                // Detect if leaf is in a popout window
                 // Detect if leaf is in a popout window
                 const leafWindow = (leaf.getRoot() as any).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
@@ -477,16 +479,19 @@ export class TabStateService {
 
         if ('file' in tab) {
             isNote = true;
-            notePath = (tab as VirtualTab).file.path;
+            notePath = (tab).file.path;
         }
+
+        const title = 'title' in tab ? tab.title : ('cachedTitle' in tab ? tab.cachedTitle : tab.url);
+        const leafId = 'leafId' in tab ? tab.leafId : undefined;
 
         const newPin: PinnedTab = {
             id: crypto.randomUUID(),
             url: tab.url,
-            title: (tab as any).title || (tab as any).cachedTitle || tab.url,
+            title: title || tab.url,
             isNote,
             notePath,
-            leafId: (tab as any).leafId
+            leafId
         };
 
         settings.pinnedTabs.push(newPin);
@@ -660,11 +665,11 @@ export class TabStateService {
         }
     }
 
-    private async createPinFromNote(file: TFile, frontmatter: any, settings: WebSidecarSettings) {
+    private async createPinFromNote(file: TFile, frontmatter: unknown, settings: WebSidecarSettings) {
         // Find first valid URL
         let url: string | undefined;
         for (const field of settings.urlPropertyFields) {
-            const val = frontmatter[field];
+            const val = (frontmatter as Record<string, any>)[field];
             if (typeof val === 'string' && val.startsWith('http')) {
                 url = val;
                 break;

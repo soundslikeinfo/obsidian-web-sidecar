@@ -1,7 +1,7 @@
 
 
 import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice } from 'obsidian';
-import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
+import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView, AppWithCommands, ObsidianCommand } from '../types';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
@@ -36,7 +36,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     urlIndex: UrlIndex;
 
     // Private properties
-    private trackedTabs: TrackedWebViewer[] = [];
+    // Public state for interface
+    public trackedTabs: TrackedWebViewer[] = [];
     private virtualTabs: VirtualTab[] = [];
     private getSettingsFn: () => WebSidecarSettings;
     private onRefreshFn: () => void;
@@ -51,7 +52,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     private linkedNotesTabRenderer: LinkedNotesTabRenderer;
     private pinnedTabRenderer: PinnedTabRenderer;
-    private tabStateService: TabStateService;
+    public tabStateService: TabStateService;
     public saveSettingsFn: () => Promise<void>;
 
     /** Track if user is interacting with the sidebar (prevents re-render) */
@@ -254,22 +255,22 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         });
         setIcon(historyBtn, 'clock');
         historyBtn.onclick = () => {
-            const appAny = this.app as any;
-            if (appAny.commands) {
-                const commands = appAny.commands.commands;
-                const cmdList = Object.values(commands) as any[];
+            const app = this.app as AppWithCommands;
+            if (app.commands) {
+                const commands = app.commands.commands;
+                const cmdList = Object.values(commands);
 
                 // Try to find the command:
                 // 1. Exact match (case insensitive) "Show history"
-                let cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'show history');
+                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'show history');
 
                 // 2. Exact match full string "Web Viewer: Show history"
                 if (!cmd) {
-                    cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'web viewer: show history');
+                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: show history');
                 }
 
                 if (cmd) {
-                    appAny.commands.executeCommandById(cmd.id);
+                    app.commands.executeCommandById(cmd.id);
                 } else {
                     new Notice('Web Sidecar: Command "Show history" not found.');
                     console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
@@ -284,30 +285,30 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         });
         setIcon(searchBtn, 'search');
         searchBtn.onclick = () => {
-            const appAny = this.app as any;
-            if (appAny.commands) {
-                const commands = appAny.commands.commands;
-                const cmdList = Object.values(commands) as any[];
+            const app = this.app as AppWithCommands;
+            if (app.commands) {
+                const commands = app.commands.commands;
+                const cmdList = Object.values(commands);
 
                 // Try to find the command:
                 // 1. Exact match (case insensitive) "Search the web"
-                let cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'search the web');
+                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'search the web');
 
                 // 2. Exact match full string "Web Viewer: Search the web"
                 if (!cmd) {
-                    cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'web viewer: search the web');
+                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: search the web');
                 }
 
                 // 3. Heuristic: Contains "Search the web" and plugin ID looks relevant
                 if (!cmd) {
-                    cmd = cmdList.find((c: any) =>
+                    cmd = cmdList.find((c: ObsidianCommand) =>
                         c.name && c.name.toLowerCase().includes('search the web') &&
                         (c.id.includes('web-viewer') || c.id.includes('web-browser') || c.id.includes('surfing'))
                     );
                 }
 
                 if (cmd) {
-                    appAny.commands.executeCommandById(cmd.id);
+                    app.commands.executeCommandById(cmd.id);
                 } else {
                     new Notice('Web Sidecar: Command "Search the web" not found.');
                     console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));

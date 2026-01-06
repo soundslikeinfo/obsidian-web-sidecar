@@ -36,7 +36,7 @@ export function getViewFile(view: View): TFile | null {
     }
     // For other FileView types (like PDFView), check if file property exists
     if ('file' in view && view.file instanceof TFile) {
-        return view.file as TFile;
+        return view.file;
     }
     return null;
 }

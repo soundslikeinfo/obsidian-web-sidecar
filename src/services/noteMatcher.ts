@@ -524,7 +524,7 @@ export function getNotesGroupedByTags(
         // 1. Frontmatter tags
         if (frontmatter.tags) {
             const ftags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [frontmatter.tags];
-            ftags.forEach((t: any) => {
+            ftags.forEach((t: unknown) => {
                 if (typeof t === 'string') {
                     // Ensure it starts with #
                     const tag = t.startsWith('#') ? t : '#' + t;

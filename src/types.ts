@@ -1,6 +1,7 @@
 
 import { App, EventRef, TFile, WorkspaceLeaf } from 'obsidian';
 import type { UrlIndex } from './services/UrlIndex';
+import type { TabStateService } from './services/TabStateService';
 
 /**
  * Interface to decouple View components from the main View class
@@ -11,6 +12,10 @@ export interface IWebSidecarView {
     urlIndex: UrlIndex;
     leaf: WorkspaceLeaf;
     lastActiveLeaf: WorkspaceLeaf | null;
+
+    // State
+    trackedTabs: TrackedWebViewer[];
+    tabStateService: TabStateService;
 
     // Actions
     closeLeaf(leafId: string): void;
@@ -369,4 +374,16 @@ export interface PinnedTab {
     notePath?: string;
     /** ID of the active web viewer leaf if one is currently open for this pin */
     leafId?: string;
+}
+
+export interface ObsidianCommand {
+    id: string;
+    name: string;
+}
+
+export interface AppWithCommands extends App {
+    commands: {
+        commands: Record<string, ObsidianCommand>;
+        executeCommandById(id: string): void;
+    };
 }

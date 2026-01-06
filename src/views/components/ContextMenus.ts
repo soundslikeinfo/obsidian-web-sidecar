@@ -1,6 +1,6 @@
 
-import { Menu, TFile } from 'obsidian';
-import { IWebSidecarView, TrackedWebViewer, PinnedTab } from '../../types';
+import { Menu, TFile, WorkspaceLeaf } from 'obsidian';
+import { IWebSidecarView, TrackedWebViewer, PinnedTab, AppWithCommands } from '../../types';
 import { findMatchingNotes } from '../../services/noteMatcher';
 import { leafHasFile } from '../../services/obsidianHelpers';
 
@@ -15,7 +15,7 @@ export class ContextMenus {
      * Helper: Open a web viewer and trigger triple forced refresh for UI update
      */
     private async openWebViewerAndRefresh(
-        leafGetter: () => any,
+        leafGetter: () => WorkspaceLeaf,
         url: string,
         reveal: boolean = false
     ): Promise<void> {
@@ -267,7 +267,7 @@ export class ContextMenus {
                     // Use Obsidian command to reveal active file
                     const tempLeaf = this.view.app.workspace.getLeaf('tab');
                     await tempLeaf.openFile(file, { active: false });
-                    await (this.view.app as any).commands.executeCommandById('file-explorer:reveal-active-file');
+                    await (this.view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
                     tempLeaf.detach();
                 });
         });
@@ -520,7 +520,7 @@ export class ContextMenus {
                     }
                     const tempLeaf = this.view.app.workspace.getLeaf('tab');
                     await tempLeaf.openFile(file, { active: false });
-                    await (this.view.app as any).commands.executeCommandById('file-explorer:reveal-active-file');
+                    await (this.view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
                     tempLeaf.detach();
                 });
         });
@@ -667,7 +667,7 @@ export class ContextMenus {
     private openInDefaultBrowser(url: string): void {
         // Try Electron shell first (definitive external open)
         try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
+
             const { shell } = require('electron');
             shell.openExternal(url);
             return;
@@ -837,8 +837,8 @@ export class ContextMenus {
                         const freshPin = this.view.settings.pinnedTabs.find(p => p.id === pin.id);
                         if (!freshPin) return;
 
-                        if ('updatePinnedTabNotes' in (this.view as any).tabStateService) {
-                            await (this.view as any).tabStateService.updatePinnedTabNotes(freshPin.id);
+                        if ('updatePinnedTabNotes' in this.view.tabStateService) {
+                            await this.view.tabStateService.updatePinnedTabNotes(freshPin.id);
                         }
                         // Force UI refresh after update
                         this.view.render(true);

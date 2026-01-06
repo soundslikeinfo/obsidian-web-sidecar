@@ -13,21 +13,21 @@ export function getWebViewerHomepage(app: App): string {
             return 'about:blank';
         }
 
-        const webviewerPlugin = internalPlugins.getPluginById?.('webviewer') 
+        const webviewerPlugin = internalPlugins.getPluginById?.('webviewer')
             || internalPlugins.plugins?.['webviewer'];
-        
+
         if (!webviewerPlugin) {
             return 'about:blank';
         }
 
         // The settings are stored in the plugin's options
         // Can be accessed via plugin.options or plugin.instance?.options
-        const options = webviewerPlugin.options 
-            || webviewerPlugin.instance?.options 
+        const options = webviewerPlugin.options
+            || webviewerPlugin.instance?.options
             || {};
-        
+
         const homepage = options.homepage;
-        
+
         if (typeof homepage === 'string' && homepage.trim()) {
             return homepage.trim();
         }

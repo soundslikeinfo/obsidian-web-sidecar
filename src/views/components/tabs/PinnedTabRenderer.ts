@@ -94,7 +94,7 @@ export class PinnedTabRenderer {
                 // But I'm in the class that imports `WebSidecarView` effectively or types.
                 // Hack: access `(this.view as any).trackedTabs`.
 
-                const tabs = (this.view as any).trackedTabs as any[]; // quick fix
+                const tabs = this.view.trackedTabs;
                 const tab = tabs.find(t => t.leafId === leafId);
                 if (tab) {
                     this.view.pinTab(tab).then(() => {
@@ -469,8 +469,9 @@ export class PinnedTabRenderer {
             // This ensures that even if the page redirects immediately (changing URL),
             // the service knows this leaf belongs to this pin.
             const leafId = getLeafId(leaf);
-            if (leafId && 'setPinnedTabLeaf' in (this.view as any).tabStateService) {
-                await (this.view as any).tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
+
+            if (leafId && this.view.tabStateService) {
+                await this.view.tabStateService.setPinnedTabLeaf(freshPin.id, leafId);
             }
 
             // CRITICAL: Force UI refresh to show the pin is now open

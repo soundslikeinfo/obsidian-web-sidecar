@@ -3,7 +3,7 @@ import { setIcon } from 'obsidian';
 import { extractDomain } from '../../services/urlUtils';
 import { getFaviconUrl } from '../../services/faviconUtils';
 import { getRecentNotesWithUrls, getAllRedditNotes, getAllYouTubeNotes, extractSubreddit, getNotesGroupedByTags } from '../../services/noteMatcher';
-import { IWebSidecarView } from '../../types';
+import { IWebSidecarView, MatchedNote } from '../../types';
 import { NoteRenderer } from './NoteRenderer';
 import { ContextMenus } from './ContextMenus';
 
@@ -416,7 +416,7 @@ export class SectionRenderer {
             e.preventDefault();
             e.stopPropagation();
             const subredditUrl = `https://reddit.com/${subreddit}`;
-            await this.view.openUrlSmartly(subredditUrl, e as any);
+            await this.view.openUrlSmartly(subredditUrl, e);
         };
 
         summary.createSpan({
@@ -607,7 +607,7 @@ export class SectionRenderer {
             e.preventDefault();
             e.stopPropagation();
             const domainUrl = `https://${domain}`;
-            await this.view.openUrlSmartly(domainUrl, e as any);
+            await this.view.openUrlSmartly(domainUrl, e);
         };
 
         // Note count badge
@@ -758,7 +758,7 @@ export class SectionRenderer {
         };
     }
 
-    private sortGroups(map: Map<string, any[]>, sortOrder: 'alpha' | 'count' | 'recent'): [string, any[]][] {
+    private sortGroups(map: Map<string, MatchedNote[]>, sortOrder: 'alpha' | 'count' | 'recent'): [string, MatchedNote[]][] {
         const getMaxMtime = (notes: { file: import('obsidian').TFile }[]) => {
             return Math.max(...notes.map(n => n.file.stat.mtime));
         };
@@ -957,7 +957,7 @@ export class SectionRenderer {
                 webLinkBtn.onclick = async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.view.openUrlSmartly(channelUrl!, e as any);
+                    await this.view.openUrlSmartly(channelUrl, e);
                 };
             }
         }
@@ -974,7 +974,7 @@ export class SectionRenderer {
             ytLinkBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                await this.view.openUrlSmartly(youtubeChannelUrl, e as any);
+                await this.view.openUrlSmartly(youtubeChannelUrl, e);
             };
         }
 

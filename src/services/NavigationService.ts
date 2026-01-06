@@ -1,5 +1,5 @@
 
-import { App, TFile, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { App, TFile, WorkspaceLeaf, MarkdownView, WorkspaceSplit } from 'obsidian';
 import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import { findMatchingNotes } from './noteMatcher';
@@ -500,7 +500,7 @@ export class NavigationService {
         const sourceParent = sourceLeaf.parent;
 
         // Collect all unique tab groups (parents) in the main area
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
             if (!tabGroups.has(leaf.parent)) {
@@ -512,8 +512,8 @@ export class NavigationService {
         // Find the "target" group - a different group from the source
         // Prefer groups that contain markdown notes (those are likely the "notes" pane on the right)
         // Web viewers are typically on the LEFT, notes on the RIGHT
-        let targetParent: any = null;
-        let fallbackParent: any = null;
+        let targetParent: WorkspaceSplit | null = null;
+        let fallbackParent: WorkspaceSplit | null = null;
 
         for (const [parent, leaves] of tabGroups.entries()) {
             if (parent === sourceParent) continue; // Skip source group
@@ -549,7 +549,7 @@ export class NavigationService {
      */
     private isInMainArea(leaf: WorkspaceLeaf): boolean {
         // Traverse up to check if this leaf is under rootSplit
-        let current: any = leaf.parent;
+        let current: WorkspaceSplit | null = leaf.parent;
         const rootSplit = this.app.workspace.rootSplit;
 
         while (current) {
@@ -599,7 +599,7 @@ export class NavigationService {
         }
 
         // No web viewers exist - check if we have multiple groups (paired layout)
-        const tabGroups = new Map<any, WorkspaceLeaf[]>();
+        const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
         for (const leaf of mainLeaves) {
             if (!leaf.parent) continue;
             if (!tabGroups.has(leaf.parent)) {

@@ -28,7 +28,7 @@ export class LinkedNotesTabItemRenderer {
 
     updateLinkedNotesTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
         // Preserve the notes container and its expanded state
-        const existingNotesContainer = tabEl.querySelector('.web-sidecar-linked-notes-notes') as HTMLElement | null;
+        const existingNotesContainer = tabEl.querySelector('.web-sidecar-linked-notes-notes');
         const wasExpanded = !!(existingNotesContainer && !existingNotesContainer.hasClass('hidden'));
 
         // Remove only the tab row, keep notes container if it exists
@@ -36,7 +36,7 @@ export class LinkedNotesTabItemRenderer {
         if (existingRow) existingRow.remove();
 
         // Rebuild the tab content, passing preserved state
-        this.populateLinkedNotesTab(tabEl, tab, allTabs, existingNotesContainer, wasExpanded);
+        this.populateLinkedNotesTab(tabEl, tab, allTabs, existingNotesContainer as HTMLElement, wasExpanded);
     }
 
     renderVirtualTab(container: HTMLElement, virtualTab: VirtualTab): void {
@@ -50,7 +50,7 @@ export class LinkedNotesTabItemRenderer {
             // Set pending original URL BEFORE opening - this gets applied when the new tab is registered
             this.view.setPendingOriginalUrl(originalUrl);
 
-            await this.view.openUrlSmartly(originalUrl, e as MouseEvent);
+            await this.view.openUrlSmartly(originalUrl, e);
         };
 
         // Context menu for virtual tab
@@ -357,7 +357,7 @@ export class LinkedNotesTabItemRenderer {
         });
 
         // Pop-out icon
-        const showPopout = isDeduped ? allTabs!.some(t => t.isPopout) : tab.isPopout;
+        const showPopout = isDeduped ? allTabs.some(t => t.isPopout) : tab.isPopout;
         if (showPopout) {
             const popoutIcon = tabRow.createSpan({ cls: 'web-sidecar-popout-icon' });
             setIcon(popoutIcon, 'picture-in-picture-2');

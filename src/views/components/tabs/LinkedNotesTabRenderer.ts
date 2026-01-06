@@ -1,5 +1,5 @@
 
-import { setIcon } from 'obsidian';
+import { setIcon, MarkdownView } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { findMatchingNotes } from '../../../services/noteMatcher';
 import { ContextMenus } from '../ContextMenus';
@@ -178,10 +178,9 @@ export class LinkedNotesTabRenderer {
                 activeLeaf = this.view.lastActiveLeaf;
             }
             let focusedNotePath: string | null = null;
-            if (activeLeaf?.view?.getViewType() === 'markdown') {
-                const view = activeLeaf.view as any;
-                if (view.file) {
-                    focusedNotePath = view.file.path;
+            if (activeLeaf?.view instanceof MarkdownView) {
+                if (activeLeaf.view.file) {
+                    focusedNotePath = activeLeaf.view.file.path;
                 }
             }
 
@@ -290,17 +289,17 @@ export class LinkedNotesTabRenderer {
             // Only accept tab drags (check for our custom MIME type)
             if (e.dataTransfer?.types?.includes('text/tab-id')) {
                 e.preventDefault();
-                dropZone!.addClass('drag-over');
+                dropZone.addClass('drag-over');
             }
         };
 
         dropZone.ondragleave = () => {
-            dropZone!.removeClass('drag-over');
+            dropZone.removeClass('drag-over');
         };
 
         dropZone.ondrop = (e) => {
             e.preventDefault();
-            dropZone!.removeClass('drag-over');
+            dropZone.removeClass('drag-over');
             const draggedLeafId = e.dataTransfer?.getData('text/tab-id');
 
             if (draggedLeafId) {
