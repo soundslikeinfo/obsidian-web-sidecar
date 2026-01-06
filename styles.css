@@ -346,11 +346,11 @@
 }
 
 /* ============================================
-   BROWSER MODE STYLES
+   LINKED NOTE MODE STYLES
    ============================================ */
 
-/* Browser mode header */
-.web-sidecar-browser-header {
+/* Linked mode header */
+.web-sidecar-linked-notes-header {
   display: flex;
   justify-content: center;
   gap: 4px;
@@ -358,9 +358,9 @@
   /* Centered icons with minimal top padding */
 }
 
-/* Browser tabs container */
-/* Browser Tabs Container */
-.web-sidecar-browser-tabs {
+/* Linked tabs container */
+/* Linked Mode Tabs Container */
+.web-sidecar-linked-notes-tabs {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -391,13 +391,13 @@
   background: transparent;
 }
 
-/* Individual browser tab wrapper */
-.web-sidecar-browser-tab {
+/* Individual linked tab wrapper */
+.web-sidecar-linked-notes-tab {
   border-radius: var(--radius-s);
 }
 
 /* Main tab row (clickable) */
-.web-sidecar-browser-tab-row {
+.web-sidecar-linked-notes-tab-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -408,36 +408,36 @@
   transition: background-color 0.1s ease;
 }
 
-.web-sidecar-browser-tab-row:hover {
+.web-sidecar-linked-notes-tab-row:hover {
   background-color: var(--background-modifier-hover);
 }
 
 /* Active tab indicator - theme agnostic styling */
-.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+.web-sidecar-linked-notes-tab.is-active .web-sidecar-linked-notes-tab-row {
   background-color: var(--background-modifier-active-hover);
   border-left: 2px solid var(--interactive-accent);
   margin-left: -2px;
 }
 
-.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-title {
+.web-sidecar-linked-notes-tab.is-active .web-sidecar-linked-notes-tab-title {
   font-weight: 600;
   color: var(--text-normal);
 }
 
 /* Virtual tab (in "Opened web notes") muted active state */
-.web-sidecar-virtual-section .web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+.web-sidecar-virtual-section .web-sidecar-linked-notes-tab.is-active .web-sidecar-linked-notes-tab-row {
   background-color: var(--background-modifier-hover);
   border-left: 2px solid var(--text-muted);
   margin-left: -2px;
 }
 
-.web-sidecar-virtual-section .web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-title {
+.web-sidecar-virtual-section .web-sidecar-linked-notes-tab.is-active .web-sidecar-linked-notes-tab-title {
   font-weight: 500;
   color: var(--text-muted);
 }
 
 /* Favicon container */
-.web-sidecar-browser-favicon {
+.web-sidecar-linked-notes-favicon {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
@@ -446,20 +446,20 @@
   justify-content: center;
 }
 
-.web-sidecar-browser-favicon img {
+.web-sidecar-linked-notes-favicon img {
   width: 16px;
   height: 16px;
   border-radius: 2px;
 }
 
-.web-sidecar-browser-favicon svg {
+.web-sidecar-linked-notes-favicon svg {
   width: 14px;
   height: 14px;
   color: var(--text-muted);
 }
 
 /* Tab title */
-.web-sidecar-browser-tab-title {
+.web-sidecar-linked-notes-tab-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -482,29 +482,29 @@
 }
 
 /* Notes container (expanded view) */
-.web-sidecar-browser-notes {
+.web-sidecar-linked-notes-notes {
   padding-left: 24px;
   padding-bottom: 4px;
 }
 
-.web-sidecar-browser-notes.hidden {
+.web-sidecar-linked-notes-notes.hidden {
   display: none;
 }
 
-/* Note list in browser mode */
-.web-sidecar-browser-note-list {
+/* Note list in linked mode */
+.web-sidecar-linked-notes-note-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.web-sidecar-browser-note-list li {
+.web-sidecar-linked-notes-note-list li {
   padding: 3px 8px;
   position: relative;
 }
 
 /* Blue dot focus indicator - always present but invisible by default */
-.web-sidecar-browser-note-list li::before {
+.web-sidecar-linked-notes-note-list li::before {
   content: '';
   position: absolute;
   left: 0;
@@ -519,7 +519,7 @@
 }
 
 /* Blue dot becomes visible when note is focused */
-.web-sidecar-browser-note-list li.is-focused::before {
+.web-sidecar-linked-notes-note-list li.is-focused::before {
   opacity: 1;
 }
 
@@ -528,21 +528,21 @@
    ============================================ */
 
 /* Closed notes: muted grey color */
-.web-sidecar-browser-note-list li.is-closed .web-sidecar-browser-note-link {
+.web-sidecar-linked-notes-note-list li.is-closed .web-sidecar-linked-notes-note-link {
   color: var(--text-muted);
 }
 
 /* Open notes: theme accent color */
-.web-sidecar-browser-note-list li.is-open .web-sidecar-browser-note-link {
+.web-sidecar-linked-notes-note-list li.is-open .web-sidecar-linked-notes-note-link {
   color: var(--text-accent);
 }
 
 /* Style mode: add italic for closed notes */
-.style-mode .web-sidecar-browser-note-list li.is-closed .web-sidecar-browser-note-link {
+.style-mode .web-sidecar-linked-notes-note-list li.is-closed .web-sidecar-linked-notes-note-link {
   font-style: italic;
 }
 
-.web-sidecar-browser-note-link {
+.web-sidecar-linked-notes-note-link {
   color: var(--text-accent);
   text-decoration: none;
   font-size: var(--font-ui-smaller);
@@ -552,16 +552,16 @@
   white-space: nowrap;
 }
 
-.web-sidecar-browser-note-link:hover {
+.web-sidecar-linked-notes-note-link:hover {
   text-decoration: underline;
 }
 
-/* TLD section in browser mode */
-.web-sidecar-browser-tld {
+/* TLD section in linked mode */
+.web-sidecar-linked-notes-tld {
   margin-top: 4px;
 }
 
-.web-sidecar-browser-tld summary {
+.web-sidecar-linked-notes-tld summary {
   cursor: pointer;
   padding: 4px 8px;
   font-size: var(--font-ui-smaller);
@@ -571,12 +571,12 @@
   gap: 6px;
 }
 
-.web-sidecar-browser-tld summary:hover {
+.web-sidecar-linked-notes-tld summary:hover {
   color: var(--text-normal);
 }
 
-/* Browser mode "More web notes" subtitle */
-.web-sidecar-browser-subtitle {
+/* Linked notes mode "More web notes" subtitle */
+.web-sidecar-linked-notes-subtitle {
   display: block;
   font-size: 13px;
   font-weight: 500;
@@ -919,7 +919,7 @@
   padding-left: 8px;
 }
 
-/* Virtual tab entry - styled like browser tabs but with subtle distinction */
+/* Virtual tab entry - styled like linked tabs but with subtle distinction */
 .web-sidecar-virtual-tab {
   background: var(--background-secondary);
   border: none;
@@ -1013,12 +1013,12 @@
    ============================================ */
 
 /* Dragging state */
-.web-sidecar-browser-tab.is-dragging {
+.web-sidecar-linked-notes-tab.is-dragging {
   opacity: 0.5;
 }
 
 /* Drop target indicator */
-.web-sidecar-browser-tab.drag-over {
+.web-sidecar-linked-notes-tab.drag-over {
   border-top: 2px solid var(--interactive-accent);
   margin-top: -2px;
 }
@@ -1097,7 +1097,7 @@
 /* Extracted inline styles - Refactoring */
 
 /* For BrowserTabRenderer.ts - New Web Viewer button positioning */
-.web-sidecar-browser-new-tab {
+.web-sidecar-linked-notes-new-tab {
   width: 100%;
   position: relative;
   z-index: 20;
@@ -1128,7 +1128,7 @@
 .web-sidecar-pinned-section {
   padding: 0;
   margin: 0 -8px 8px -8px;
-  /* Match .web-sidecar-browser-tabs margin for consistent width */
+  /* Match .web-sidecar-linked-notes-tabs margin for consistent width */
   min-height: 4px;
   /* Ensure drop target exists */
   transition: all 0.2s ease;
@@ -1250,7 +1250,7 @@
   border-top: 2px solid var(--interactive-accent);
 }
 
-/* Notes container for pinned tabs - match browser-notes padding */
+/* Notes container for pinned tabs - match linked-notes padding */
 .web-sidecar-pinned-notes {
   padding-left: 24px;
   padding-bottom: 4px;

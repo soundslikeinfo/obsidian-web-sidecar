@@ -94,7 +94,7 @@ export function findMatchingNotes(
 
         const domain = extractDomain(url);
         const domainFiles = domain ? urlIndex.getFilesForDomain(domain) : [];
-        const exactFiles = urlIndex.getFilesForUrl(url); // Raw match
+        const exactFiles = urlIndex.getFilesForNormalizedUrl(url); // Normalized match covers exact & variations
 
         // Merge and deduplicate
         const fileSet = new Set([...domainFiles, ...exactFiles]);

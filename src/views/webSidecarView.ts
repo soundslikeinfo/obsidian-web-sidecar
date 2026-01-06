@@ -6,7 +6,7 @@ import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
 
-import { BrowserTabRenderer } from './components/tabs/BrowserTabRenderer';
+import { LinkedNotesTabRenderer } from './components/tabs/LinkedNotesTabRenderer';
 import { PinnedTabRenderer } from './components/tabs/PinnedTabRenderer';
 import { NavigationService } from '../services/NavigationService';
 import { TabStateService } from '../services/TabStateService';
@@ -49,7 +49,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     private noteRenderer: NoteRenderer;
     private sectionRenderer: SectionRenderer;
 
-    private browserTabRenderer: BrowserTabRenderer;
+    private linkedNotesTabRenderer: LinkedNotesTabRenderer;
     private pinnedTabRenderer: PinnedTabRenderer;
     private tabStateService: TabStateService;
     public saveSettingsFn: () => Promise<void>;
@@ -62,6 +62,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     /** Reference to sort button for dynamic updates */
     private sortBtn: HTMLElement | null = null;
+
+    private renderFrameId: number | null = null;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -99,7 +101,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.noteRenderer = new NoteRenderer(this, this.contextMenus);
         this.sectionRenderer = new SectionRenderer(this, this.noteRenderer, this.contextMenus);
 
-        this.browserTabRenderer = new BrowserTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
+        this.linkedNotesTabRenderer = new LinkedNotesTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.pinnedTabRenderer = new PinnedTabRenderer(this, this.contextMenus);
     }
 
@@ -364,7 +366,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             if (this.settings.pinnedTabs) {
                 this.settings.pinnedTabs.forEach(pin => this.expandedGroupIds.add(`pin:${pin.id}`));
             }
-            // 2. Browser Tabs (keyed by url for dedupe support)
+            // 2. Linked Tabs (keyed by url for dedupe support)
             if (this.trackedTabs) {
                 this.trackedTabs.forEach(tab => this.expandedGroupIds.add(`tab:${tab.url}`));
             }
@@ -690,6 +692,18 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
+        // Debounce render calls to next animation frame
+        if (this.renderFrameId !== null) {
+            cancelAnimationFrame(this.renderFrameId);
+        }
+
+        this.renderFrameId = requestAnimationFrame(() => {
+            this.renderFrameId = null;
+            this.performRender(force);
+        });
+    }
+
+    private performRender(force?: boolean): void {
         const container = this.contentEl;
 
         // Prevent re-rendering while user is interacting, unless forced
@@ -701,7 +715,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         container.addClass('web-sidecar-container');
 
         // Track mode changes
-        const wasBrowserMode = container.hasClass('web-sidecar-browser-mode');
+        const wasLinkedMode = container.hasClass('web-sidecar-linked-mode');
         // Drop Target for Main Container (Unpinning)
         // If a pinned tab is dropped anywhere outside the pinned section (i.e. on the main list), unpin it.
         container.ondragover = (e) => {
@@ -728,13 +742,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             }
         };
 
+        const isLinkedMode = this.settings.tabAppearance === 'linked-mode' || this.settings.tabAppearance === 'basic';
         const isBasicMode = this.settings.tabAppearance === 'basic';
-        const isBrowserMode = !isBasicMode; // Default to browser/linked note mode
-        const modeChanged = wasBrowserMode !== isBrowserMode;
+        const modeChanged = wasLinkedMode !== isLinkedMode;
 
         // Add mode-specific class
-        container.removeClass('web-sidecar-browser-mode', 'web-sidecar-basic-mode');
-        container.addClass(isBasicMode ? 'web-sidecar-basic-mode' : 'web-sidecar-browser-mode');
+        container.removeClass('web-sidecar-linked-notes-mode', 'web-sidecar-basic-mode');
+        container.addClass(isBasicMode ? 'web-sidecar-basic-mode' : 'web-sidecar-linked-notes-mode');
 
         // Track mouse enter/leave to prevent re-rendering during interaction
         if (!container.getAttribute('data-events-bound')) {
@@ -782,7 +796,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Filter out pinned tabs from trackedTabs if they are "active" as pins?
         // TabStateService.getTrackedTabs() ALREADY does this filtering!
 
-        this.browserTabRenderer.renderBrowserModeTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
+        this.linkedNotesTabRenderer.renderLinkedNotesTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
     }
 }
 

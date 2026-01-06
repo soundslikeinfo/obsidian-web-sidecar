@@ -21,8 +21,8 @@ export class SectionRenderer {
      * Render the empty state with recent notes
      */
     renderEmptyState(container: HTMLElement): void {
-        // Check if browser mode - use consistent layout
-        if (this.view.settings.tabAppearance === 'browser') {
+        // Check if linked mode - use consistent layout
+        if (this.view.settings.tabAppearance === 'linked-mode') {
             // No controls needed here - nav-header already provides refresh button
 
             // "+ New web tab" button (always visible)
@@ -129,7 +129,7 @@ export class SectionRenderer {
         // This prevents aux sections from appearing above main content during initial load
         const virtualSection = container.querySelector('.web-sidecar-virtual-section');
         const newTabBtn = container.querySelector('.web-sidecar-new-tab-btn');
-        const tabListContainer = container.querySelector('.web-sidecar-browser-tabs');
+        const tabListContainer = container.querySelector('.web-sidecar-linked-notes-tabs');
 
         // Determine the correct anchor point (last of the main sections)
         const anchorElement = virtualSection || newTabBtn || tabListContainer;

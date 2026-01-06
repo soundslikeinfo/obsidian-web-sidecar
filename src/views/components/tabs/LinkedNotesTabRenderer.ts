@@ -5,12 +5,12 @@ import { findMatchingNotes } from '../../../services/noteMatcher';
 import { ContextMenus } from '../ContextMenus';
 import { NoteRenderer } from '../NoteRenderer';
 import { SectionRenderer } from '../SectionRenderer';
-import { BrowserTabItemRenderer } from './BrowserTabItemRenderer';
+import { LinkedNotesTabItemRenderer } from './LinkedNotesTabItemRenderer';
 
-export class BrowserTabRenderer {
+export class LinkedNotesTabRenderer {
     private view: IWebSidecarView;
     private sectionRenderer: SectionRenderer;
-    private itemRenderer: BrowserTabItemRenderer;
+    private itemRenderer: LinkedNotesTabItemRenderer;
     private isBasicMode: boolean = false;
 
     constructor(
@@ -21,26 +21,26 @@ export class BrowserTabRenderer {
     ) {
         this.view = view;
         this.sectionRenderer = sectionRenderer;
-        this.itemRenderer = new BrowserTabItemRenderer(view, contextMenus);
+        this.itemRenderer = new LinkedNotesTabItemRenderer(view, contextMenus);
     }
 
     /**
-     * Render browser-style tab list with favicon + title (compact mode)
+     * Render linked-mode tab list with favicon + title (compact mode)
      * @param isBasicMode If true, skip note expansion and virtual tabs
      */
-    renderBrowserModeTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[], isBasicMode: boolean = false): void {
+    renderLinkedNotesTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[], isBasicMode: boolean = false): void {
         this.isBasicMode = isBasicMode;
         this.itemRenderer.setBasicMode(isBasicMode);
         // Remove any legacy inline header if it exists (nav-header is now in WebSidecarView)
-        const legacyHeader = container.querySelector('.web-sidecar-browser-header');
+        const legacyHeader = container.querySelector('.web-sidecar-linked-notes-header');
         if (legacyHeader) {
             legacyHeader.remove();
         }
 
         // Tab list container - reuse if exists
-        let tabListContainer = container.querySelector('.web-sidecar-browser-tabs') as HTMLElement;
+        let tabListContainer = container.querySelector('.web-sidecar-linked-notes-tabs') as HTMLElement;
         if (!tabListContainer) {
-            tabListContainer = container.createDiv({ cls: 'web-sidecar-browser-tabs' });
+            tabListContainer = container.createDiv({ cls: 'web-sidecar-linked-notes-tabs' });
         }
 
         // --- RECONCILIATION LOGIC ---
@@ -78,12 +78,12 @@ export class BrowserTabRenderer {
 
             if (tabEl) {
                 // UPDATE existing element in place
-                this.itemRenderer.updateBrowserTab(tabEl, firstTab, group.all);
+                this.itemRenderer.updateLinkedNotesTab(tabEl, firstTab, group.all);
                 // Ensure correct order in DOM
                 tabListContainer.appendChild(tabEl);
             } else {
                 // CREATE new element
-                this.itemRenderer.renderBrowserTab(tabListContainer, firstTab, group.all);
+                this.itemRenderer.renderLinkedNotesTab(tabListContainer, firstTab, group.all);
                 // The render function appends it, but we need to set the key
                 const newEl = tabListContainer.lastElementChild as HTMLElement;
                 if (newEl) newEl.setAttribute('data-tab-key', key);
@@ -106,29 +106,29 @@ export class BrowserTabRenderer {
         if (legacyBtn) legacyBtn.remove();
 
         // Remove stray button from container scope if exists
-        const strayBtn = container.querySelector(':scope > .web-sidecar-browser-new-tab');
+        const strayBtn = container.querySelector(':scope > .web-sidecar-linked-new-tab');
         if (strayBtn) strayBtn.remove();
 
         // 1. Ensure Drop Zone is added FIRST (so it sits after the last tab)
         this.addTabEndDropZone(tabListContainer);
 
         // 2. Then add/move the New Web Viewer button (so it sits after the drop zone)
-        let newTabBtn = tabListContainer.querySelector('.web-sidecar-browser-new-tab') as HTMLElement;
+        let newTabBtn = tabListContainer.querySelector('.web-sidecar-linked-notes-new-tab') as HTMLElement;
         if (!newTabBtn) {
             newTabBtn = document.createElement('div');
-            newTabBtn.className = 'web-sidecar-browser-tab web-sidecar-browser-new-tab';
-            // Styles moved to CSS: .web-sidecar-browser-new-tab (width: 100%, relative, z-index: 20)
+            newTabBtn.className = 'web-sidecar-linked-notes-tab web-sidecar-linked-notes-new-tab';
+            // Styles moved to CSS: .web-sidecar-linked-new-tab (width: 100%, relative, z-index: 20)
 
-            const row = newTabBtn.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+            const row = newTabBtn.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
             // Click listener on ROW, matching standard tabs, ensures padding is clickable
             row.addEventListener('click', () => this.view.openNewWebViewer());
 
-            const iconContainer = row.createDiv({ cls: 'web-sidecar-browser-favicon' });
+            const iconContainer = row.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
             setIcon(iconContainer, 'plus');
 
             row.createSpan({
                 text: 'New web viewer',
-                cls: 'web-sidecar-browser-tab-title'
+                cls: 'web-sidecar-linked-notes-tab-title'
             });
 
             // Dummy spacer to match height of standard tabs (which have action buttons)
@@ -144,7 +144,7 @@ export class BrowserTabRenderer {
         // --- CRITICAL DOM ORDER ---
         // Order MUST be: 1) Tab list (includes New Web Viewer), 2) Virtual tabs section, 3) Recent section
 
-        // Render virtual tabs (from open notes with URLs) in browser style
+        // Render virtual tabs (from open notes with URLs) in linked mode style
         // Virtual section MUST come AFTER the New web viewer button
         // Uses DOM reconciliation to preserve expanded state
         // SKIP in basic mode - no virtual tabs section
@@ -164,7 +164,7 @@ export class BrowserTabRenderer {
 
             // DOM reconciliation for virtual tabs - preserve expanded state
             const currentElements = new Map<string, HTMLElement>();
-            virtualSection.querySelectorAll(':scope > .web-sidecar-browser-tab').forEach((el) => {
+            virtualSection.querySelectorAll(':scope > .web-sidecar-linked-notes-tab').forEach((el) => {
                 const htmlEl = el as HTMLElement;
                 const key = htmlEl.getAttribute('data-virtual-key');
                 if (key) currentElements.set(key, htmlEl);
@@ -195,7 +195,7 @@ export class BrowserTabRenderer {
                     virtualSection.appendChild(tabEl); // Maintain order
 
                     // Get notes container and expand button
-                    const notesContainer = tabEl.querySelector('.web-sidecar-browser-notes') as HTMLElement;
+                    const notesContainer = tabEl.querySelector('.web-sidecar-linked-notes-notes') as HTMLElement;
                     const expandBtn = tabEl.querySelector('.web-sidecar-expand-btn') as HTMLElement;
 
                     // Check if focused note is linked to this virtual tab
@@ -219,7 +219,7 @@ export class BrowserTabRenderer {
 
                             // Populate notes if empty
                             if (notesContainer.children.length === 0) {
-                                this.itemRenderer.renderBrowserTabNotes(notesContainer, virtualTab.url, matches);
+                                this.itemRenderer.renderLinkedNotesTabNotes(notesContainer, virtualTab.url, matches);
                             }
                         }
 

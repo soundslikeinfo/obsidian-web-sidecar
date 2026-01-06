@@ -279,9 +279,17 @@ export class PinnedTabRenderer {
         }
 
         // 2. Is it active?
-        const activeLeaf = this.view.app.workspace.activeLeaf;
-        if (pin.leafId && activeLeaf && (activeLeaf as any).id === pin.leafId) {
-            el.addClass('is-active');
+        let activeLeaf = this.view.app.workspace.activeLeaf;
+
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+            activeLeaf = this.view.lastActiveLeaf;
+        }
+
+        if (pin.leafId && activeLeaf) {
+            const activeLeafId = (activeLeaf as any).id;
+            if (activeLeafId && activeLeafId === pin.leafId) {
+                el.addClass('is-active');
+            }
         }
     }
 
@@ -295,7 +303,7 @@ export class PinnedTabRenderer {
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
-            const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
                 // Store path for focus tracking
@@ -326,7 +334,7 @@ export class PinnedTabRenderer {
 
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link',
+                    cls: 'web-sidecar-linked-notes-note-link',
                     attr: { href: '#' }
                 });
 
@@ -365,11 +373,11 @@ export class PinnedTabRenderer {
             }
 
             const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-browser-subtitle' });
+            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
             summary.createSpan({ text: headerText });
             summary.onclick = (e) => e.stopPropagation(); // prevent collapsing parent? No, summary usually handles itself.
 
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
 
@@ -386,7 +394,7 @@ export class PinnedTabRenderer {
 
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link web-sidecar-muted',
+                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
                     attr: { href: '#' }
                 });
                 link.addEventListener('click', (e) => {
@@ -411,8 +419,10 @@ export class PinnedTabRenderer {
         const openLeaf = freshPin.leafId ? this.view.app.workspace.getLeafById(freshPin.leafId) : null;
 
         if (openLeaf) {
-            // Focus it
-            this.view.app.workspace.revealLeaf(openLeaf);
+            // Focus it with delay to prevent sidecar self-focus race condition
+            setTimeout(() => {
+                this.view.app.workspace.setActiveLeaf(openLeaf, { focus: true });
+            }, 50);
         } else {
             // Check if we are already in the process of opening? (Prevent rapid clicks)
             // Ideally we'd have a lock or 'isOpening' state.

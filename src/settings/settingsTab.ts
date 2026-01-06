@@ -106,12 +106,12 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.addDropdown(dropdown => {
 				dropdown
 					.addOption('basic', 'Basic')
-					.addOption('browser', 'Linked notes');
+					.addOption('linked-mode', 'Linked notes');
 
 				dropdown
 					.setValue(this.plugin.settings.tabAppearance)
 					.onChange(async (value) => {
-						this.plugin.settings.tabAppearance = value as 'browser' | 'basic';
+						this.plugin.settings.tabAppearance = value as 'linked-mode' | 'basic';
 						await this.plugin.saveSettings();
 					});
 			});

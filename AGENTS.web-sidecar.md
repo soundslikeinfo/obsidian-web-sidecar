@@ -52,7 +52,7 @@ src/
 │       ├── NoteRenderer.ts       # Renders note items in lists
 │       ├── SectionRenderer.ts    # Renders collapsible sections (Recent, Domain groups)
 │       └── tabs/
-│           └── BrowserTabRenderer.ts # "Linked Note mode" compact tab rendering
+│           └── LinkedNotesTabRenderer.ts # "Linked Note mode" compact tab rendering
 ├── services/
 │   ├── TabStateService.ts        # Tracks all web viewer tabs with focus timestamps
 │   ├── NavigationService.ts      # Handles opening notes/URLs, paired opening, focus
@@ -274,12 +274,12 @@ updateTabs(trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[]): void {
 **Expected behavior:**
 - When a note (linked to a web viewer URL) is focused in the editor, a blue dot appears to its left in the sidecar
 - Only shows for exact-match notes in the expanded notes list
-- Uses `is-focused` class with CSS `::before` pseudo-element
+- Uses `active` class with CSS `::before` pseudo-element
 
 **Implementation notes:**
-- In `renderBrowserTabNotes()`, check if each note's file path matches the active leaf's file
+- In `renderLinkedNotesTabList()`, check if each note's file path matches the active leaf's file
 - Uses `lastActiveLeaf` fallback when sidecar itself is focused
-- CSS: `.web-sidecar-browser-note-list li.is-focused::before` with accent-colored dot
+- CSS: `.web-sidecar-linked-notes-note-list li.is-focused::before` with accent-colored dot
 
 ### 6b. Note Tab Cycling
 
@@ -427,7 +427,7 @@ if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.pat
 - Auxiliary sections still render normally (controlled by separate settings)
 - Uses same renderer as Linked Note Mode with `isBasicMode` flag
 
-**Linked Note Mode** (`tabAppearance: 'browser'`):
+**Linked Note Mode** (`tabAppearance: 'linked-mode'`):
 - Compact favicon + title display
 - Expandable cards for matching notes
 - "More web notes" collapsible sections
@@ -444,17 +444,17 @@ if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.pat
 
 **Known limitation:**
 - Favicon icons may briefly flash when new tabs are created. This is a visual artifact of DOM creation, not reconciliation failure.
-- TODO exists in `BrowserTabRenderer.ts` for future optimization.
+- TODO exists in `LinkedNotesTabRenderer.ts` for future optimization.
 
 ```typescript
 // Reconciliation loop pattern
 for (const group of groups) {
     let tabEl = currentElements.get(key);
     if (tabEl) {
-        this.updateBrowserTab(tabEl, firstTab, group.all); // Update in place
+        this.updateLinkedNotesTab(tabEl, firstTab, group.all); // Update in place
         tabListContainer.appendChild(tabEl);               // Preserve order
     } else {
-        this.renderBrowserTab(tabListContainer, firstTab, group.all); // Create new
+        this.renderLinkedNotesTab(tabListContainer, firstTab, group.all); // Create new
     }
 }
 // Remove stale elements
@@ -469,8 +469,8 @@ for (const [key, el] of currentElements) {
 > This button placement has regressed 8+ times. Follow these rules EXACTLY.
 
 **DOM Order in Linked Note mode (top to bottom):**
-1. `web-sidecar-browser-tabs` — Tab list container (all web viewer tabs)
-2. `web-sidecar-new-tab-btn` — "New web viewer" button row
+1. `web-sidecar-linked-notes-tabs` — Tab list container (all web viewer tabs)
+2. `web-sidecar-linked-notes-new-tab` — "New web viewer" button row
 3. `web-sidecar-virtual-section` — "Opened web notes" heading + virtual tabs
 4. `web-sidecar-recent-section` — Recent web notes section
 
@@ -605,7 +605,7 @@ Without explicit save, the order reverts on reload (or sometimes instantly).
 | `newNoteFolderPath` | `string` | `''` | Default folder for new notes |
 | `recentNotesCount` | `number` | `10` | Notes shown when no web viewer is active |
 | `tabSortOrder` | `'focus' \| 'title'` | `'focus'` | Sort order (hidden setting, toggled via header icon) |
-| `tabAppearance` | `'browser' \| 'notes'` | `'browser'` | UI mode |
+| `tabAppearance` | `'linked-mode' \| 'basic'` | `'basic'` | UI mode |
 | `noteOpenBehavior` | `'split' \| 'tab'` | `'split'` | How notes open from sidebar |
 | `collapseDuplicateUrls` | `boolean` | `false` | Collapse duplicate URL tabs |
 | `linkedNoteDisplayStyle` | `'none' \| 'color' \| 'style'` | `'none'` | How to display linked notes based on open state |
@@ -649,7 +649,10 @@ Without explicit save, the order reverts on reload (or sometimes instantly).
 ### Active Tab Highlighting
 
 ```css
-.web-sidecar-browser-tab.is-active .web-sidecar-browser-tab-row {
+### Active Tab Highlighting
+
+```css
+.web-sidecar-linked-notes-tab.is-active .web-sidecar-linked-notes-tab-row {
     background-color: var(--background-modifier-active-hover);
     border-left: 2px solid var(--interactive-accent);
     margin-left: -2px;
@@ -661,18 +664,18 @@ Without explicit save, the order reverts on reload (or sometimes instantly).
 Pinned tabs MUST match the width of regular browser tabs. Both sections use negative margins to extend edge-to-edge:
 
 ```css
-/* Both browser tabs and pinned section use same margin for consistent width */
-.web-sidecar-browser-tabs {
+/* Both linked tabs and pinned section use same margin for consistent width */
+.web-sidecar-linked-notes-tabs {
     margin: 0 -8px 8px -8px;
 }
 
 .web-sidecar-pinned-section {
-    margin: 0 -8px 8px -8px; /* Must match browser-tabs */
+    margin: 0 -8px 8px -8px; /* Must match linked-tabs */
 }
 
-/* Pinned notes container matches browser notes container */
+/* Pinned notes container matches linked notes container */
 .web-sidecar-pinned-notes {
-    padding-left: 24px; /* Same as .web-sidecar-browser-notes */
+    padding-left: 24px; /* Same as .web-sidecar-linked-notes-notes */
     padding-bottom: 4px;
 }
 ```

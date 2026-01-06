@@ -5,7 +5,7 @@ import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatch
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 
-export class BrowserTabItemRenderer {
+export class LinkedNotesTabItemRenderer {
     private view: IWebSidecarView;
     private contextMenus: ContextMenus;
     private isBasicMode: boolean = false;
@@ -19,27 +19,27 @@ export class BrowserTabItemRenderer {
         this.isBasicMode = basic;
     }
 
-    renderBrowserTab(container: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
-        const tabWrapper = container.createDiv({ cls: 'web-sidecar-browser-tab' });
-        this.populateBrowserTab(tabWrapper, tab, allTabs);
+    renderLinkedNotesTab(container: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
+        const tabWrapper = container.createDiv({ cls: 'web-sidecar-linked-notes-tab' });
+        this.populateLinkedNotesTab(tabWrapper, tab, allTabs);
     }
 
-    updateBrowserTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
+    updateLinkedNotesTab(tabEl: HTMLElement, tab: TrackedWebViewer, allTabs?: TrackedWebViewer[]): void {
         // Preserve the notes container and its expanded state
-        const existingNotesContainer = tabEl.querySelector('.web-sidecar-browser-notes') as HTMLElement | null;
+        const existingNotesContainer = tabEl.querySelector('.web-sidecar-linked-notes-notes') as HTMLElement | null;
         const wasExpanded = !!(existingNotesContainer && !existingNotesContainer.hasClass('hidden'));
 
         // Remove only the tab row, keep notes container if it exists
-        const existingRow = tabEl.querySelector('.web-sidecar-browser-tab-row');
+        const existingRow = tabEl.querySelector('.web-sidecar-linked-notes-tab-row');
         if (existingRow) existingRow.remove();
 
         // Rebuild the tab content, passing preserved state
-        this.populateBrowserTab(tabEl, tab, allTabs, existingNotesContainer, wasExpanded);
+        this.populateLinkedNotesTab(tabEl, tab, allTabs, existingNotesContainer, wasExpanded);
     }
 
     renderVirtualTab(container: HTMLElement, virtualTab: VirtualTab): void {
-        const tabWrapper = container.createDiv({ cls: 'web-sidecar-browser-tab' });
-        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+        const tabWrapper = container.createDiv({ cls: 'web-sidecar-linked-notes-tab' });
+        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
 
         // Click -> Open web viewer and track original URL for redirect detection
         tabRow.onclick = async (e) => {
@@ -56,8 +56,8 @@ export class BrowserTabItemRenderer {
 
         const domain = extractDomain(virtualTab.url);
 
-        // Favicon (Same styling as browser tab)
-        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
+        // Favicon (Same styling as linked tab)
+        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
         // Skip favicon for internal pages
         const isInternal = virtualTab.url.startsWith('about:') || virtualTab.url.startsWith('chrome:') || virtualTab.url.startsWith('obsidian:');
 
@@ -82,7 +82,7 @@ export class BrowserTabItemRenderer {
         const displayTitle = virtualTab.cachedTitle || domain || virtualTab.url;
         const titleSpan = tabRow.createSpan({
             text: displayTitle,
-            cls: 'web-sidecar-browser-tab-title web-sidecar-virtual-tab-title'
+            cls: 'web-sidecar-linked-notes-tab-title web-sidecar-virtual-tab-title'
         });
 
         // Match handling for counts and expand logic
@@ -120,10 +120,10 @@ export class BrowserTabItemRenderer {
 
             setIcon(expandBtn, isExpanded ? 'chevron-down' : 'chevron-right');
 
-            const notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes' });
+            const notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-notes' });
             if (!isExpanded) notesContainer.addClass('hidden');
             else {
-                this.renderBrowserTabNotes(notesContainer, virtualTab.url, matches);
+                this.renderLinkedNotesTabNotes(notesContainer, virtualTab.url, matches);
             }
 
             expandBtn.onclick = (e) => {
@@ -135,7 +135,7 @@ export class BrowserTabItemRenderer {
         }
     }
 
-    private populateBrowserTab(
+    private populateLinkedNotesTab(
         tabWrapper: HTMLElement,
         tab: TrackedWebViewer,
         allTabs?: TrackedWebViewer[],
@@ -209,12 +209,12 @@ export class BrowserTabItemRenderer {
             if (existingNotesContainer) {
                 notesContainer = existingNotesContainer;
             } else {
-                notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-browser-notes hidden' });
+                notesContainer = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-notes hidden' });
             }
         }
 
         // Main tab row - insert at beginning so it's before the notes container
-        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-browser-tab-row' });
+        const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
         if (notesContainer) {
             // Insert row before the notes container to maintain order
             tabWrapper.insertBefore(tabRow, notesContainer);
@@ -327,7 +327,7 @@ export class BrowserTabItemRenderer {
         const domain = extractDomain(tab.url);
 
         // Favicon
-        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-browser-favicon' });
+        const faviconContainer = tabRow.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
         // Skip favicon for internal pages
         const isInternal = tab.url.startsWith('about:') || tab.url.startsWith('chrome:') || tab.url.startsWith('obsidian:');
 
@@ -351,7 +351,7 @@ export class BrowserTabItemRenderer {
         // Title
         tabRow.createSpan({
             text: tab.title || domain || 'Untitled',
-            cls: 'web-sidecar-browser-tab-title'
+            cls: 'web-sidecar-linked-notes-tab-title'
         });
 
         // Pop-out icon
@@ -439,11 +439,11 @@ export class BrowserTabItemRenderer {
             // (clearing and rebuilding is fast enough and ensures consistency)
             if (isCurrentlyExpanded) {
                 notesContainer.empty();
-                this.renderBrowserTabNotes(notesContainer, tab.url, matches, tab.leafId);
+                this.renderLinkedNotesTabNotes(notesContainer, tab.url, matches, tab.leafId);
             }
 
             // CRITICAL: Update is-focused class on existing note items when focus changes
-            // (renderBrowserTabNotes handled this, but we leave this here if we later optimize to not full re-render)
+            // (renderLinkedTabNotes handled this, but we leave this here if we later optimize to not full re-render)
             if (isCurrentlyExpanded && notesContainer.children.length > 0) {
                 this.updateNoteFocusState(notesContainer, focusedNotePath);
             }
@@ -455,9 +455,9 @@ export class BrowserTabItemRenderer {
      * This is called on every render to ensure the blue dot follows focus changes
      */
     updateNoteFocusState(container: HTMLElement, focusedNotePath: string | null): void {
-        const noteItems = container.querySelectorAll('.web-sidecar-browser-note-list li');
+        const noteItems = container.querySelectorAll('.web-sidecar-linked-notes-note-list li');
         noteItems.forEach((li) => {
-            const link = li.querySelector('.web-sidecar-browser-note-link');
+            const link = li.querySelector('.web-sidecar-linked-notes-note-link');
             if (!link) return;
 
             // Get the file path from the data attribute we'll add during render
@@ -471,7 +471,7 @@ export class BrowserTabItemRenderer {
         });
     }
 
-    renderBrowserTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
+    renderLinkedNotesTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
         // Add style-mode class if using 'style' option (for italic closed notes)
         if (this.view.settings.linkedNoteDisplayStyle === 'style') {
             container.addClass('style-mode');
@@ -481,7 +481,7 @@ export class BrowserTabItemRenderer {
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
-            const exactList = container.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
                 const li = exactList.createEl('li');
                 // Store path for focus tracking
@@ -564,7 +564,7 @@ export class BrowserTabItemRenderer {
 
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link',
+                    cls: 'web-sidecar-linked-notes-note-link',
                     attr: { href: '#' }
                 });
 
@@ -615,10 +615,10 @@ export class BrowserTabItemRenderer {
 
             // Create collapsible details element
             const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-browser-subtitle' });
+            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
             summary.createSpan({ text: headerText });
 
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
+            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
 
@@ -636,7 +636,7 @@ export class BrowserTabItemRenderer {
 
                 const link = li.createEl('a', {
                     text: match.file.basename,
-                    cls: 'web-sidecar-browser-note-link web-sidecar-muted',
+                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
                     attr: { href: '#' }
                 });
                 link.addEventListener('click', (e) => {

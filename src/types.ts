@@ -201,7 +201,7 @@ export type TabSortOrder = 'focus' | 'title' | 'manual';
 /**
  * Tab appearance mode for sidebar
  */
-export type TabAppearance = 'browser' | 'basic';
+export type TabAppearance = 'linked-mode' | 'basic';
 
 /**
  * Note opening behavior from sidebar

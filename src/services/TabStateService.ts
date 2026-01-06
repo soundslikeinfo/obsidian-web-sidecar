@@ -217,18 +217,32 @@ export class TabStateService {
             // Check each URL property field
             for (const propName of settings.urlPropertyFields) {
                 const propValue = frontmatter[propName];
-                if (typeof propValue === 'string' && propValue.startsWith('http')) {
+                if (!propValue) continue;
+
+                // Handle string or array
+                const values = Array.isArray(propValue) ? propValue : [propValue];
+
+                let foundUrl: string | undefined;
+
+                for (const val of values) {
+                    if (typeof val === 'string' && val.trim().startsWith('http')) {
+                        foundUrl = val.trim();
+                        break;
+                    }
+                }
+
+                if (foundUrl) {
                     // Skip if URL is already open in a web viewer
-                    if (openUrls.has(propValue)) continue;
+                    if (openUrls.has(foundUrl)) continue;
 
                     // Skip if URL belongs to a pinned tab (shown in pinned section instead)
-                    if (pinnedUrls.has(propValue)) continue;
+                    if (pinnedUrls.has(foundUrl)) continue;
 
                     virtualTabs.push({
                         file,
-                        url: propValue,
+                        url: foundUrl,
                         propertyName: propName,
-                        cachedTitle: this.urlTitleCache.get(propValue),
+                        cachedTitle: this.urlTitleCache.get(foundUrl),
                     });
                     break; // Only add one virtual tab per note
                 }

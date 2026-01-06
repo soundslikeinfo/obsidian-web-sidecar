@@ -401,3 +401,32 @@ expandBtn.onclick = (e) => {
 - [ ] Do all click handlers that toggle UI state use `render(true)`?
 - [ ] Is `isInteracting` correctly blocking passive updates (polls) but allowing user interactions (clicks)?
 
+---
+
+## Pinned Tab Focus State Failure
+
+**Symptom:** Clicking a pinned tab opens the tab, but the pinned tab icon/row does not look active. The previously active web viewer often remains highlighted.
+
+**Cause:** Clicking the pinned tab focuses the Sidecar view. The logic to reveal the pinned tab leaf runs, but without a delay, the Sidecar's focus event might override or interfere with the active leaf check during the render cycle. This is identical to the "Focus Stealing" regression seen in normal tabs.
+
+**Fix:** 
+1. Wrap the `revealLeaf` (or focus logic) in `handlePinClick` with `setTimeout(..., 50)`.
+2. Add `lastActiveLeaf` fallback to the active leaf check in `render/updatePinnedTab`.
+
+```typescript
+// PinnedTabRenderer.ts
+// 1. Delay
+setTimeout(() => { this.view.app.workspace.revealLeaf(openLeaf); }, 50);
+
+// 2. Fallback
+let activeLeaf = this.view.app.workspace.activeLeaf;
+if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
+    activeLeaf = this.view.lastActiveLeaf;
+}
+```
+
+**Checklist:**
+- [ ] Does `handlePinClick` use `setTimeout` for focusing?
+- [ ] Does the pinned tab visually become active immediately?
+- [ ] Does `updatePinnedTab` or `renderPinnedTab` use `lastActiveLeaf` fallback?
+

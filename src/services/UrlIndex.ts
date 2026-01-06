@@ -1,11 +1,12 @@
 import { App, TFile, EventRef, Events } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
-import { extractDomain, isValidUrl } from './urlUtils';
+import { extractDomain, isValidUrl, normalizeUrl } from './urlUtils';
 
 export class UrlIndex extends Events {
     private app: App;
     private getSettings: () => WebSidecarSettings;
     private urlToFiles: Map<string, Set<TFile>> = new Map();
+    private normalizedUrlToFiles: Map<string, Set<TFile>> = new Map();
     private domainToFiles: Map<string, Set<TFile>> = new Map();
     // Reverse index to quickly clear file entries on update
     private fileToUrls: Map<string, Set<string>> = new Map();
@@ -64,6 +65,7 @@ export class UrlIndex extends Events {
         this.listeners.forEach(ref => this.app.metadataCache.offref(ref));
         this.listeners.forEach(ref => this.app.vault.offref(ref));
         this.urlToFiles.clear();
+        this.normalizedUrlToFiles.clear();
         this.domainToFiles.clear();
         this.fileToUrls.clear();
     }
@@ -73,6 +75,16 @@ export class UrlIndex extends Events {
      */
     getFilesForUrl(url: string): TFile[] {
         const files = this.urlToFiles.get(url);
+        return files ? Array.from(files) : [];
+    }
+
+    /**
+     * Get files referencing this URL (normalized)
+     */
+    getFilesForNormalizedUrl(url: string): TFile[] {
+        const normalized = normalizeUrl(url);
+        if (!normalized) return [];
+        const files = this.normalizedUrlToFiles.get(normalized);
         return files ? Array.from(files) : [];
     }
 
@@ -103,6 +115,7 @@ export class UrlIndex extends Events {
      */
     rebuildIndex(): void {
         this.urlToFiles.clear();
+        this.normalizedUrlToFiles.clear();
         this.domainToFiles.clear();
         this.fileToUrls.clear();
 
@@ -155,6 +168,15 @@ export class UrlIndex extends Events {
                     }
                     this.urlToFiles.get(url)!.add(file);
 
+                    // Index by Normalized URL
+                    const normalized = normalizeUrl(url);
+                    if (normalized) {
+                        if (!this.normalizedUrlToFiles.has(normalized)) {
+                            this.normalizedUrlToFiles.set(normalized, new Set());
+                        }
+                        this.normalizedUrlToFiles.get(normalized)!.add(file);
+                    }
+
                     // Index by Domain
                     const domain = extractDomain(url);
                     if (domain) {
@@ -187,6 +209,18 @@ export class UrlIndex extends Events {
                 filesForUrl.delete(file);
                 if (filesForUrl.size === 0) {
                     this.urlToFiles.delete(url);
+                }
+            }
+
+            // Remove from Normalized URL index
+            const normalized = normalizeUrl(url);
+            if (normalized) {
+                const filesForNormalized = this.normalizedUrlToFiles.get(normalized);
+                if (filesForNormalized) {
+                    filesForNormalized.delete(file);
+                    if (filesForNormalized.size === 0) {
+                        this.normalizedUrlToFiles.delete(normalized);
+                    }
                 }
             }
 

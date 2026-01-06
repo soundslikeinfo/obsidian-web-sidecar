@@ -42,7 +42,7 @@ See [CHANGELOG](CHANGELOG.md) for version history.
 | Setting | Description |
 |---------|-------------|
 | URL property fields | Frontmatter properties to search for URLs |
-| Tab appearance | Browser mode (compact) or Notes mode (detailed) |
+| Tab appearance | Basic mode or Linked notes mode |
 | Note open behavior | Split view or new tab |
 | Recent notes count | Number of recent notes to show |
 | Capture page content | Extract and save web page content using Defuddle |
