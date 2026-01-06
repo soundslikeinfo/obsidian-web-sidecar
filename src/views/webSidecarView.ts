@@ -1,6 +1,6 @@
 
 
-import { ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
@@ -245,6 +245,74 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             await this.saveSettingsFn();
         };
 
+        // History button (activates "Web Viewer: Show history")
+        const historyBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Show history' }
+        });
+        setIcon(historyBtn, 'clock');
+        historyBtn.onclick = () => {
+            const appAny = this.app as any;
+            if (appAny.commands) {
+                const commands = appAny.commands.commands;
+                const cmdList = Object.values(commands) as any[];
+
+                // Try to find the command:
+                // 1. Exact match (case insensitive) "Show history"
+                let cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'show history');
+
+                // 2. Exact match full string "Web Viewer: Show history"
+                if (!cmd) {
+                    cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'web viewer: show history');
+                }
+
+                if (cmd) {
+                    appAny.commands.executeCommandById(cmd.id);
+                } else {
+                    new Notice('Web Sidecar: Command "Show history" not found.');
+                    console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
+                }
+            }
+        };
+
+        // Search button (activates "Web Viewer: Search the web")
+        const searchBtn = buttonContainer.createEl('div', {
+            cls: 'clickable-icon nav-action-button',
+            attr: { 'aria-label': 'Search the web' }
+        });
+        setIcon(searchBtn, 'search');
+        searchBtn.onclick = () => {
+            const appAny = this.app as any;
+            if (appAny.commands) {
+                const commands = appAny.commands.commands;
+                const cmdList = Object.values(commands) as any[];
+
+                // Try to find the command:
+                // 1. Exact match (case insensitive) "Search the web"
+                let cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'search the web');
+
+                // 2. Exact match full string "Web Viewer: Search the web"
+                if (!cmd) {
+                    cmd = cmdList.find((c: any) => c.name && c.name.toLowerCase() === 'web viewer: search the web');
+                }
+
+                // 3. Heuristic: Contains "Search the web" and plugin ID looks relevant
+                if (!cmd) {
+                    cmd = cmdList.find((c: any) =>
+                        c.name && c.name.toLowerCase().includes('search the web') &&
+                        (c.id.includes('web-viewer') || c.id.includes('web-browser') || c.id.includes('surfing'))
+                    );
+                }
+
+                if (cmd) {
+                    appAny.commands.executeCommandById(cmd.id);
+                } else {
+                    new Notice('Web Sidecar: Command "Search the web" not found.');
+                    console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));
+                }
+            }
+        };
+
         // Refresh button
         const refreshBtn = buttonContainer.createEl('div', {
             cls: 'clickable-icon nav-action-button',
@@ -289,6 +357,24 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // Persist changes
         this.saveSettingsFn();
+
+        // Expand/Collapse global tab state
+        if (newState) {
+            // 1. Pinned Tabs
+            if (this.settings.pinnedTabs) {
+                this.settings.pinnedTabs.forEach(pin => this.expandedGroupIds.add(`pin:${pin.id}`));
+            }
+            // 2. Browser Tabs (keyed by url for dedupe support)
+            if (this.trackedTabs) {
+                this.trackedTabs.forEach(tab => this.expandedGroupIds.add(`tab:${tab.url}`));
+            }
+            // 3. Virtual Tabs
+            if (this.virtualTabs) {
+                this.virtualTabs.forEach(vtab => this.expandedGroupIds.add(`virtual:${vtab.url}`));
+            }
+        } else {
+            this.expandedGroupIds.clear();
+        }
 
         // Force re-render to populate content with new state
         this.isManualRefresh = true;

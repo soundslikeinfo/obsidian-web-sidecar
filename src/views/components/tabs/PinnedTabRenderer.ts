@@ -28,6 +28,10 @@ export class PinnedTabRenderer {
         let pinnedSection = container.querySelector('.web-sidecar-pinned-section') as HTMLElement;
         if (!pinnedSection) {
             pinnedSection = container.createDiv({ cls: 'web-sidecar-pinned-section' });
+            container.prepend(pinnedSection);
+        } else if (container.firstChild !== pinnedSection) {
+            // Ensure matches top position if existing
+            container.prepend(pinnedSection);
         }
 
         // Hide if no pins and we don't want to show an empty drop zone (User said default empty is fine, but dragged item should allow pin)
@@ -282,8 +286,12 @@ export class PinnedTabRenderer {
     }
 
     private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
-        // Duplicate logic from BrowserTabItemRenderer's renderBrowserTabNotes
-        // Ideally this should be shared, but for now we inline to fix the bug quickly.
+        // Add style-mode class if using 'style' option (for italic closed notes)
+        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
+            container.addClass('style-mode');
+        } else {
+            container.removeClass('style-mode');
+        }
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
@@ -303,6 +311,17 @@ export class PinnedTabRenderer {
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
+                }
+
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if ((leaf.view as any).file?.path === match.file.path) {
+                            isOpen = true;
+                        }
+                    });
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
                 }
 
                 const link = li.createEl('a', {
@@ -353,6 +372,18 @@ export class PinnedTabRenderer {
             const domainList = details.createEl('ul', { cls: 'web-sidecar-browser-note-list' });
             for (const match of matches.tldMatches) {
                 const li = domainList.createEl('li');
+
+                // Check if note is open anywhere in workspace (for open/closed styling)
+                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
+                    let isOpen = false;
+                    this.view.app.workspace.iterateAllLeaves((leaf) => {
+                        if ((leaf.view as any).file?.path === match.file.path) {
+                            isOpen = true;
+                        }
+                    });
+                    li.addClass(isOpen ? 'is-open' : 'is-closed');
+                }
+
                 const link = li.createEl('a', {
                     text: match.file.basename,
                     cls: 'web-sidecar-browser-note-link web-sidecar-muted',

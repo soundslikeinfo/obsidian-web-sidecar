@@ -610,10 +610,11 @@ Without explicit save, the order reverts on reload (or sometimes instantly).
 | `enableTldSearch` | `boolean` | `true` | Show "Same domain" expanded matches |
 | `newNoteFolderPath` | `string` | `''` | Default folder for new notes |
 | `recentNotesCount` | `number` | `10` | Notes shown when no web viewer is active |
-| `tabSortOrder` | `'focus' \| 'title'` | `'focus'` | How to sort tracked tabs |
+| `tabSortOrder` | `'focus' \| 'title'` | `'focus'` | Sort order (hidden setting, toggled via header icon) |
 | `tabAppearance` | `'browser' \| 'notes'` | `'browser'` | UI mode |
 | `noteOpenBehavior` | `'split' \| 'tab'` | `'split'` | How notes open from sidebar |
 | `collapseDuplicateUrls` | `boolean` | `false` | Collapse duplicate URL tabs |
+| `linkedNoteDisplayStyle` | `'none' \| 'color' \| 'style'` | `'none'` | How to display linked notes based on open state |
 | `enableSubredditFilter` | `boolean` | `false` | Filter domain matches by subreddit |
 | `enableSubredditExplorer` | `boolean` | `false` | Show subreddit grouping section |
 | `sectionOrder` | `string[]` | `['recent', 'domain', 'subreddit']` | Drag-to-reorder section order |

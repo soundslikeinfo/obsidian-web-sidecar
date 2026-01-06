@@ -122,19 +122,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					});
 			});
 
-		// Tab Sort Order
-		new Setting(containerEl)
-			.setName('Tab sort order')
-			.setDesc('How to sort open web viewer tabs')
-			.addDropdown(dropdown => dropdown
-				.addOption('focus', 'Recently focused')
-				.addOption('title', 'Alphabetical by title')
-				.addOption('manual', 'Manual (drag to reorder)')
-				.setValue(this.plugin.settings.tabSortOrder)
-				.onChange(async (value) => {
-					this.plugin.settings.tabSortOrder = value as 'focus' | 'title' | 'manual';
-					await this.plugin.saveSettings();
-				}));
+
 
 		// Collapse Duplicate URLs
 		new Setting(containerEl)
@@ -144,6 +132,20 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.collapseDuplicateUrls)
 				.onChange(async (value) => {
 					this.plugin.settings.collapseDuplicateUrls = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Linked Note Display Style
+		new Setting(containerEl)
+			.setName('Linked note display style')
+			.setDesc('How to display linked notes based on whether they are open in the workspace')
+			.addDropdown(dropdown => dropdown
+				.addOption('none', 'Do nothing')
+				.addOption('color', 'Muted for closed, accent for open')
+				.addOption('style', 'Muted italic for closed, accent for open')
+				.setValue(this.plugin.settings.linkedNoteDisplayStyle)
+				.onChange(async (value) => {
+					this.plugin.settings.linkedNoteDisplayStyle = value as 'none' | 'color' | 'style';
 					await this.plugin.saveSettings();
 				}));
 

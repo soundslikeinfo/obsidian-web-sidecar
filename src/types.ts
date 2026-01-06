@@ -187,6 +187,10 @@ export interface WebSidecarSettings {
     capturePageContent: boolean;
     /** Prefer to open notes in the right tab group */
     preferNotesRight: boolean;
+
+    // Linked Note Display
+    /** How to display linked notes in web viewer tabs based on open state */
+    linkedNoteDisplayStyle: 'none' | 'color' | 'style';
 }
 
 /**
@@ -265,6 +269,9 @@ export const DEFAULT_SETTINGS: WebSidecarSettings = {
 
     // Content Capture
     capturePageContent: true,
+
+    // Linked Note Display
+    linkedNoteDisplayStyle: 'none',
 };
 
 /**

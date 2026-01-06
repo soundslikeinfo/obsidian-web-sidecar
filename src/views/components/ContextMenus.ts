@@ -276,6 +276,8 @@ export class ContextMenus {
                     .setIcon('x')
                     .onClick(() => {
                         openLeaf.detach();
+                        // Delay render slightly to allow workspace focus to settle on the next leaf
+                        setTimeout(() => this.view.render(true), 100);
                     });
             });
         }
@@ -316,6 +318,19 @@ export class ContextMenus {
                 .setIcon('x-circle')
                 .onClick(() => {
                     this.view.closeAllLeavesForUrl(url);
+                });
+        });
+
+        // Close all web views + linked notes
+        menu.addItem((item) => {
+            item
+                .setTitle('Close all web views + linked notes')
+                .setIcon('trash-2')
+                .onClick(() => {
+                    this.view.closeAllLeavesForUrl(url);
+                    this.view.closeLinkedNoteLeaves(url);
+                    // Force refresh after bulk close
+                    setTimeout(() => this.view.render(true), 150);
                 });
         });
 

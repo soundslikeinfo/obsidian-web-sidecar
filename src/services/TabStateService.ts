@@ -470,7 +470,8 @@ export class TabStateService {
             url: tab.url,
             title: (tab as any).title || (tab as any).cachedTitle || tab.url,
             isNote,
-            notePath
+            notePath,
+            leafId: (tab as any).leafId
         };
 
         settings.pinnedTabs.push(newPin);

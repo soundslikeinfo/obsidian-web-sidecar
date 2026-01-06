@@ -523,6 +523,25 @@
   opacity: 1;
 }
 
+/* ============================================
+   LINKED NOTE DISPLAY STYLES (open/closed state)
+   ============================================ */
+
+/* Closed notes: muted grey color */
+.web-sidecar-browser-note-list li.is-closed .web-sidecar-browser-note-link {
+  color: var(--text-muted);
+}
+
+/* Open notes: theme accent color */
+.web-sidecar-browser-note-list li.is-open .web-sidecar-browser-note-link {
+  color: var(--text-accent);
+}
+
+/* Style mode: add italic for closed notes */
+.style-mode .web-sidecar-browser-note-list li.is-closed .web-sidecar-browser-note-link {
+  font-style: italic;
+}
+
 .web-sidecar-browser-note-link {
   color: var(--text-accent);
   text-decoration: none;

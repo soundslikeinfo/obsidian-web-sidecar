@@ -379,3 +379,25 @@ state: { url: homepage, navigate: true }
 - [ ] Did you check all four files where `openNewWebViewer` or similar functions exist?
 - [ ] Falls back to `about:blank` if homepage setting is unavailable?
 
+---
+
+## Manual Tab Expansion Failure (isInteracting)
+
+**Symptom:** "Expand All" works, but manually clicking individual expand buttons (Pinned Tabs, Web Viewer groups, Virtual Tabs) does nothing.
+
+**Cause:** The click handler calls `this.view.render()` to update the UI based on the new expansion state. However, `WebSidecarView.render()` has a check `if (this.isInteracting && !force) return;`. Since the user is hovering/clicking within the sidecar, `isInteracting` is true (set by mouseenter). `render()` (without force) exits early, so the UI never updates to reflect the toggled state.
+
+**Fix:** Must explicitly pass `true` (force) to `render()` in all interactive handlers that require immediate UI updates.
+
+```typescript
+// BrowserTabItemRenderer.ts / PinnedTabRenderer.ts
+expandBtn.onclick = (e) => {
+    // ... update state ...
+    this.view.render(true); // FORCE render
+};
+```
+
+**Checklist:**
+- [ ] Do all click handlers that toggle UI state use `render(true)`?
+- [ ] Is `isInteracting` correctly blocking passive updates (polls) but allowing user interactions (clicks)?
+
