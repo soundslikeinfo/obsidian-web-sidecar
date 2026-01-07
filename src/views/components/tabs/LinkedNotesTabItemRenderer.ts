@@ -1,12 +1,17 @@
-
 import { setIcon, MarkdownView, View } from 'obsidian';
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
 import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
-import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
+import { findMatchingNotes } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 import { PageTitleService } from '../../../services/PageTitleService';
+import {
+    createNewNoteButton,
+    renderTldSection,
+    applyStyleModeClass,
+    type NoteRowContext
+} from './NoteRowBuilder';
 
 export class LinkedNotesTabItemRenderer {
     private view: IWebSidecarView;
@@ -534,15 +539,18 @@ export class LinkedNotesTabItemRenderer {
         });
     }
 
-    renderLinkedNotesTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
-        // Add style-mode class if using 'style' option (for italic closed notes)
-        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
-            container.addClass('style-mode');
-        } else {
-            container.removeClass('style-mode');
-        }
 
-        // 1. Exact matches first
+    renderLinkedNotesTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
+        const ctx: NoteRowContext = {
+            view: this.view,
+            contextMenus: this.contextMenus,
+            settings: this.view.settings
+        };
+
+        // Apply style mode class
+        applyStyleModeClass(container, this.view.settings);
+
+        // 1. Exact matches first - Keep inline to preserve specific complex focus/cycle logic
         if (matches.exactMatches.length > 0) {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
@@ -562,37 +570,21 @@ export class LinkedNotesTabItemRenderer {
                 // If not (e.g. it was just closed), try to find the mostly likely new active leaf
                 // by looking for the most recent markdown leaf that isn't the one we just checked
                 if (activeLeaf && (activeLeaf as unknown as { parent: unknown }).parent === undefined) {
-                    // Leaf is detached
+                    // Leaf is detached - heuristic fallback
                     const allMarkdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
-                    // Simple heuristic: grab the last one (often the most recently active/created)
-                    // A better approach would be to trust Obsidian's focus logic which should settle soon,
-                    // but for immediate render, this is a reasonable guess.
                     if (allMarkdownLeaves.length > 0) {
-                        activeLeaf = allMarkdownLeaves[allMarkdownLeaves.length - 1] || undefined; // active leaf is usually last in list? Not necessarily.
-                        // Actually, this.view.app.workspace.activeLeaf might be null if sidecar has focus.
-                        // But we want the "visual" active note.
-                        // Let's assume the first visible one if we can't tell?
-                        // Better: don't highlight any if we aren't sure, rather than highlighting wrong one.
-                        // BUT the user WANTS to see the new focus.
-                        // Let's try to get the active leaf of the main workspace container?
-                        // Hard to access reliably without private API.
-                        // Fallback: If `lastActiveLeaf` is detached, checking `app.workspace.getMostRecentLeaf()` might work if we ignore sidecar?
-                        // `getMostRecentLeaf` takes a root.
-                        activeLeaf = undefined; // Reset if invalid
+                        activeLeaf = undefined; // safe fallback
                     }
                 }
 
-                // Re-check activeLeaf from workspace if we reset it or it was null
-
                 const isNoteFocused = activeLeaf?.view instanceof MarkdownView
                     && activeLeaf.view.file?.path === match.file.path
-                    && activeLeaf.getRoot() === this.view.app.workspace.rootSplit; // Ensure it's in main area? Optional.
+                    && activeLeaf.getRoot() === this.view.app.workspace.rootSplit;
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
                 }
 
-                // Check if note is open anywhere in workspace (for open/closed styling)
                 // Check if note is open anywhere in workspace (for open/closed styling)
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
@@ -630,64 +622,14 @@ export class LinkedNotesTabItemRenderer {
             }
         }
 
-        // 2. New linked note button (always show)
-        const newNoteBtn = container.createDiv({ cls: 'web-sidecar-new-note-btn' });
-        const noteIcon = newNoteBtn.createSpan({ cls: 'web-sidecar-new-note-icon' });
-        setIcon(noteIcon, 'file-plus');
-        newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
-        newNoteBtn.setAttribute('aria-label', 'New linked note');
-        newNoteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.view.openCreateNoteModal(url, leafId);
-        });
+        // 2. New linked note button
+        createNewNoteButton(container, url, leafId, ctx);
 
-        // 3. Same domain notes (if enabled) - collapsible section
+        // 3. Same domain notes
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            const domain = extractDomain(url);
-            let headerText = `More web notes (${domain || 'this domain'})`;
-
-            // Priority: YouTube Channel > Subreddit > Domain
-            if (matches.matchedChannel) {
-                headerText = `More from ${matches.matchedChannel}`;
-            } else if (this.view.settings.enableSubredditFilter) {
-                const subreddit = extractSubreddit(url);
-                if (subreddit) {
-                    headerText = `More web notes (${subreddit})`;
-                }
-            }
-
-            // Create collapsible details element
-            const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
-            summary.createSpan({ text: headerText });
-
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
-            for (const match of matches.tldMatches) {
-                const li = domainList.createEl('li');
-
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
-                    let isOpen = false;
-                    this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if (leafHasFile(leaf, match.file.path)) {
-                            isOpen = true;
-                        }
-                    });
-                    li.addClass(isOpen ? 'is-open' : 'is-closed');
-                }
-
-                const link = li.createEl('a', {
-                    text: match.file.basename,
-                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
-                    attr: { href: '#' }
-                });
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    void this.view.openNoteSmartly(match.file, e);
-                });
-                link.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, match.file, match.url));
-            }
+            renderTldSection(container, url, matches, ctx);
         }
     }
 }
+
+

@@ -1,10 +1,17 @@
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
-import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
-import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
-import { setIcon, MarkdownView, View } from 'obsidian';
+import { getLeafId } from '../../../services/obsidianHelpers';
+import { findMatchingNotes } from '../../../services/noteMatcher';
+import { setIcon, View } from 'obsidian';
 import { IWebSidecarView, PinnedTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
+import {
+    createNoteLink,
+    createNewNoteButton,
+    renderTldSection,
+    applyStyleModeClass,
+    type NoteRowContext
+} from './NoteRowBuilder';
 
 export class PinnedTabRenderer {
     private view: IWebSidecarView;
@@ -314,119 +321,33 @@ export class PinnedTabRenderer {
     }
 
     private renderPinnedNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
-        // Add style-mode class if using 'style' option (for italic closed notes)
-        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
-            container.addClass('style-mode');
-        } else {
-            container.removeClass('style-mode');
-        }
+        const ctx: NoteRowContext = {
+            view: this.view,
+            contextMenus: this.contextMenus,
+            settings: this.view.settings
+        };
+
+        // Apply style mode class
+        applyStyleModeClass(container, this.view.settings);
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
             for (const match of matches.exactMatches) {
-                const li = exactList.createEl('li');
-                // Store path for focus tracking
-                li.setAttribute('data-note-path', match.file.path);
-
-                // Check if this note is the currently focused leaf
-                let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
-                if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                    activeLeaf = this.view.lastActiveLeaf;
-                }
-                const isNoteFocused = activeLeaf?.view instanceof MarkdownView
-                    && activeLeaf.view.file?.path === match.file.path;
-
-                if (isNoteFocused) {
-                    li.addClass('is-focused');
-                }
-
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
-                    let isOpen = false;
-                    this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if (leafHasFile(leaf, match.file.path)) {
-                            isOpen = true;
-                        }
-                    });
-                    li.addClass(isOpen ? 'is-open' : 'is-closed');
-                }
-
-                const link = li.createEl('a', {
-                    text: match.file.basename,
-                    cls: 'web-sidecar-linked-notes-note-link',
-                    attr: { href: '#' }
-                });
-
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
-                    void this.view.openNoteSmartly(match.file, e);
-                });
-
-                link.addEventListener('contextmenu', (e) => {
-                    e.stopPropagation(); // FIX: Prevent bubbling to pinned tab container (double menu)
-                    this.contextMenus.showNoteContextMenu(e, match.file, match.url);
-                });
+                createNoteLink(exactList, {
+                    file: match.file,
+                    url: match.url,
+                    stopPropagation: true
+                }, ctx);
             }
         }
 
         // 2. New linked note button
-        const newNoteBtn = container.createDiv({ cls: 'web-sidecar-new-note-btn' });
-        const noteIcon = newNoteBtn.createSpan({ cls: 'web-sidecar-new-note-icon' });
-        setIcon(noteIcon, 'file-plus');
-        newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
-        newNoteBtn.onclick = (e) => {
-            e.stopPropagation();
-            this.view.openCreateNoteModal(url, leafId);
-        };
+        createNewNoteButton(container, url, leafId, ctx);
 
         // 3. Same domain notes
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            const domain = extractDomain(url);
-            let headerText = `More web notes (${domain || 'this domain'})`;
-            if (this.view.settings.enableSubredditFilter) {
-                const subreddit = extractSubreddit(url);
-                if (subreddit) {
-                    headerText = `More web notes (${subreddit})`;
-                }
-            }
-
-            const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
-            summary.createSpan({ text: headerText });
-            summary.onclick = (e) => e.stopPropagation(); // prevent collapsing parent? No, summary usually handles itself.
-
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
-            for (const match of matches.tldMatches) {
-                const li = domainList.createEl('li');
-
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
-                    let isOpen = false;
-                    this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if (leafHasFile(leaf, match.file.path)) {
-                            isOpen = true;
-                        }
-                    });
-                    li.addClass(isOpen ? 'is-open' : 'is-closed');
-                }
-
-                const link = li.createEl('a', {
-                    text: match.file.basename,
-                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
-                    attr: { href: '#' }
-                });
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Prevent bubbling to pinned tab wrapper
-                    void this.view.openNoteSmartly(match.file, e);
-                });
-                link.addEventListener('contextmenu', (e) => {
-                    e.stopPropagation();
-                    this.contextMenus.showNoteContextMenu(e, match.file, match.url);
-                });
-            }
+            renderTldSection(container, url, matches, ctx, true);
         }
     }
 
