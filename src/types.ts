@@ -37,6 +37,7 @@ export interface IWebSidecarView {
 
     openNewWebViewer(): Promise<void>;
     getOrCreateRightLeaf(): WorkspaceLeaf;
+    getOrCreateWebViewerLeaf(): WorkspaceLeaf;
     saveManualTabOrder(orderedLeafIds: string[]): Promise<void>;
     handleTabDrop(draggedLeafId: string, targetLeafId: string): void;
     handleSectionDrop(draggedId: string, targetId: string): void;
@@ -123,7 +124,7 @@ export interface WebSidecarSettings {
     primaryUrlProperty: string;
     /** Enable Recent web notes auxiliary section */
     enableRecentNotes: boolean;
-    /** Enable grouped by domain auxiliary section */
+    /** Enable Web domains auxiliary section */
     enableTldSearch: boolean;
     /** Use vault's default location for new notes instead of custom path */
     useVaultDefaultLocation: boolean;

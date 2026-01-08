@@ -269,6 +269,27 @@ export class PinnedTabRenderer {
             };
         }
 
+        // Return to Pinned URL Icon (when navigated away from home URL)
+        const isAwayFromHome = !!(pin.currentUrl && pin.currentUrl !== pin.url);
+        if (isAwayFromHome && pin.leafId) {
+            const returnIcon = row.createSpan({ cls: 'web-sidecar-return-icon clickable-icon' });
+            setIcon(returnIcon, 'undo-2');
+            returnIcon.setAttribute('aria-label', 'Return to pinned URL');
+            returnIcon.onclick = async (e) => {
+                e.stopPropagation();
+                // Navigate back to the pinned home URL
+                const leaf = this.view.app.workspace.getLeafById(pin.leafId!);
+                if (leaf) {
+                    await leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: pin.url, navigate: true }
+                    });
+                    // Trigger refresh to update UI
+                    setTimeout(() => this.view.onRefresh(), 200);
+                }
+            };
+        }
+
         // Expansion Toggle (Skip in Basic Mode)
         let notesContainer: HTMLElement | null = null;
         if (!isBasicMode && hasExpandableContent) {
@@ -411,8 +432,10 @@ export class PinnedTabRenderer {
                 this.view.app.workspace.setActiveLeaf(openLeaf, { focus: true });
             }, 50);
         } else {
-            // Closed - open new web viewer
-            const leaf = this.view.app.workspace.getLeaf('tab');
+            // Closed - open new web viewer, respecting preferWebViewerLeft setting
+            const leaf = this.view.settings.preferWebViewerLeft
+                ? this.view.getOrCreateWebViewerLeaf()
+                : this.view.app.workspace.getLeaf('tab');
             const urlToOpen = freshPin.currentUrl || freshPin.url;
 
             await leaf.setViewState({

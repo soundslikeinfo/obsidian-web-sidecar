@@ -15,7 +15,7 @@ export class DomainSection {
     ) { }
 
     /**
-     * Render "Web notes grouped by domain" collapsible section
+     * Render "Web domains" collapsible section
      */
     render(container: HTMLElement): void {
         const recentNotes = getRecentNotesWithUrls(
@@ -62,7 +62,7 @@ export class DomainSection {
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-summary' });
         const summaryIcon = summary.createSpan({ cls: 'web-sidecar-domain-icon' });
         setIcon(summaryIcon, 'globe');
-        summary.createSpan({ text: `Web notes grouped by domain (${domainMap.size})` });
+        summary.createSpan({ text: `Web domains (${domainMap.size})` });
 
         // Sort button
         renderSortButton(summary, this.view.domainSort, (sort) => {

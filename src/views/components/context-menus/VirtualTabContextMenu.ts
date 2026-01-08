@@ -106,6 +106,18 @@ export function showVirtualTabContextMenu(
 
     menu.addSeparator();
 
+    // Close all linked notes
+    menu.addItem((item) => {
+        item
+            .setTitle('Close all linked notes')
+            .setIcon('x-circle')
+            .onClick(() => {
+                void view.closeLinkedNoteLeaves(url);
+            });
+    });
+
+    menu.addSeparator();
+
     // Copy URL
     menu.addItem((item) => {
         item

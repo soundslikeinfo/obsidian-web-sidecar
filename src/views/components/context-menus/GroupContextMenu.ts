@@ -3,7 +3,7 @@ import { IWebSidecarView } from '../../../types';
 import { openWebViewerAndRefresh } from './ContextMenuHelpers';
 
 /**
- * Show context menu for a domain group (Web notes grouped by domain)
+ * Show context menu for a domain group (Web domains)
  */
 export function showDomainContextMenu(
     view: IWebSidecarView,

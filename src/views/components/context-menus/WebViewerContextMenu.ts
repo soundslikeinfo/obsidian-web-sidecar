@@ -152,6 +152,22 @@ export function showWebViewerContextMenu(
         });
     }
 
+    // Return to linked note URL (when navigated away from originalUrl)
+    if (tab.originalUrl && tab.originalUrl !== tab.url && tab.leaf) {
+        menu.addItem((item) => {
+            item
+                .setTitle('Return to linked note URL')
+                .setIcon('undo-2')
+                .onClick(async () => {
+                    await tab.leaf!.setViewState({
+                        type: 'webviewer',
+                        state: { url: tab.originalUrl, navigate: true }
+                    });
+                    view.onRefresh();
+                });
+        });
+    }
+
     menu.addSeparator();
 
     // Copy URL

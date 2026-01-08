@@ -17,7 +17,7 @@ export default class WebSidecarPlugin extends Plugin {
 	settings!: WebSidecarSettings;
 	// private view: WebSidecarView | null = null; // Removed to avoid circular reference warning
 	private webViewerManager: WebViewerManager | null = null;
-	private urlIndex!: UrlIndex;
+	public urlIndex!: UrlIndex;
 	public tabStateService!: TabStateService;
 
 

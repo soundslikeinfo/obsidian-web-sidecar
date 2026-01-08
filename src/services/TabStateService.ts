@@ -1,7 +1,8 @@
-import { WorkspaceLeaf } from 'obsidian';
+import { WorkspaceLeaf, Notice } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
 import type WebSidecarPlugin from '../main';
 import { getLeafId } from './obsidianHelpers';
+import { findMatchingNotes } from './noteMatcher';
 import { VirtualTabManager } from './VirtualTabManager';
 import { PinnedTabManager } from './PinnedTabManager';
 
@@ -246,18 +247,44 @@ export class TabStateService {
                 if (existing) {
                     // Only update URL and title if changed
                     if (existing.url !== info.url || existing.title !== info.title || existing.isPopout !== isPopout) {
+                        // Compute sticky notes logic BEFORE updating the map
+                        let newOriginalUrl = existing.originalUrl;
+
+                        // Auto-sync pinned tab currentUrl when navigation/redirect detected
+                        if (existing.url !== info.url) {
+                            this.pinnedTabManager.syncPinnedTabCurrentUrl(leafId, info.url);
+
+                            // Sticky Notes Logic:
+                            // 1. If we have an originalUrl (sticky), check if the NEW url has active linked notes.
+                            //    If yes, "snap" to the new URL (reset origin) and notify.
+                            //    If no, keep the old originalUrl (stay sticky to previous).
+                            // 2. If we don't have an originalUrl, check if new URL has notes.
+                            //    If yes, set originalUrl to make it sticky from now on.
+
+                            const matches = findMatchingNotes(this.plugin.app, info.url, this.getSettings(), this.plugin.urlIndex);
+                            const hasNotes = matches.exactMatches.length > 0;
+
+
+                            if (hasNotes) {
+                                // Found notes for this new URL -> Snap/Reset origin
+                                if (newOriginalUrl && newOriginalUrl !== info.url) {
+                                    new Notice(`Found linked notes for new page. Origin updated.`);
+                                }
+                                newOriginalUrl = info.url;
+                            }
+                            // If !hasNotes, keep newOriginalUrl as-is (sticky to previous URL)
+
+                        }
+
+                        // Now update the map with the correctly computed originalUrl
                         this.trackedTabs.set(leafId, {
                             ...existing,
                             url: info.url,
                             title: info.title || existing.title,
                             isPopout,
                             leaf: leaf,
+                            originalUrl: newOriginalUrl,
                         });
-
-                        // Auto-sync pinned tab currentUrl when navigation/redirect detected
-                        if (existing.url !== info.url) {
-                            this.pinnedTabManager.syncPinnedTabCurrentUrl(leafId, info.url);
-                        }
                     }
                 } else {
                     // New tab - apply pending original URL if set (for redirect tracking)
@@ -300,7 +327,9 @@ export class TabStateService {
                 const pin = settings.pinnedTabs.find(p => p.leafId === leafId);
                 if (pin) {
                     pin.leafId = undefined;
-                    // Persist?
+                    // CRITICAL: Reset currentUrl when closing so reopening goes to home URL
+                    pin.currentUrl = undefined;
+                    // Persist
                     void this.plugin.saveSettings();
                 }
             }
@@ -321,12 +350,13 @@ export class TabStateService {
 
             if (info) {
                 // Detect if leaf is in a popout window
-                // Detect if leaf is in a popout window
-                // Detect if leaf is in a popout window
                 const leafWindow = (leaf.getRoot() as unknown as { containerEl: { win: Window } }).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
-                // Update focus time
+                // CRITICAL: Preserve originalUrl when updating focus time
+                const existing = this.trackedTabs.get(leafId);
+
+                // Update focus time while preserving originalUrl
                 this.trackedTabs.set(leafId, {
                     leafId,
                     url: info.url,
@@ -334,6 +364,7 @@ export class TabStateService {
                     lastFocused: Date.now(),
                     isPopout,
                     leaf: leaf,
+                    originalUrl: existing?.originalUrl, // Preserve sticky URL
                 });
             }
         }
@@ -436,6 +467,17 @@ export class TabStateService {
     }
 
     // --- Redirect Detection Logic ---
+
+    /**
+     * Update a tab's original URL manually (e.g. when creating a new note)
+     */
+    updateTabOriginalUrl(leafId: string, url: string): void {
+        const tab = this.trackedTabs.get(leafId);
+        if (tab) {
+            tab.originalUrl = url;
+            this.refreshState();
+        }
+    }
 
     /**
      * Set a pending original URL to be applied to the next new tab.

@@ -182,7 +182,7 @@ export class NavigationService {
         await this.triggerRefresh();
     }
 
-    openCreateNoteModal(url: string): void {
+    openCreateNoteModal(url: string, leafId?: string): void {
         new CreateNoteModal(
             this.app,
             url,
@@ -193,6 +193,27 @@ export class NavigationService {
                     if (file instanceof TFile) {
                         await this.app.workspace.openLinkText(path, '', true);
                     }
+
+                    // If we created a note for a specific leaf, update its origin to make it sticky to this new note
+                    if (leafId) {
+                        // We need access to TabStateService. It's not injected here... 
+                        // It is injected in WebSidecarView and accessible via main plugin.
+                        // Ideally NavigationService should depend on TabStateService or a callback.
+                        // Refactoring: We'll use a callback or event? 
+                        // Actually, we can just fire the refresh callback, but we need to update the state first.
+                        // Let's rely on the fact that `createLinkedNoteFromUrl` in main.ts handles the "direct" creation.
+                        // This modal is for "manual" creation.
+                        // Let's emit an event or used the passed callback if we can?
+                        // For now, let's assume the view/main will handle the state update if we just refresh?
+                        // No, we need to explicitly set originalUrl.
+
+                        // HACK: Dispatch event for main.ts to handle? Or better, just rely on the fact that
+                        // if we just created a note, the NEXT poll will find it and "snap" to it because hasNotes will be true!
+                        // In TabStateService, we added: if (hasNotes) existing.originalUrl = info.url;
+                        // So simpliest solution: Just refresh!
+                        // The polling/scanning will see the new note matches the current URL, and set originalUrl.
+                    }
+
                     this.onRefreshCallback();
                 })();
             }

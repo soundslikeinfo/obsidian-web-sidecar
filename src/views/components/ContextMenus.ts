@@ -47,7 +47,7 @@ export class ContextMenus {
     }
 
     /**
-     * Show context menu for a domain group (Web notes grouped by domain)
+     * Show context menu for a domain group (Web domains)
      */
     showDomainContextMenu(event: MouseEvent, domain: string): void {
         showDomainContextMenu(this.view, event, domain);

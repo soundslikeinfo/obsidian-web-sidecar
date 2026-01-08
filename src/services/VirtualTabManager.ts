@@ -28,7 +28,11 @@ export class VirtualTabManager {
      */
     getVirtualTabs(trackedTabs: TrackedWebViewer[]): VirtualTab[] {
         const virtualTabs: VirtualTab[] = [];
-        const openUrls = new Set(trackedTabs.map(t => t.url));
+        const openUrls = new Set<string>();
+        for (const t of trackedTabs) {
+            openUrls.add(t.url);
+            if (t.originalUrl) openUrls.add(t.originalUrl);
+        }
         const settings = this.getSettings();
         const urlTitleCache = this.getUrlTitleCache();
 

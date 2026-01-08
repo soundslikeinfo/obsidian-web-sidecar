@@ -161,6 +161,10 @@ export function renderTldSection(
     const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
     summary.createSpan({ text: headerText });
 
+    // CRITICAL: Stop propagation to prevent parent tab collapse/expand
+    summary.addEventListener('click', (e) => e.stopPropagation());
+    details.addEventListener('click', (e) => e.stopPropagation());
+
     const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
 
     for (const match of matches.tldMatches) {

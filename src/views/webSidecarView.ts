@@ -457,6 +457,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         return this.navigationService.getOrCreateRightLeaf();
     }
 
+    getOrCreateWebViewerLeaf(): WorkspaceLeaf {
+        return this.navigationService.getOrCreateWebViewerLeaf();
+    }
+
     /**
      * Legacy method for compatibility
      */

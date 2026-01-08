@@ -262,7 +262,18 @@ export class LinkedNotesTabItemRenderer {
         }
 
         // Matches - compute early so we know if expandable
-        const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
+        // STRATEGY: Use originalUrl if present (sticky), otherwise current url
+        const effectiveUrl = tab.originalUrl || tab.url;
+        let matches = findMatchingNotes(this.view.app, effectiveUrl, this.view.settings, this.view.urlIndex);
+
+        // If we are using originalUrl, we might ALSO want to check if current URL has matches?
+        // Scenario 5 says if current URL has matches, we auto-switch.
+        // TabStateService handles the auto-switch by UPDATING originalUrl to currentUrl.
+        // So here, `tab.originalUrl` should already be the "correct" one to show.
+        // But if `tab.originalUrl` is set and different from `tab.url`, it means we are in "sticky" mode (redirected/navigated away).
+
+        const isSticky = !!(tab.originalUrl && tab.originalUrl !== tab.url);
+
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
         // In basic mode, we don't show expandable content
@@ -324,7 +335,7 @@ export class LinkedNotesTabItemRenderer {
         };
 
         const toggleExpand = () => {
-            const key = `tab:${tab.url}`;
+            const key = `tab:${tab.leafId}`;
             const newState = !this.view.expandedGroupIds.has(key);
             this.view.setGroupExpanded(key, newState);
             this.view.render(true);
@@ -430,6 +441,7 @@ export class LinkedNotesTabItemRenderer {
             popoutIcon.setAttribute('aria-label', 'In popout window');
         }
 
+
         // Tab count
         if (isDeduped && allTabs) {
             tabRow.createSpan({
@@ -463,6 +475,29 @@ export class LinkedNotesTabItemRenderer {
             };
         }
 
+        // Return to Original URL Icon (Sticky Mode) - placed after note/new-note like PinnedTabRenderer
+        if (isSticky && tab.originalUrl) {
+            const returnIcon = tabRow.createSpan({ cls: 'web-sidecar-return-icon clickable-icon' });
+            setIcon(returnIcon, 'undo-2');
+            returnIcon.setAttribute('aria-label', 'Return to linked note page');
+            returnIcon.onclick = async (e) => {
+                e.stopPropagation();
+                // Navigate the EXISTING web viewer back to originalUrl (don't create new tab)
+                if (tab.leaf) {
+                    await tab.leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: tab.originalUrl, navigate: true }
+                    });
+                    await this.view.app.workspace.revealLeaf(tab.leaf);
+                    // Trigger refresh after short delay to ensure URL change is detected and UI updates
+                    setTimeout(() => this.view.onRefresh(), 200);
+                } else {
+                    // Fallback if leaf reference is missing
+                    void this.view.openUrlSmartly(tab.originalUrl!, e);
+                }
+            };
+        }
+
         // Expand button - now just needs to set up the button since container already exists
         if (hasExpandableContent && notesContainer) {
             expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
@@ -481,7 +516,7 @@ export class LinkedNotesTabItemRenderer {
                 }
             }
 
-            const key = `tab:${tab.url}`;
+            const key = `tab:${tab.leafId}`;
             // Auto-expand if linked note is focused (and not already expanded)
             if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
                 this.view.setGroupExpanded(key, true);
