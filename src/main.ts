@@ -39,8 +39,7 @@ export default class WebSidecarPlugin extends Plugin {
 			() => this.updateView()
 		);
 
-		// CRITICAL: Initialize both services AFTER layout is ready
-		// This ensures workspace is fully restored (web viewers exist, metadata cache is populated)
+		// Initialize services after layout is ready
 		this.app.workspace.onLayoutReady(() => {
 			this.urlIndex.initialize();
 			this.tabStateService.initialize();

@@ -41,27 +41,17 @@ export class PinnedTabRenderer {
             container.prepend(pinnedSection);
         }
 
-        // Hide if no pins and we don't want to show an empty drop zone (User said default empty is fine, but dragged item should allow pin)
-        // Actually, "if there are no pins established yet, don't allow a pin to drag." -> so we hide it completely if empty.
+        // Empty state: show drop zone for pinning new tabs
         if (pinnedTabs.length === 0) {
             pinnedSection.empty();
-            // We must keep it visible (but perhaps zero height with padding?) to allow dropping
-            // But if it has 0 height, we can't drop.
-            // Let's give it a specialized class for empty state
             pinnedSection.addClass('is-empty-state');
             pinnedSection.removeClass('web-sidecar-hidden');
-            // We don't return here, we let it setup drag events.
         } else {
             pinnedSection.removeClass('is-empty-state');
             pinnedSection.removeClass('web-sidecar-hidden');
         }
 
-        // Render Drop Zone for Reordering at the top? No, individual items act as drop targets usually.
-
-
-
-        // Drop Zone on Main Section (for pinning new tabs by dropping onto the Pinned Area)
-        // Requirement: "drag a normal web tab to the pinned tab area should make it a pinned tab"
+        // Drop zone for pinning new tabs
         pinnedSection.ondragover = (e) => {
             if (e.dataTransfer?.types.includes('text/tab-id')) { // Normal tab
                 e.preventDefault();
@@ -79,25 +69,9 @@ export class PinnedTabRenderer {
             e.preventDefault();
             pinnedSection.removeClass('drag-over-area');
 
-            // Check for Pinning (Normal Tab -> Pinned)
+            // Handle pinning: Normal Tab -> Pinned
             const leafId = e.dataTransfer?.getData('text/tab-id');
             if (leafId) {
-                // Find the tab in view.trackedTabs (since we don't hold state here)
-                // Or better, let view handle lookup.
-                // We don't have direct access to trackedTabs array here unless we add it to constructor or view interface exposes it.
-                // But wait, TrackedWebViewer has leafId.
-                // Let's assume view has a method `getTrackedTabById` or we can just access the public method if we add one.
-                // Actually IWebSidecarView doesn't expose trackedTabs getter.
-                // I'll cast view to any or add method.
-                // Better: add `view.pinTabById(leafId)`? 
-                // But `pinTab` takes full object.
-                // I'll grab it from app workspace leaves? No, trackedTabs has cached title etc.
-                // I'll use `app.workspace.getLeafById(leafId)` and convert to shim?
-
-                // Simplest: Iterate `view.tabStateService.getTrackedTabs()` !
-                // But view.tabStateService is private? No, generic `IWebSidecarView` interface doesn't have it.
-                // But I'm in the class that imports `WebSidecarView` effectively or types.
-                // Hack: access `(this.view as any).trackedTabs`.
 
                 const tabs = this.view.trackedTabs;
                 const tab = tabs.find(t => t.leafId === leafId);
@@ -148,12 +122,8 @@ export class PinnedTabRenderer {
             }
         }
 
-        // Render Divider ONLY if pins exist
+        // Divider between pinned and normal tabs
         if (pinnedTabs.length > 0) {
-            // Check if divider exists in the PARENT container, right after this section?
-            // Actually, best to put it INSIDE this section at the bottom, or handle it in parent.
-            // Requirement: "see a line divider between the pinned web view tabs and the normal web view tabs"
-            // Let's add it as a class style border-bottom on the section, simpler.
             pinnedSection.addClass('has-divider');
         } else {
             pinnedSection.removeClass('has-divider');
@@ -167,16 +137,8 @@ export class PinnedTabRenderer {
 
         this.updatePinnedTab(pinEl, pin, isBasicMode);
 
-        // Re-apply events (updatePinnedTab clears content but not element)
-        // Actually updatePinnedTab empties the element! So we need to re-bind events?
-        // No, 'updatePinnedTab' empties 'el', which is 'pinEl'.
-        // So we MUST re-bind events or move event binding inside updatePinnedTab or prevent emptying.
-        // Let's modify updatePinnedTab to NOT empty, but update via reconciliation?
-        // Or just let updatePinnedTab handle content and we handle events on wrapper once?
-        // Drag events on wrapper persist. Click events on wrapper persist. Correct.
-
+        // Events persist on wrapper since updatePinnedTab only clears content
         pinEl.addEventListener('click', (e) => {
-            // Check if user clicked on context menu trigger or something else if we add buttons
             void this.handlePinClick(pin, e);
         });
 
@@ -192,7 +154,7 @@ export class PinnedTabRenderer {
 
         // Preserve expansion state?
         // We can check if we have a state tracker, or just default closed.
-        // For now default closed, but ideally we persists it in a Set<string> in view.
+        // Default closed, but could persist in a Set<string> in view
         const isExpanded = this.view.expandedGroupIds.has(`pin:${pin.id}`);
 
         // Inner Row
@@ -221,8 +183,7 @@ export class PinnedTabRenderer {
         // Title
         row.createSpan({ cls: 'web-sidecar-pinned-title', text: pin.title });
 
-        // Tab count badge - count how many open web viewers match this pin's URL
-        // Query workspace directly since trackedTabs is filtered (excludes pinned URLs)
+        // Tab count badge - query workspace directly since trackedTabs is filtered
         const effectiveUrl = pin.currentUrl || pin.url;
         const allWebLeaves = this.view.app.workspace.getLeavesOfType('webviewer')
             .concat(this.view.app.workspace.getLeavesOfType('surfing-view'));

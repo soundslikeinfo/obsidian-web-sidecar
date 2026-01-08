@@ -98,7 +98,7 @@ export class TagSection {
         const sortedGroups = sortGroups(tagMap, this.view.selectedTagSort);
 
         for (const [tag, notes] of sortedGroups) {
-            // Using same group renderer but maybe different ID prefix to allow separate expansion states
+            // Different ID prefix for separate expansion states
             this.renderTagGroup(groupList, tag, notes, 'selected-tag');
         }
     }

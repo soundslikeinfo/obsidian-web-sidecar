@@ -59,7 +59,7 @@ export class MenuInjector {
             return;
         }
 
-        // Find the position to insert (after "Open in default browser" or at the end of the first section)
+        // Find insertion position
         const menuSections = menuEl.querySelectorAll('.menu-separator');
         const items = Array.from(menuEl.children);
 

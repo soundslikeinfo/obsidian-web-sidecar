@@ -28,7 +28,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Extracted State
     viewState: ViewState = new ViewState();
 
-    // Deprecated direct properties (proxied to viewState for IWebSidecarView compatibility)
+    // State proxied to viewState for IWebSidecarView compatibility
     get subredditSort() { return this.viewState.subredditSort; }
     set subredditSort(val) { this.viewState.subredditSort = val; }
 
@@ -505,17 +505,11 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // Track mode changes
         const wasLinkedMode = container.hasClass('web-sidecar-linked-mode');
-        // Drop Target for Main Container (Unpinning)
-        // If a pinned tab is dropped anywhere outside the pinned section (i.e. on the main list), unpin it.
+        // Drop target for unpinning (drops outside pinned section)
         container.ondragover = (e) => {
             if (e.dataTransfer?.types.includes('text/pin-id')) {
-                // Ensure we are NOT over the pinned section?
-                // The pinned section handles its own drop (reorder).
-                // If event bubbles here, it means it wasn't handled (or we need stopPropagation there).
-                // We should check target.
                 if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
                     e.preventDefault();
-                    // styling?
                 }
             }
         };
@@ -575,16 +569,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             return;
         }
 
-        // --- Render Pinned Tabs (Always first) ---
-        // We render inside container. 
-        // If container was cleared, this creates the section. 
-        // If not cleared (DOM reconciliation), it updates in place.
+        // Render pinned tabs first
         this.pinnedTabRenderer.render(container, pinnedTabs, isBasicMode);
 
-
-        // Filter out pinned tabs from trackedTabs if they are "active" as pins?
-        // TabStateService.getTrackedTabs() ALREADY does this filtering!
-
+        // Render main tab list (trackedTabs already filtered by TabStateService)
         this.linkedNotesTabRenderer.renderLinkedNotesTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
     }
 }

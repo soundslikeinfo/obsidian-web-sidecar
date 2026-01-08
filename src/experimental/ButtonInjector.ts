@@ -214,7 +214,7 @@ export class ButtonInjector {
             iconName = 'history';
         }
 
-        // Check if button already exists with correct state to prevent pulsing (unnecessary replacement)
+        // Check if button already exists with correct state
         if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.path) {
             return;
         }

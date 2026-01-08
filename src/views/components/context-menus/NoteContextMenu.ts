@@ -92,7 +92,7 @@ export function showNoteContextMenu(
                 .setIcon('x-circle')
                 .onClick(() => {
                     openLeaf.detach();
-                    // Delay render slightly to allow workspace focus to settle on the next leaf
+                    // Delay render to allow workspace focus to settle
                     setTimeout(() => view.render(true), 100);
                 });
         });

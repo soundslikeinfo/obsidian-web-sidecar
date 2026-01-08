@@ -72,7 +72,7 @@ export class NoteRenderer {
                     alt: ''
                 }
             });
-            // Fallback handled by CSS or generic icon if src fails (hard to detect sync)
+            // Fallback handled by CSS or generic icon
             // But we can fallback if domain is missing
         } else {
             setIcon(webBtn, 'external-link');

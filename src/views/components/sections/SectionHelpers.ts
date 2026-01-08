@@ -47,7 +47,7 @@ export function addEndDropZone(view: IWebSidecarView, container: HTMLElement): v
  */
 export function addSectionDragHandlers(view: IWebSidecarView, element: HTMLElement, sectionId: string): void {
     element.ondragstart = (e) => {
-        // Set BOTH standard text/plain and custom type for compatibility + filtering
+        // Set both text/plain and custom type for compatibility
         e.dataTransfer?.setData('text/plain', sectionId);
         e.dataTransfer?.setData('text/section-id', sectionId);
         element.addClass('is-dragging');

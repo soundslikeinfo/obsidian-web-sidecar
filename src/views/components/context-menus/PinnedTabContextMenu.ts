@@ -164,7 +164,7 @@ export function showPinnedTabContextMenu(
             item.setTitle('Update linked notes to current URL')
                 .setIcon('file-symlink')
                 .onClick(() => {
-                    // FIX: Re-fetch fresh pin from settings to ensure currentUrl is up-to-date
+                    // Re-fetch fresh pin to ensure currentUrl is up-to-date
                     const freshPin = view.settings.pinnedTabs.find(p => p.id === pin.id);
                     if (!freshPin) return;
 

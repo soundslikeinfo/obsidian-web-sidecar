@@ -16,11 +16,6 @@ export class ViewEventHandler {
         // Auto-switch to manual mode if not already
         if (this.view.settings.tabSortOrder !== 'manual') {
             this.view.settings.tabSortOrder = 'manual';
-            // Update the nav-header icon to show we're in manual mode
-            // This requires calling view.render(true) or exposing updateSortButtonIcon
-            // For now, render(true) in view will handle UI update of sort button if it checks settings?
-            // Actually view.updateSortButtonIcon is private. 
-            // We should rely on state update + render.
         }
 
         // Initialize order from current visible order if empty
@@ -43,7 +38,7 @@ export class ViewEventHandler {
             currentOrder.push(draggedLeafId);
         }
 
-        // All three steps required for immediate visual feedback of manual sort order
+        // Required for immediate visual feedback of manual sort order
         this.view.setManualRefresh(true);
         void this.view.saveManualTabOrder(currentOrder);
         this.view.onRefresh();
@@ -95,6 +90,5 @@ export class ViewEventHandler {
 
     async reorderPinnedTabs(movedPinId: string, targetPinId: string): Promise<void> {
         await this.tabStateService.reorderPinnedTabs(movedPinId, targetPinId);
-        // service calls refresh, but view render might be needed if not triggered automatically
     }
 }

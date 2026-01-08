@@ -123,18 +123,8 @@ export class WebViewerManager {
 
     /**
      * Add menu item to the "More Options" menu for web viewers
-     * Called from main plugin when registering the file-menu event
-     * Note: This is kept for compatibility but the MutationObserver approach
-     * is more reliable for web viewer menus, handled by WebViewerUI inside MutationObserver
-     * But we can also expose a method if Main.ts calls it manually?
-     * Checking original code: Main.ts calls `addMenuItems`.
      */
     addMenuItems(menu: Menu, leaf: WorkspaceLeaf): void {
-        // Original implementation added a simple item. 
-        // We can replicate that logic or just rely on MutationObserver.
-        // If main.ts calls this for Context Menu on files, it's different.
-        // But `addMenuItems` in original file checked if leaf is webviewer.
-
         const viewType = leaf.view.getViewType();
         if (!WEB_VIEW_TYPES.includes(viewType)) {
             return;
@@ -144,24 +134,7 @@ export class WebViewerManager {
             return;
         }
 
-        // We can't easily use UI logic here because UI logic is DOM based (inserting into existing menu element)
-        // whereas this receives an Obsidian `Menu` object.
-        // So we reimplement the simple addition using Menu API.
-
-        /* 
-        Original code:
-        menu.addItem((item) => {
-            item.setTitle('New web view tab')
-                .setIcon('plus-circle')
-                .onClick(() => {
-                    this.openNewWebViewer();
-                });
-        });
-        */
-
-        // However, `openNewWebViewer` is private in UI.
-        // We'll need access to it or reimplement it. Reimplementing is simplest.
-
+        // Add "New web view tab" menu item
         menu.addItem((item) => {
             item.setTitle('New web view tab')
                 .setIcon('plus-circle')

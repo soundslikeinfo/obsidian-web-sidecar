@@ -139,7 +139,7 @@ export function showWebViewerContextMenu(
         });
     }
 
-    // Redirect detection: Show option to update linked notes if URL has changed from original
+    // Show option to update linked notes if URL changed
     if (view.hasRedirectedUrl(tab.leafId)) {
         menu.addSeparator();
         menu.addItem((item) => {

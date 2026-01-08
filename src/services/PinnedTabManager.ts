@@ -30,7 +30,7 @@ export class PinnedTabManager {
                 openTab = trackedTabs.get(pin.leafId);
             }
 
-            // 2. If not found by ID (maybe ID lost or new session), try to find by URL (active or home)
+            // If not found by ID, try to find by URL
             if (!openTab) {
                 const activeUrl = pin.currentUrl || pin.url;
                 openTab = Array.from(trackedTabs.values()).find(t => t.url === activeUrl);

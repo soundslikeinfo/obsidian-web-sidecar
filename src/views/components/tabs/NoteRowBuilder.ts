@@ -128,11 +128,7 @@ export function getMoreNotesHeader(url: string, settings: WebSidecarSettings, ma
         return `More from ${matchedChannel}`;
     }
 
-    // Since we don't have extractSubreddit here easily (it might be in utils or matcher), 
-    // we'll stick to domain or generic unless passed in.
-    // For now, simplify to just domain to avoid dependency mess, 
-    // or rely on caller to pass exact header text if complex logic needed.
-    // Preserving original logic:
+    // Simplify to domain-based header
     return `More web notes (${domain || 'this domain'})`;
 }
 
@@ -161,7 +157,7 @@ export function renderTldSection(
     const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
     summary.createSpan({ text: headerText });
 
-    // CRITICAL: Stop propagation to prevent parent tab collapse/expand
+    // Stop propagation to prevent parent tab collapse/expand
     summary.addEventListener('click', (e) => e.stopPropagation());
     details.addEventListener('click', (e) => e.stopPropagation());
 

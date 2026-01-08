@@ -105,7 +105,7 @@ export class NavHeaderBuilder {
             this.view.onRefresh();
         };
 
-        // Insert nav-header into containerEl BEFORE contentEl (making it a sibling)
+        // Insert nav-header BEFORE contentEl (sibling position)
         this.containerEl.insertBefore(navHeader, contentEl);
     }
 

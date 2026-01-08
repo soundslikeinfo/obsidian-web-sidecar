@@ -62,11 +62,9 @@ export class TabStateService {
             })
         );
 
-        // Listen for layout changes (e.g. closing a note) to refresh virtual tabs immediately
+        // Listen for layout changes to refresh virtual tabs immediately
         this.plugin.registerEvent(
             this.plugin.app.workspace.on('layout-change', () => {
-                // Throttle? Or just refresh. Refresh is relatively cheap but we should define it.
-                // refreshState calls scanAllWebViewers which is fast.
                 this.refreshState();
             })
         );
@@ -92,9 +90,7 @@ export class TabStateService {
         this.pollIntervalId = this.plugin.registerInterval(
             window.setInterval(() => this.pollForChanges(), POLL_INTERVAL)
         );
-        // Also poll for pinned note changes regularly (less frequent? effectively synced on metadata cache change mainly)
-        // But for now, we can piggyback or hook into checks.
-        // Actually, we should listen to metadata cache changes for the pinned sync.
+        // Also sync on metadata cache changes
         this.plugin.registerEvent(
             this.plugin.app.metadataCache.on('changed', (file) => {
                 this.pinnedTabManager.syncPinnedStatusForFile(file);
@@ -147,24 +143,16 @@ export class TabStateService {
             return this.getSortedTabs(Array.from(this.trackedTabs.values()), settings);
         }
 
-        // Filter out tabs that are currently active as a Pinned Tab to avoid duplication in the UI
-        // A tab is "active as pinned" if its current URL matches a pinned tab's URL (or saved currentUrl)
-        // The User said: "I also don't want a pinned tab to show up in the pinned tab area + the normal web tab area."
+        // Filter out tabs that are active as pinned to avoid duplication
         const pinnedTabs = settings.pinnedTabs;
         const pinnedLeafIds = new Set(pinnedTabs.map(p => p.leafId).filter(id => !!id));
         const pinnedUrls = new Set(pinnedTabs.map(p => p.currentUrl || p.url));
 
         const tabs = Array.from(this.trackedTabs.values()).filter(t => {
-            // Priority 1: If leaf ID matches a known pinned tab leaf, it is pinned.
+            // Priority 1: Leaf ID matches pinned tab
             if (pinnedLeafIds.has(t.leafId)) return false;
 
-            // Priority 2: If URL matches a pinned URL (and not already assigned to another leaf?), 
-            // we treat it as pinned (implicitly docking).
-            // However, if we have 2 tabs with same URL, one might be the pin, the other normal.
-            // If the pin has a leafId, we trust that.
-            // If the pin has NO leafId (closed/reloaded), we might "claim" this tab.
-
-            // For now, keep simple URL matching as fallback, but leafId is primary.
+            // Priority 2: URL matches pinned URL
             if (pinnedUrls.has(t.url)) return false;
 
             return true;
@@ -230,9 +218,7 @@ export class TabStateService {
             const info = this.getWebViewerInfo(leaf);
 
             if (info) {
-                // Detect if leaf is in a popout window
-                // Detect if leaf is in a popout window
-                // Detect if leaf is in a popout window
+                // Detect popout window
                 const leafWindow = (leaf.getRoot() as unknown as { containerEl: { win: Window } }).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
@@ -254,12 +240,7 @@ export class TabStateService {
                         if (existing.url !== info.url) {
                             this.pinnedTabManager.syncPinnedTabCurrentUrl(leafId, info.url);
 
-                            // Sticky Notes Logic:
-                            // 1. If we have an originalUrl (sticky), check if the NEW url has active linked notes.
-                            //    If yes, "snap" to the new URL (reset origin) and notify.
-                            //    If no, keep the old originalUrl (stay sticky to previous).
-                            // 2. If we don't have an originalUrl, check if new URL has notes.
-                            //    If yes, set originalUrl to make it sticky from now on.
+                            // Sticky notes: snap to new URL if it has linked notes
 
                             const matches = findMatchingNotes(this.plugin.app, info.url, this.getSettings(), this.plugin.urlIndex);
                             const hasNotes = matches.exactMatches.length > 0;
@@ -272,8 +253,6 @@ export class TabStateService {
                                 }
                                 newOriginalUrl = info.url;
                             }
-                            // If !hasNotes, keep newOriginalUrl as-is (sticky to previous URL)
-
                         }
 
                         // Now update the map with the correctly computed originalUrl
@@ -327,7 +306,7 @@ export class TabStateService {
                 const pin = settings.pinnedTabs.find(p => p.leafId === leafId);
                 if (pin) {
                     pin.leafId = undefined;
-                    // CRITICAL: Reset currentUrl when closing so reopening goes to home URL
+                    // Reset currentUrl when closing so reopening goes to home URL
                     pin.currentUrl = undefined;
                     // Persist
                     void this.plugin.saveSettings();
@@ -353,7 +332,7 @@ export class TabStateService {
                 const leafWindow = (leaf.getRoot() as unknown as { containerEl: { win: Window } }).containerEl?.win;
                 const isPopout = leafWindow !== undefined && leafWindow !== window;
 
-                // CRITICAL: Preserve originalUrl when updating focus time
+                // Preserve originalUrl when updating focus time
                 const existing = this.trackedTabs.get(leafId);
 
                 // Update focus time while preserving originalUrl

@@ -6,10 +6,7 @@ import { isSameRedditPost } from './matchers/reddit';
 export class VirtualTabManager {
     private plugin: WebSidecarPlugin;
     private getSettings: () => WebSidecarSettings;
-    // Shared cache from parent service or managed here? 
-    // It's populated by web viewer scanning, so arguably belongs to TabStateService (the scanner).
-    // We can pass it in or keep it here if we move scanning logic. 
-    // For now, let's pass a getter for the cache or the map itself.
+    // Shared URL title cache from parent service
     private getUrlTitleCache: () => Map<string, string>;
 
     constructor(
@@ -36,7 +33,7 @@ export class VirtualTabManager {
         const settings = this.getSettings();
         const urlTitleCache = this.getUrlTitleCache();
 
-        // Also track pinned tab URLs (both home and current) to exclude from virtual tabs
+        // Track pinned tab URLs to exclude from virtual tabs
         // Only filter if pinned tabs feature is enabled
         const pinnedUrls = new Set<string>();
         if (settings.enablePinnedTabs) {
@@ -59,7 +56,7 @@ export class VirtualTabManager {
             const file = view.file;
             if (!file) continue;
 
-            // CRITICAL: Deduplicate by file path - skip if already processed
+            // Deduplicate by file path - skip if already processed
             if (processedFilePaths.has(file.path)) continue;
             processedFilePaths.add(file.path);
 
@@ -86,7 +83,7 @@ export class VirtualTabManager {
                 }
 
                 if (foundUrl) {
-                    // Skip if URL is already open in a web viewer (check exact & domain-specific, e.g. Reddit ID)
+                    // Skip if URL is already open in a web viewer
                     const urlToCheck = foundUrl; // Capture for closure
                     const isAlreadyOpen = Array.from(openUrls).some(openUrl =>
                         openUrl === urlToCheck || isSameRedditPost(openUrl, urlToCheck)
@@ -94,7 +91,7 @@ export class VirtualTabManager {
                     if (isAlreadyOpen) continue;
 
                     // Skip if URL belongs to a pinned tab (shown in pinned section instead)
-                    // Pinned tabs might also have redirected, so we check using the same robust logic
+                    // Check using same robust logic as open URLs
                     const isPinned = Array.from(pinnedUrls).some(pinUrl =>
                         pinUrl === urlToCheck || isSameRedditPost(pinUrl, urlToCheck)
                     );
