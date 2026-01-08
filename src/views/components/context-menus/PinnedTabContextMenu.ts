@@ -92,7 +92,7 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close web view')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
                     void view.closeLeaf(pin.leafId!);
                 });
@@ -117,7 +117,7 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all linked notes')
-                .setIcon('file-minus')
+                .setIcon('x-circle')
                 .onClick(() => {
                     void view.closeLinkedNoteLeaves(effectiveUrl);
                 });

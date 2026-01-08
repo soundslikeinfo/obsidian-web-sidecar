@@ -89,7 +89,7 @@ export function showNoteContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close this note')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
                     openLeaf.detach();
                     // Delay render slightly to allow workspace focus to settle on the next leaf
@@ -102,7 +102,7 @@ export function showNoteContextMenu(
     menu.addItem((item) => {
         item
             .setTitle('Close all linked notes')
-            .setIcon('file-minus')
+            .setIcon('x-circle')
             .onClick(() => {
                 view.closeLinkedNoteLeaves(url);
             });
@@ -120,7 +120,7 @@ export function showNoteContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close linked web view')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
                     openWebLeaf.detach();
                 });

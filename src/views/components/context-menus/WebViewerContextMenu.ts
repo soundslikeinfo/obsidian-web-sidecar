@@ -97,7 +97,7 @@ export function showWebViewerContextMenu(
     menu.addItem((item) => {
         item
             .setTitle('Close web view')
-            .setIcon('x')
+            .setIcon('x-circle')
             .onClick(() => {
                 void view.closeLeaf(tab.leafId);
             });
@@ -121,7 +121,7 @@ export function showWebViewerContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all linked notes')
-                .setIcon('file-minus')
+                .setIcon('x-circle')
                 .onClick(() => {
                     void view.closeLinkedNoteLeaves(tab.url);
                 });
