@@ -2,13 +2,13 @@ export class RefactoringLogger {
     private static logs: string[] = [];
     private static startTime: number = Date.now();
 
-    static log(action: string, details: any = {}) {
+    static log(action: string, details: unknown = {}) {
         const timestamp = Date.now() - this.logs.length === 0 ? 0 : Date.now() - this.startTime;
         this.startTime = this.logs.length === 0 ? Date.now() : this.startTime;
 
         const entry = `[${timestamp}ms] ${action}: ${JSON.stringify(details)}`;
         this.logs.push(entry);
-        console.log(`[RefactorLog] ${entry}`);
+        console.debug(`[RefactorLog] ${entry}`);
     }
 
     static getLogs(): string {
@@ -18,7 +18,7 @@ export class RefactoringLogger {
     static clear() {
         this.logs = [];
         this.startTime = Date.now();
-        console.log('[RefactorLog] Cleared');
+        console.debug('[RefactorLog] Cleared');
     }
 
     static downloadLogs() {

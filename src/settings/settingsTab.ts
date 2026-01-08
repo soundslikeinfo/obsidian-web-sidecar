@@ -1,6 +1,8 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type WebSidecarPlugin from '../main';
 import { DEFAULT_SETTINGS } from '../types';
+import { renderAuxiliarySectionsSettings, renderDomainRulesSettings } from './settingsSections';
+import { renderExperimentalSettings } from './settingsExperimental';
 
 /**
  * Settings tab for Web Sidecar plugin
@@ -16,8 +18,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-
-
 
 		// URL Property Fields
 		new Setting(containerEl)
@@ -46,8 +46,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-
-
 		// Use Vault's Default Location Toggle
 		new Setting(containerEl)
 			.setName('Use vault\'s default location')
@@ -57,7 +55,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.useVaultDefaultLocation = value;
 					await this.plugin.saveSettings();
-					// Re-render to show/hide custom folder input
 					this.display();
 				}));
 
@@ -131,8 +128,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					});
 			});
 
-
-
 		// Collapse Duplicate URLs
 		new Setting(containerEl)
 			.setName('Collapse duplicate URLs')
@@ -169,7 +164,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.noteOpenBehavior = value as 'split' | 'tab';
 					await this.plugin.saveSettings();
-					// Re-render to show/hide tab group placement options
 					this.display();
 				}));
 
@@ -198,283 +192,13 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					}));
 		}
 
-		// ============================================
-		// AUX SECTIONS
-		// ============================================
-		const auxGroup = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-		auxGroup.createEl('div', { text: 'Auxiliary sections', cls: 'web-sidecar-settings-group-title' });
+		// Render auxiliary sections settings
+		renderAuxiliarySectionsSettings(containerEl, this.plugin, () => this.display());
 
-		const auxSectionsContainer = auxGroup.createDiv({ cls: 'web-sidecar-settings-scroll-area' });
+		// Render domain rules settings
+		renderDomainRulesSettings(containerEl, this.plugin);
 
-		new Setting(auxSectionsContainer)
-			.setName('Recent web notes')
-			.setDesc('Show section with recently modified notes that have URLs')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableRecentNotes)
-				.onChange(async (value) => {
-					this.plugin.settings.enableRecentNotes = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by domain')
-			.setDesc('Show section with notes grouped by their domain')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableTldSearch)
-				.onChange(async (value) => {
-					this.plugin.settings.enableTldSearch = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by tag')
-			.setDesc('Show section with notes grouped by their tags')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableTagGrouping)
-				.onChange(async (value) => {
-					this.plugin.settings.enableTagGrouping = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by selected tags')
-			.setDesc('Show section with notes grouped by specific tags')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSelectedTagGrouping)
-				.onChange(async (value) => {
-					this.plugin.settings.enableSelectedTagGrouping = value;
-					await this.plugin.saveSettings();
-					// Re-render to show/hide allowlist
-					this.display();
-				}));
-
-		if (this.plugin.settings.enableSelectedTagGrouping) {
-			new Setting(auxSectionsContainer)
-				.setName('Selected tags allowlist')
-				.setDesc('Enter tags to group by, separated by commas (e.g. #todo, #research)')
-				.setClass('web-sidecar-sub-setting')
-				.addText(text => text
-					.setPlaceholder('#todo, #research')
-					.setValue(this.plugin.settings.selectedTagsAllowlist)
-					.onChange(async (value) => {
-						this.plugin.settings.selectedTagsAllowlist = value;
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by subreddit (reddit.com)')
-			.setDesc('Show section with notes grouped by subreddit')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSubredditExplorer)
-				.onChange(async (value) => {
-					this.plugin.settings.enableSubredditExplorer = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by YouTube channel (youtube.com)')
-			.setDesc('Show section with notes grouped by YouTube channel')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableYouTubeChannelExplorer)
-				.onChange(async (value) => {
-					this.plugin.settings.enableYouTubeChannelExplorer = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by X (Twitter) user')
-			.setDesc('Show section with notes grouped by X/Twitter user')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableTwitterExplorer)
-				.onChange(async (value) => {
-					this.plugin.settings.enableTwitterExplorer = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(auxSectionsContainer)
-			.setName('Group by GitHub repository')
-			.setDesc('Show section with notes grouped by GitHub repository (owner/repo)')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableGithubExplorer)
-				.onChange(async (value) => {
-					this.plugin.settings.enableGithubExplorer = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// ============================================
-		// DOMAIN RULES
-		// ============================================
-		const domainRulesContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-		domainRulesContainer.createEl('div', { text: 'Domain Rules', cls: 'web-sidecar-settings-group-title' });
-
-		new Setting(domainRulesContainer).setName('reddit.com').setHeading();
-
-		new Setting(domainRulesContainer)
-			.setName('Reveal other notes from the same subreddit')
-			.setDesc('Filter "More notes from this domain" to show only notes from the same subreddit as the current page.')
-			.setClass('web-sidecar-sub-setting')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSubredditFilter)
-				.onChange(async (value) => {
-					this.plugin.settings.enableSubredditFilter = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(domainRulesContainer).setName('youtube.com').setHeading();
-
-		new Setting(domainRulesContainer)
-			.setName('Reveal other notes from the same YouTube channel')
-			.setDesc('Filter "More notes from this domain" to show only notes from the same channel.')
-			.setClass('web-sidecar-sub-setting')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableYouTubeChannelFilter)
-				.onChange(async (value) => {
-					this.plugin.settings.enableYouTubeChannelFilter = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(domainRulesContainer)
-			.setName('Channel name property fields')
-			.setDesc('Frontmatter properties containing channel name, in priority order (first match wins)')
-			.setClass('web-sidecar-sub-setting')
-			.addText(text => text
-				.setPlaceholder('channel_name, author')
-				.setValue(this.plugin.settings.youtubeChannelPropertyFields.join(', '))
-				.onChange(async (value) => {
-					this.plugin.settings.youtubeChannelPropertyFields = value
-						.split(',')
-						.map(s => s.trim())
-						.filter(s => s.length > 0);
-					await this.plugin.saveSettings();
-				}));
-
-		domainRulesContainer.createEl('div', {
-			text: 'Opening up more domain rules soon...',
-			cls: 'setting-item-description',
-			attr: { style: 'font-style: italic; padding-left: 14px; margin-top: 8px;' }
-		});
-
-		// Experimental Section
-		new Setting(containerEl).setName('Experimental features').setHeading();
-
-		containerEl.createEl('div', {
-			text: '⚠️ Disclaimer: Experimental features may be unstable or break with Obsidian updates. Use with caution.',
-			cls: 'setting-item-description'
-		});
-
-		// Pinned Tabs Section (Moved)
-		new Setting(containerEl).setName('Pinned Tabs').setHeading();
-
-		new Setting(containerEl)
-			.setName('Enable Pinned Web View Tabs')
-			.setDesc('Allow pinning web views to the top of the sidecar')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enablePinnedTabs)
-				.onChange(async (value) => {
-					this.plugin.settings.enablePinnedTabs = value;
-					await this.plugin.saveSettings();
-					this.display();
-				}));
-
-		if (this.plugin.settings.enablePinnedTabs) {
-			new Setting(containerEl)
-				.setName('Pinned property key')
-				.setDesc('Frontmatter property used to identify notes linked to pins (e.g. pinned-status)')
-				.setClass('web-sidecar-sub-setting')
-				.addText(text => text
-					.setPlaceholder('pinned-status')
-					.setValue(this.plugin.settings.pinnedPropertyKey)
-					.onChange(async (value) => {
-						this.plugin.settings.pinnedPropertyKey = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Pinned property value')
-				.setDesc('Value for the property that marks a note as pinned source (e.g. sidecar)')
-				.setClass('web-sidecar-sub-setting')
-				.addText(text => text
-					.setPlaceholder('sidecar')
-					.setValue(this.plugin.settings.pinnedPropertyValue)
-					.onChange(async (value) => {
-						this.plugin.settings.pinnedPropertyValue = value;
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		new Setting(containerEl)
-			.setName('Web viewer header actions')
-			.setDesc('Add a "New web view tab" button to web viewer headers and menus. May break with Obsidian updates.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableWebViewerActions)
-				.onChange(async (value) => {
-					this.plugin.settings.enableWebViewerActions = value;
-					await this.plugin.saveSettings();
-					// Re-render to show/hide sub-options
-					this.display();
-				}));
-
-		// Sub-options (only show if main toggle is enabled)
-		if (this.plugin.settings.enableWebViewerActions) {
-			// Header buttons section
-			new Setting(containerEl).setName('Action row').setHeading();
-
-			new Setting(containerEl)
-				.setName('New web viewer button')
-				.setDesc('Add ⊕ button to open a new web viewer tab')
-				.setClass('web-sidecar-sub-setting')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showWebViewerHeaderButton)
-					.onChange(async (value) => {
-						this.plugin.settings.showWebViewerHeaderButton = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('New Note button')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showWebViewerNewNoteButton)
-					.onChange(async (value) => {
-						this.plugin.settings.showWebViewerNewNoteButton = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Open linked web note button')
-				.setDesc('Add button to open linked note for current URL (if it exists)')
-				.setClass('web-sidecar-sub-setting')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showWebViewerOpenNoteButton)
-					.onChange(async (value) => {
-						this.plugin.settings.showWebViewerOpenNoteButton = value;
-						await this.plugin.saveSettings();
-					}));
-
-			// Menu options section
-			new Setting(containerEl).setName('More options menu').setHeading();
-
-			new Setting(containerEl)
-				.setName('New web view tab')
-				.setDesc('Add "New web view tab" option to menu')
-				.setClass('web-sidecar-sub-setting')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showWebViewerMenuOption)
-					.onChange(async (value) => {
-						this.plugin.settings.showWebViewerMenuOption = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Open note to the right')
-				.setDesc('Add "Open note to the right" option when viewing URLs that are linked in notes')
-				.setClass('web-sidecar-sub-setting')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.showWebViewerOpenNoteOption)
-					.onChange(async (value) => {
-						this.plugin.settings.showWebViewerOpenNoteOption = value;
-						await this.plugin.saveSettings();
-					}));
-		}
+		// Render experimental settings
+		renderExperimentalSettings(containerEl, this.plugin, () => this.display());
 	}
 }

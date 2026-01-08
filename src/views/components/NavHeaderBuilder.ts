@@ -1,5 +1,5 @@
 import { setIcon, Notice } from 'obsidian';
-import type { IWebSidecarView, AppWithCommands, ObsidianCommand, WebSidecarSettings } from '../../types';
+import type { IWebSidecarView, AppWithCommands, ObsidianCommand } from '../../types';
 
 /**
  * Builds and manages the navigation header toolbar for the sidecar view.

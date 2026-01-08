@@ -1,5 +1,4 @@
-import { Notice, setIcon, TFile } from 'obsidian';
-import type { IWebSidecarView, AppWithCommands, ObsidianCommand, TrackedWebViewer, VirtualTab } from '../types';
+import type { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../types';
 import type { NavigationService } from '../services/NavigationService';
 import type { TabStateService } from '../services/TabStateService';
 import { RefactoringLogger } from '../utils/RefactoringLogger';

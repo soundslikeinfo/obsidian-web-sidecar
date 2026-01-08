@@ -1,10 +1,7 @@
-
-import { WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { WorkspaceLeaf } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
-import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';
 import { getLeafId } from './obsidianHelpers';
-import { isSameRedditPost } from './matchers/reddit';
 import { VirtualTabManager } from './VirtualTabManager';
 import { PinnedTabManager } from './PinnedTabManager';
 

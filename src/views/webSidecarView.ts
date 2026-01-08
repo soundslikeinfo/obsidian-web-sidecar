@@ -1,7 +1,5 @@
-
-
-import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice } from 'obsidian';
-import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView, AppWithCommands, ObsidianCommand } from '../types';
+import { ItemView, WorkspaceLeaf, TFile } from 'obsidian';
+import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';

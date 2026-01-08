@@ -53,22 +53,27 @@ export class PinnedTabManager {
         let isNote = false;
         let notePath: string | undefined;
 
-        if ('file' in tab) {
+        // Type guard for VirtualTab
+        const isVirtualTab = (t: typeof tab): t is VirtualTab => 'file' in t;
+        // Type guard for TrackedWebViewer
+        const isTrackedWebViewer = (t: typeof tab): t is TrackedWebViewer => 'leafId' in t && 'title' in t;
+
+        if (isVirtualTab(tab)) {
             isNote = true;
-            notePath = (tab as VirtualTab).file.path;
+            notePath = tab.file.path;
         }
 
         // Handle inconsistent title properties across types
         let title: string | undefined;
-        if ('title' in tab) {
-            title = (tab as any).title;
-        } else if ('cachedTitle' in tab) {
-            title = (tab as any).cachedTitle;
+        if (isTrackedWebViewer(tab)) {
+            title = tab.title;
+        } else if (isVirtualTab(tab)) {
+            title = tab.cachedTitle;
         } else {
             title = tab.url;
         }
 
-        const leafId = 'leafId' in tab ? (tab as any).leafId : undefined;
+        const leafId = isTrackedWebViewer(tab) ? tab.leafId : undefined;
 
         const newPin: PinnedTab = {
             id: crypto.randomUUID(),
@@ -304,7 +309,6 @@ export class PinnedTabManager {
 
         for (const file of files) {
             await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
-                let changed = false;
                 for (const field of settings.urlPropertyFields) {
                     const val = frontmatter[field];
                     if (!val) continue;
@@ -313,11 +317,9 @@ export class PinnedTabManager {
                         const idx = val.indexOf(oldUrl);
                         if (idx > -1) {
                             val[idx] = newUrl;
-                            changed = true;
                         }
                     } else if (val === oldUrl) {
                         frontmatter[field] = newUrl;
-                        changed = true;
                     }
                 }
             });

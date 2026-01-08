@@ -1,4 +1,4 @@
-import { MarkdownView, WorkspaceLeaf, TFile } from 'obsidian';
+import { MarkdownView } from 'obsidian';
 import type { VirtualTab, WebSidecarSettings, TrackedWebViewer } from '../types';
 import type WebSidecarPlugin from '../main';
 import { isSameRedditPost } from './matchers/reddit';
@@ -83,15 +83,16 @@ export class VirtualTabManager {
 
                 if (foundUrl) {
                     // Skip if URL is already open in a web viewer (check exact & domain-specific, e.g. Reddit ID)
+                    const urlToCheck = foundUrl; // Capture for closure
                     const isAlreadyOpen = Array.from(openUrls).some(openUrl =>
-                        openUrl === foundUrl || isSameRedditPost(openUrl, foundUrl!)
+                        openUrl === urlToCheck || isSameRedditPost(openUrl, urlToCheck)
                     );
                     if (isAlreadyOpen) continue;
 
                     // Skip if URL belongs to a pinned tab (shown in pinned section instead)
                     // Pinned tabs might also have redirected, so we check using the same robust logic
                     const isPinned = Array.from(pinnedUrls).some(pinUrl =>
-                        pinUrl === foundUrl || isSameRedditPost(pinUrl, foundUrl!)
+                        pinUrl === urlToCheck || isSameRedditPost(pinUrl, urlToCheck)
                     );
                     if (isPinned) continue;
 
