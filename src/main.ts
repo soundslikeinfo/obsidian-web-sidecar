@@ -88,8 +88,9 @@ export default class WebSidecarPlugin extends Plugin {
 				await this.createLinkedNoteFromUrl(url, leafId);
 			}
 		};
-		window.addEventListener('web-sidecar:create-note', (e) => void handleCreateNote(e));
-		this.register(() => window.removeEventListener('web-sidecar:create-note', (e) => void handleCreateNote(e)));
+		const listener = (e: Event) => void handleCreateNote(e);
+		window.addEventListener('web-sidecar:create-note', listener);
+		this.register(() => window.removeEventListener('web-sidecar:create-note', listener));
 
 		// File menu (More Options)
 		this.registerEvent(
@@ -226,9 +227,32 @@ export default class WebSidecarPlugin extends Plugin {
 
 		// Create file and open it
 		try {
-			await this.app.vault.create(fullPath, content);
+			const newFile = await this.app.vault.create(fullPath, content);
 			await this.app.workspace.openLinkText(fullPath, '', true);
+
+			// Force UrlIndex to process the new file immediately
+			this.urlIndex?.updateFileIndex(newFile);
+
+			// Immediate refresh
 			this.tabStateService.refreshState();
+
+			// Force render on all sidecar views (bypasses isInteracting check)
+			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+				if (leaf.view instanceof WebSidecarView) {
+					leaf.view.render(true);
+				}
+			}
+
+			// Delayed refresh to catch any async index updates
+			setTimeout(() => {
+				this.tabStateService?.refreshState();
+				// Force render again
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+					if (leaf.view instanceof WebSidecarView) {
+						leaf.view.render(true);
+					}
+				}
+			}, 300);
 		} catch (error) {
 			console.error('Web Sidecar: Failed to create note:', error);
 		}

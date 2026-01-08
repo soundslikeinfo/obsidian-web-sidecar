@@ -1,4 +1,5 @@
 import WebSidecarPlugin from './main';
+import { RefactoringLogger } from './utils/RefactoringLogger';
 
 export function registerCommands(plugin: WebSidecarPlugin): void {
     // Ribbon Icon
@@ -21,6 +22,15 @@ export function registerCommands(plugin: WebSidecarPlugin): void {
         name: 'Refresh active and opened links',
         callback: () => {
             plugin.tabStateService.refreshState();
+        },
+    });
+
+    // Debug: Download Refactoring Trace
+    plugin.addCommand({
+        id: 'download-refactoring-trace',
+        name: 'Download Refactoring Trace',
+        callback: () => {
+            RefactoringLogger.downloadLogs();
         },
     });
 }

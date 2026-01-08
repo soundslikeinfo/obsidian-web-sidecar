@@ -5,6 +5,8 @@ import { TFile } from 'obsidian';
 import type WebSidecarPlugin from '../main';
 import { getLeafId } from './obsidianHelpers';
 import { isSameRedditPost } from './matchers/reddit';
+import { VirtualTabManager } from './VirtualTabManager';
+import { PinnedTabManager } from './PinnedTabManager';
 
 /**
  * Supported web viewer types
@@ -21,6 +23,9 @@ export class TabStateService {
     private getSettings: () => WebSidecarSettings;
     private onStateChange: () => void;
 
+    private virtualTabManager: VirtualTabManager;
+    private pinnedTabManager: PinnedTabManager;
+
     private trackedTabs: Map<string, TrackedWebViewer> = new Map();
     private urlTitleCache: Map<string, string> = new Map();
     private pollIntervalId: number | null = null;
@@ -36,6 +41,17 @@ export class TabStateService {
         this.plugin = plugin;
         this.getSettings = getSettings;
         this.onStateChange = onStateChange;
+
+        this.virtualTabManager = new VirtualTabManager(
+            plugin,
+            getSettings,
+            () => this.urlTitleCache
+        );
+        this.pinnedTabManager = new PinnedTabManager(
+            plugin,
+            getSettings,
+            () => this.refreshState()
+        );
 
         // No auto-init in constructor, allow explicit init
     }
@@ -61,7 +77,7 @@ export class TabStateService {
         this.startPolling();
 
         // Initial scan and notify view
-        void this.syncAllPinnedNotes(); // Initial sync from notes
+        void this.pinnedTabManager.syncAllPinnedNotes(); // Initial sync from notes
         this.refreshState();
     }
 
@@ -83,7 +99,7 @@ export class TabStateService {
         // Actually, we should listen to metadata cache changes for the pinned sync.
         this.plugin.registerEvent(
             this.plugin.app.metadataCache.on('changed', (file) => {
-                this.syncPinnedStatusForFile(file);
+                this.pinnedTabManager.syncPinnedStatusForFile(file);
             })
         );
     }
@@ -189,86 +205,11 @@ export class TabStateService {
      * Get virtual tabs from open notes with URL properties
      * Deduplicated by file path (same note in multiple tabs = 1 virtual tab)
      */
+    /**
+     * Get virtual tabs from open notes with URL properties
+     */
     getVirtualTabs(): VirtualTab[] {
-        const virtualTabs: VirtualTab[] = [];
-        const openUrls = new Set(Array.from(this.trackedTabs.values()).map(t => t.url));
-        const settings = this.getSettings();
-
-        // Also track pinned tab URLs (both home and current) to exclude from virtual tabs
-        // Only filter if pinned tabs feature is enabled
-        const pinnedUrls = new Set<string>();
-        if (settings.enablePinnedTabs) {
-            for (const pin of settings.pinnedTabs) {
-                pinnedUrls.add(pin.url);
-                if (pin.currentUrl) pinnedUrls.add(pin.currentUrl);
-            }
-        }
-
-        // Track files we've already processed to deduplicate
-        const processedFilePaths = new Set<string>();
-
-        // Get all open markdown leaves
-        const markdownLeaves = this.plugin.app.workspace.getLeavesOfType('markdown');
-
-        for (const leaf of markdownLeaves) {
-            const view = leaf.view;
-            if (!(view instanceof MarkdownView)) continue;
-
-            const file = view.file;
-            if (!file) continue;
-
-            // CRITICAL: Deduplicate by file path - skip if already processed
-            if (processedFilePaths.has(file.path)) continue;
-            processedFilePaths.add(file.path);
-
-            // Get frontmatter
-            const cache = this.plugin.app.metadataCache.getFileCache(file);
-            const frontmatter = cache?.frontmatter;
-            if (!frontmatter) continue;
-
-            // Check each URL property field
-            for (const propName of settings.urlPropertyFields) {
-                const propValue = frontmatter[propName] as unknown;
-                if (!propValue) continue;
-
-                // Handle string or array
-                const values = Array.isArray(propValue) ? propValue : [propValue];
-
-                let foundUrl: string | undefined;
-
-                for (const val of values) {
-                    if (typeof val === 'string' && val.trim().startsWith('http')) {
-                        foundUrl = val.trim();
-                        break;
-                    }
-                }
-
-                if (foundUrl) {
-                    // Skip if URL is already open in a web viewer (check exact & domain-specific, e.g. Reddit ID)
-                    const isAlreadyOpen = Array.from(openUrls).some(openUrl =>
-                        openUrl === foundUrl || isSameRedditPost(openUrl, foundUrl)
-                    );
-                    if (isAlreadyOpen) continue;
-
-                    // Skip if URL belongs to a pinned tab (shown in pinned section instead)
-                    // Pinned tabs might also have redirected, so we check using the same robust logic
-                    const isPinned = Array.from(pinnedUrls).some(pinUrl =>
-                        pinUrl === foundUrl || isSameRedditPost(pinUrl, foundUrl)
-                    );
-                    if (isPinned) continue;
-
-                    virtualTabs.push({
-                        file,
-                        url: foundUrl,
-                        propertyName: propName,
-                        cachedTitle: this.urlTitleCache.get(foundUrl),
-                    });
-                    break; // Only add one virtual tab per note
-                }
-            }
-        }
-
-        return virtualTabs;
+        return this.virtualTabManager.getVirtualTabs(Array.from(this.trackedTabs.values()));
     }
 
     /**
@@ -318,7 +259,7 @@ export class TabStateService {
 
                         // Auto-sync pinned tab currentUrl when navigation/redirect detected
                         if (existing.url !== info.url) {
-                            this.syncPinnedTabCurrentUrl(leafId, info.url);
+                            this.pinnedTabManager.syncPinnedTabCurrentUrl(leafId, info.url);
                         }
                     }
                 } else {
@@ -458,361 +399,43 @@ export class TabStateService {
     // --- Pinned Tabs Logic ---
 
     getPinnedTabs(): PinnedTab[] {
-        const settings = this.getSettings();
-        // Enrich pinned tabs with active leaf info
-        return settings.pinnedTabs.map(pin => {
-            // 1. Try to find by stored leafId
-            let openTab: TrackedWebViewer | undefined;
-            if (pin.leafId) {
-                openTab = this.trackedTabs.get(pin.leafId);
-            }
-
-            // 2. If not found by ID (maybe ID lost or new session), try to find by URL (active or home)
-            if (!openTab) {
-                const activeUrl = pin.currentUrl || pin.url;
-                openTab = Array.from(this.trackedTabs.values()).find(t => t.url === activeUrl);
-
-                // If found by URL and it's not claimed by another pin
-                // (Simple Claim: First come first served, or check if leafId is in other pins)
-                if (openTab) {
-                    // Implicitly claim it?
-                    // We shouldn't mutate settings here in getter.
-                    // But we return the effective state.
-                }
-            }
-
-            return {
-                ...pin,
-                leafId: openTab?.leafId
-            };
-        });
+        return this.pinnedTabManager.getPinnedTabs(this.trackedTabs);
     }
 
     async addPinnedTab(tab: TrackedWebViewer | VirtualTab | { url: string; title: string }): Promise<void> {
-        if (!this.getSettings().enablePinnedTabs) return;
-
-        const settings = this.getSettings();
-        const existing = settings.pinnedTabs.find(p => p.url === tab.url);
-        if (existing) return; // Already pinned
-
-        // Check if it matches a note
-        // We can check if any note has this URL property?
-        // For now, simpler: Just create the pin.
-        // If it was a VirtualTab, we know the file.
-        let isNote = false;
-        let notePath: string | undefined;
-
-        if ('file' in tab) {
-            isNote = true;
-            notePath = (tab).file.path;
-        }
-
-        const title = 'title' in tab ? tab.title : ('cachedTitle' in tab ? tab.cachedTitle : tab.url);
-        const leafId = 'leafId' in tab ? tab.leafId : undefined;
-
-        const newPin: PinnedTab = {
-            id: crypto.randomUUID(),
-            url: tab.url,
-            title: title || tab.url,
-            isNote,
-            notePath,
-            leafId
-        };
-
-        settings.pinnedTabs.push(newPin);
-
-        // If it is a note, we should TRY to write the property to the file?
-        // User said: "And another option if it is enabled for the note property where it should update the status if it is true."
-        // "Pinned property: 'status', Pinned value: 'sidecar' ... user will be able to change"
-        // So yes, we should try to write the tag/property back to the file.
-        if (isNote && notePath) {
-            await this.writePinnedProperty(notePath, true);
-        }
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.addPinnedTab(tab);
     }
 
     async removePinnedTab(pinId: string): Promise<void> {
-        const settings = this.getSettings();
-        const index = settings.pinnedTabs.findIndex(p => p.id === pinId);
-        if (index === -1) return;
-
-        const pin = settings.pinnedTabs[index];
-        settings.pinnedTabs.splice(index, 1);
-
-        // Remove property from note if applicable
-        if (pin && pin.isNote && pin.notePath) {
-            await this.writePinnedProperty(pin.notePath, false);
-        }
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.removePinnedTab(pinId);
     }
 
-    /**
-     * Update a Pinned Tab's current session URL (navigation within pin)
-     */
     async updatePinnedTabCurrentUrl(pinId: string, url: string): Promise<void> {
-        const settings = this.getSettings();
-        const pin = settings.pinnedTabs.find(p => p.id === pinId);
-        if (!pin) return;
-
-        // If back to home url, clear currentUrl
-        if (url === pin.url) {
-            pin.currentUrl = undefined;
-        } else {
-            pin.currentUrl = url;
-        }
-
-        // This is transient? Or persistent? Plan says persist.
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.updatePinnedTabCurrentUrl(pinId, url);
     }
 
-    /**
-     * Sync a pinned tab's currentUrl when its leaf navigates/redirects.
-     * Called from scanAllWebViewers when URL change detected on a tracked tab.
-     */
     private syncPinnedTabCurrentUrl(leafId: string, newUrl: string): void {
-        const settings = this.getSettings();
-        const pin = settings.pinnedTabs.find(p => p.leafId === leafId);
-        if (!pin) return;
-
-        // If back to home url, clear currentUrl
-        if (newUrl === pin.url) {
-            if (pin.currentUrl !== undefined) {
-                pin.currentUrl = undefined;
-                this.plugin.saveSettings().then(() => { /* nothing */ }, console.error); // Async but we don't await
-            }
-        } else if (pin.currentUrl !== newUrl) {
-            // URL changed - update currentUrl
-            pin.currentUrl = newUrl;
-            this.plugin.saveSettings().then(() => { /* nothing */ }, console.error); // Async but we don't await
-        }
+        this.pinnedTabManager.syncPinnedTabCurrentUrl(leafId, newUrl);
     }
 
     async resetPinnedTabUrl(pinId: string): Promise<void> {
-        await this.updatePinnedTabCurrentUrl(pinId, ''); // Clear it (logic handles empty check/undefined)
+        return this.pinnedTabManager.resetPinnedTabUrl(pinId);
     }
 
     async savePinnedTabNewHomeUrl(pinId: string, newUrl: string): Promise<void> {
-        const settings = this.getSettings();
-        const pin = settings.pinnedTabs.find(p => p.id === pinId);
-        if (!pin) return;
-
-        pin.url = newUrl;
-        pin.currentUrl = undefined; // Reset session
-
-        // If note, we might want to update the URL property? 
-        // User didn't explicitly ask for this, but "Remember title... because I want to give royalty points"
-        // Updating the property source URL in the note seems risky/complex (which property?). skipping for now.
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.savePinnedTabNewHomeUrl(pinId, newUrl);
     }
 
     async reorderPinnedTabs(movedPinId: string, targetPinId: string): Promise<void> {
-        const settings = this.getSettings();
-        const fromIdx = settings.pinnedTabs.findIndex(p => p.id === movedPinId);
-        const toIdx = settings.pinnedTabs.findIndex(p => p.id === targetPinId);
-
-        if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
-
-        const [moved] = settings.pinnedTabs.splice(fromIdx, 1);
-        if (moved) settings.pinnedTabs.splice(toIdx, 0, moved);
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.reorderPinnedTabs(movedPinId, targetPinId);
     }
 
     async setPinnedTabLeaf(pinId: string, leafId: string): Promise<void> {
-        const settings = this.getSettings();
-        const pin = settings.pinnedTabs.find(p => p.id === pinId);
-        if (!pin) return;
-
-        pin.leafId = leafId;
-        // If we are setting a leaf, we assume it starts at the home URL? 
-        // Or should we trust the leaf's current URL?
-        // Let scanAllWebViewers handle currentUrl sync. We just link the ID.
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.setPinnedTabLeaf(pinId, leafId);
     }
 
-    // --- Sync Logic ---
-
-    private async syncAllPinnedNotes(): Promise<void> {
-        if (!this.getSettings().enablePinnedTabs) return;
-
-        const files = this.plugin.app.vault.getMarkdownFiles();
-        for (const file of files) {
-            this.syncPinnedStatusForFile(file);
-        }
-    }
-
-    private syncPinnedStatusForFile(file: TFile): void {
-        if (!this.getSettings().enablePinnedTabs) return;
-
-        const cache = this.plugin.app.metadataCache.getFileCache(file);
-        const frontmatter = cache?.frontmatter;
-
-        const settings = this.getSettings();
-        const key = settings.pinnedPropertyKey;
-        const value = settings.pinnedPropertyValue;
-
-        let hasPinProp = false;
-
-        if (frontmatter) {
-            const propVal = frontmatter[key] as unknown;
-            if (propVal) {
-                if (Array.isArray(propVal)) {
-                    hasPinProp = propVal.includes(value);
-                } else {
-                    hasPinProp = propVal === value;
-                }
-            }
-        }
-
-        // Check if already pinned
-        const existingPin = settings.pinnedTabs.find(p => p.isNote && p.notePath === file.path);
-
-        if (hasPinProp && !existingPin) {
-            // Add pin (need to find URL first)
-            // We reuse getVirtualTabs-like logic or just simpler logic
-            void this.createPinFromNote(file, frontmatter, settings);
-        } else if (!hasPinProp && existingPin) {
-            // Remove pin
-            // Only if we trust the note is the source of truth? 
-            // "Another option if it is enabled for the note property where it should update the status"
-            // Implies property drives status.
-            void this.removePinnedTab(existingPin.id);
-        }
-    }
-
-    private async createPinFromNote(file: TFile, frontmatter: unknown, settings: WebSidecarSettings) {
-        // Find first valid URL
-        let url: string | undefined;
-        for (const field of settings.urlPropertyFields) {
-            const val = (frontmatter as Record<string, unknown>)[field];
-            if (typeof val === 'string' && val.startsWith('http')) {
-                url = val;
-                break;
-            }
-        }
-
-        if (url) {
-            const newPin: PinnedTab = {
-                id: crypto.randomUUID(),
-                url: url,
-                title: file.basename, // Use note name for title? Or URL title? "The plugin should always remember the title of a pinned tab... even closed"
-                isNote: true,
-                notePath: file.path
-            };
-            settings.pinnedTabs.push(newPin);
-            await this.plugin.saveSettings();
-            this.refreshState();
-        }
-    }
-
-    private async writePinnedProperty(filePath: string, add: boolean): Promise<void> {
-        const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-        if (!(file instanceof TFile)) return;
-
-        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
-            const settings = this.getSettings();
-            const key = settings.pinnedPropertyKey;
-            const value = settings.pinnedPropertyValue;
-
-            let current = frontmatter[key];
-
-            if (add) {
-                if (!current) {
-                    // Create new
-                    // If key implies array (tags), make array
-                    if (key === 'tags') {
-                        frontmatter[key] = [value];
-                    } else {
-                        frontmatter[key] = value;
-                    }
-                } else if (Array.isArray(current)) {
-                    if (!current.includes(value)) {
-                        current.push(value);
-                    }
-                } else if (current !== value) {
-                    // Conflict? Convert to array? Or overwrite? 
-                    // Safe: convert to array if not tags?
-                    // If 'status', maybe just overwrite.
-                    if (key === 'tags') {
-                        frontmatter[key] = [current, value];
-                    } else {
-                        frontmatter[key] = value;
-                    }
-                }
-            } else {
-                // Remove
-                if (Array.isArray(current)) {
-                    const idx = current.indexOf(value);
-                    if (idx > -1) {
-                        current.splice(idx, 1);
-                        if (current.length === 0) delete frontmatter[key];
-                    }
-                } else if (current === value) {
-                    delete frontmatter[key];
-                }
-            }
-        });
-    }
-
-    /**
-     * Update all notes linked to the old URL of a pinned tab to the new (current) URL.
-     * Also updates the pinned tab's base URL to the new URL.
-     */
     async updatePinnedTabNotes(pinId: string): Promise<void> {
-        const settings = this.getSettings();
-        const pin = settings.pinnedTabs.find(p => p.id === pinId);
-        if (!pin || !pin.currentUrl || pin.currentUrl === pin.url) return;
-
-        const oldUrl = pin.url;
-        const newUrl = pin.currentUrl;
-
-        // 1. Find all files linking to oldUrl
-        const files = this.plugin.app.vault.getMarkdownFiles();
-
-
-        for (const file of files) {
-            await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
-                let changed = false;
-                for (const field of settings.urlPropertyFields) {
-                    const val = frontmatter[field];
-                    if (!val) continue;
-
-                    if (Array.isArray(val)) {
-                        const idx = val.indexOf(oldUrl);
-                        if (idx > -1) {
-                            val[idx] = newUrl;
-                            changed = true;
-                        }
-                    } else if (val === oldUrl) {
-                        frontmatter[field] = newUrl;
-                        changed = true;
-                    }
-                }
-                if (changed) { /* no-op count */ }
-            });
-        }
-
-        // 2. Update the Pin itself to the new URL
-        pin.url = newUrl;
-        pin.currentUrl = undefined;
-
-        // 3. Update note property on the pin source note if it exists
-        if (pin.isNote && pin.notePath) {
-            // The above loop likely handled it if the note linked to itself via URL property
-        }
-
-        await this.plugin.saveSettings();
-        this.refreshState();
+        return this.pinnedTabManager.updatePinnedTabNotes(pinId);
     }
 
     // --- Redirect Detection Logic ---

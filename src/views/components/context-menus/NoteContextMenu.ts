@@ -141,7 +141,7 @@ export function showNoteContextMenu(
     menu.addItem((item) => {
         item
             .setTitle('Close all web views + linked notes')
-            .setIcon('trash-2')
+            .setIcon('x-circle')
             .onClick(() => {
                 view.closeAllLeavesForUrl(url);
                 view.closeLinkedNoteLeaves(url);

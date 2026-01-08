@@ -127,7 +127,7 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all web views + linked notes')
-                .setIcon('trash-2')
+                .setIcon('x-circle')
                 .onClick(() => {
                     void view.closeAllLeavesForUrl(effectiveUrl);
                     void view.closeLinkedNoteLeaves(effectiveUrl);

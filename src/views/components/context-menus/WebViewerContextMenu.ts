@@ -131,7 +131,7 @@ export function showWebViewerContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all web views + linked notes')
-                .setIcon('trash-2')
+                .setIcon('x-circle')
                 .onClick(() => {
                     void view.closeAllLeavesForUrl(tab.url);
                     void view.closeLinkedNoteLeaves(tab.url);
