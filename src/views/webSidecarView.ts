@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, TFile, MarkdownView, View } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TFile, MarkdownView } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { getLeafId } from '../services/obsidianHelpers';
 import { findMatchingNotes } from '../services/noteMatcher';
@@ -217,7 +217,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                         });
 
                         if (stateChanged) {
-                            this.saveSettingsFn();
+                            void this.saveSettingsFn();
                         }
                     }
                 }

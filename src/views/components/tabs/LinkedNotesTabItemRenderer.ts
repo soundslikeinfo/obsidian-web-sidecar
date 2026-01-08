@@ -157,22 +157,8 @@ export class LinkedNotesTabItemRenderer {
                 if (fallback) activeLeaf = fallback;
             }
 
-            let linkedNoteFocused = false;
-            let focusedNotePath: string | null = null;
-            if (activeLeaf?.view instanceof MarkdownView) {
-                const viewFile = activeLeaf.view.file;
-                if (viewFile) {
-                    focusedNotePath = viewFile.path;
-                    // Check if this note is linked to the current virtual tab (exact matches)
-                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
+            // Note: Auto-expand logic moved to WebSidecarView active-leaf-change handler
 
-                    else if (hasSameDomain && matches.tldMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
-                }
-            }
 
             const key = `virtual:${virtualTab.url}`;
 
@@ -494,16 +480,11 @@ export class LinkedNotesTabItemRenderer {
             expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
             // Check if a linked note is currently focused - if so, auto-expand
-            let linkedNoteFocused = false;
             let focusedNotePath: string | null = null;
             if (activeLeaf?.view instanceof MarkdownView) {
                 const viewFile = activeLeaf.view.file;
                 if (viewFile) {
                     focusedNotePath = viewFile.path;
-                    // Check if this note is linked to the current tab
-                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
                 }
             }
 

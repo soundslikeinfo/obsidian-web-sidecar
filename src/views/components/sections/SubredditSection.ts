@@ -14,7 +14,7 @@ export class SubredditSection {
     ) { }
 
     /**
-     * Render "Subreddit notes explorer" collapsible section
+     * Render "Subreddit" collapsible section
      */
     render(container: HTMLElement): void {
         if (!this.view.settings.enableSubredditExplorer) return;
@@ -54,7 +54,7 @@ export class SubredditSection {
             }
         });
 
-        summary.createSpan({ text: `Subreddit notes explorer (${subredditMap.size})` });
+        summary.createSpan({ text: `Subreddits (${subredditMap.size})` });
 
         // Sort button
         renderSortButton(summary, this.view.subredditSort, (sort) => {

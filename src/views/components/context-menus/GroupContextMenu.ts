@@ -76,7 +76,7 @@ export function showDomainContextMenu(
 }
 
 /**
- * Show context menu for a subreddit group (Subreddit notes explorer)
+ * Show context menu for a subreddit group (Subreddits)
  */
 export function showSubredditContextMenu(
     view: IWebSidecarView,

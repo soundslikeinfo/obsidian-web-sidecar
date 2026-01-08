@@ -54,7 +54,7 @@ export class ContextMenus {
     }
 
     /**
-     * Show context menu for a subreddit group (Subreddit notes explorer)
+     * Show context menu for a subreddit group (Subreddit)
      */
     showSubredditContextMenu(event: MouseEvent, subreddit: string): void {
         showSubredditContextMenu(this.view, event, subreddit);
