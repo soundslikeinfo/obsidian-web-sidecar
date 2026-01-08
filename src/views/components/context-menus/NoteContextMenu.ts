@@ -22,7 +22,7 @@ export function showNoteContextMenu(
             .setIcon('file-plus')
             .onClick(() => {
                 const leaf = view.app.workspace.getLeaf('tab');
-                leaf.openFile(file);
+                void leaf.openFile(file);
             });
     });
 
@@ -33,7 +33,7 @@ export function showNoteContextMenu(
             .setIcon('picture-in-picture-2')
             .onClick(() => {
                 const leaf = view.app.workspace.openPopoutLeaf();
-                leaf.openFile(file);
+                void leaf.openFile(file);
             });
     });
 
@@ -44,7 +44,7 @@ export function showNoteContextMenu(
             .setIcon('separator-vertical')
             .onClick(() => {
                 const leaf = view.getOrCreateRightLeaf();
-                leaf.openFile(file);
+                void leaf.openFile(file);
             });
     });
 
@@ -59,12 +59,12 @@ export function showNoteContextMenu(
                 // Open file explorer if needed and reveal note
                 const explorerLeaf = view.app.workspace.getLeavesOfType('file-explorer')[0];
                 if (explorerLeaf) {
-                    view.app.workspace.revealLeaf(explorerLeaf);
+                    void view.app.workspace.revealLeaf(explorerLeaf);
                 }
                 // Use Obsidian command to reveal active file
                 const tempLeaf = view.app.workspace.getLeaf('tab');
                 await tempLeaf.openFile(file, { active: false });
-                await (view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
+                void (view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
                 tempLeaf.detach();
             });
     });
@@ -75,7 +75,7 @@ export function showNoteContextMenu(
             .setTitle('Copy full path')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(file.path);
+                void navigator.clipboard.writeText(file.path);
             });
     });
 
@@ -89,10 +89,10 @@ export function showNoteContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close this note')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
                     openLeaf.detach();
-                    // Delay render slightly to allow workspace focus to settle on the next leaf
+                    // Delay render to allow workspace focus to settle
                     setTimeout(() => view.render(true), 100);
                 });
         });
@@ -102,7 +102,7 @@ export function showNoteContextMenu(
     menu.addItem((item) => {
         item
             .setTitle('Close all linked notes')
-            .setIcon('file-minus')
+            .setIcon('x-circle')
             .onClick(() => {
                 view.closeLinkedNoteLeaves(url);
             });
@@ -120,7 +120,7 @@ export function showNoteContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close linked web view')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
                     openWebLeaf.detach();
                 });
@@ -141,7 +141,7 @@ export function showNoteContextMenu(
     menu.addItem((item) => {
         item
             .setTitle('Close all web views + linked notes')
-            .setIcon('trash-2')
+            .setIcon('x-circle')
             .onClick(() => {
                 view.closeAllLeavesForUrl(url);
                 view.closeLinkedNoteLeaves(url);
@@ -158,7 +158,7 @@ export function showNoteContextMenu(
             .setTitle('Open in web viewer')
             .setIcon('globe')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     url,
@@ -193,7 +193,7 @@ export function showNoteContextMenu(
             .setTitle('Copy URL')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(url);
+                void navigator.clipboard.writeText(url);
             });
     });
 

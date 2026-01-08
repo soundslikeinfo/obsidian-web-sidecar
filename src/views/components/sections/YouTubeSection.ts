@@ -118,7 +118,7 @@ export class YouTubeSection {
 
             if (noteFrontmatter) {
                 for (const propName of this.view.settings.urlPropertyFields) {
-                    const val = noteFrontmatter[propName];
+                    const val: unknown = noteFrontmatter[propName];
                     if (typeof val === 'string' && val.startsWith('http')) {
                         channelUrl = val;
                         break;

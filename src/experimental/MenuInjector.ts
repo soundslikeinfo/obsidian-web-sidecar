@@ -1,5 +1,5 @@
 
-import { App, setIcon, TFile, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
+import { App, setIcon, TFile, View, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 import { findMatchingNotes } from '../services/noteMatcher';
 import type { UrlIndex } from '../services/UrlIndex';
@@ -23,7 +23,7 @@ export class MenuInjector {
      */
     maybeInjectMenuItem(menuEl: HTMLElement): void {
         // Check if the active leaf is a web viewer
-        const activeLeaf = this.app.workspace.activeLeaf;
+        const activeLeaf = this.app.workspace.getActiveViewOfType(View)?.leaf;
         if (!activeLeaf) {
             return;
         }
@@ -59,7 +59,7 @@ export class MenuInjector {
             return;
         }
 
-        // Find the position to insert (after "Open in default browser" or at the end of the first section)
+        // Find insertion position
         const menuSections = menuEl.querySelectorAll('.menu-separator');
         const items = Array.from(menuEl.children);
 
@@ -110,7 +110,7 @@ export class MenuInjector {
             e.stopPropagation();
             // Close the menu
             menuEl.remove();
-            this.openNewWebViewer();
+            void this.openNewWebViewer();
         });
 
         // Create a separator to appear above our menu item
@@ -143,7 +143,7 @@ export class MenuInjector {
      * Inject "Open note to the right" option if there are notes linked to the current URL
      */
     private maybeInjectOpenNoteOption(menuEl: HTMLElement, insertAfterEl: Element | null): void {
-        const leaf = this.app.workspace.activeLeaf;
+        const leaf = this.app.workspace.getActiveViewOfType(View)?.leaf;
         if (!leaf) return;
 
         const state = leaf.view.getState();
@@ -203,14 +203,14 @@ export class MenuInjector {
         });
 
         // Click handling
-        menuItem.addEventListener('click', async (e) => {
+        menuItem.addEventListener('click', (e) => {
             e.stopPropagation();
             menuEl.remove();
 
             // Open note to the right (reuse existing split)
             if (noteToOpen) {
                 const newLeaf = this.getOrCreateRightLeaf(leaf);
-                await newLeaf.openFile(noteToOpen);
+                void newLeaf.openFile(noteToOpen);
             }
         });
 
@@ -310,6 +310,6 @@ export class MenuInjector {
             type: 'webviewer',
             state: { url: homepage, navigate: true }
         });
-        this.app.workspace.revealLeaf(leaf);
+        void this.app.workspace.revealLeaf(leaf);
     }
 }

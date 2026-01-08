@@ -17,7 +17,7 @@ export function extractGithubRepo(url: string): string | null {
         const owner = match[1];
         const repo = match[2];
 
-        // Filter out common non-repo paths if any (e.g. settings, notifications, but those usually require login/context)
+        // Filter out non-repo paths
         // GitHub usernames/repos are quite flexible, but reserved words exist.
         const reserved = ['settings', 'notifications', 'search', 'explore', 'marketplace', 'topics', 'collections', 'trending', 'sponsors', 'pricing', 'features', 'enterprise', 'team', 'customer-stories', 'security', 'readme', 'premium-support', 'join'];
         if (reserved.includes(owner.toLowerCase())) return null;
@@ -59,7 +59,7 @@ export function getAllGithubNotes(
 
         // Check each configured property field
         for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
+            const propValue = frontmatter[propName] as unknown;
 
             if (!propValue) continue;
 

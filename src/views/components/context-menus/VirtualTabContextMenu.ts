@@ -20,7 +20,7 @@ export function showVirtualTabContextMenu(
             .setTitle('Open in new web viewer')
             .setIcon('globe')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     url,
@@ -45,7 +45,7 @@ export function showVirtualTabContextMenu(
             .setTitle('Open in new window')
             .setIcon('picture-in-picture-2')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.openPopoutLeaf(),
                     url,
@@ -60,7 +60,7 @@ export function showVirtualTabContextMenu(
             .setTitle('Open to the right')
             .setIcon('separator-vertical')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.getOrCreateRightLeaf(),
                     url,
@@ -77,7 +77,7 @@ export function showVirtualTabContextMenu(
                 .setIcon('pin')
                 .onClick(() => {
                     // Create a VirtualTab-like object to pass to pinTab
-                    view.pinTab({ file, url, propertyName: '', cachedTitle: file.basename });
+                    void view.pinTab({ file, url, propertyName: '', cachedTitle: file.basename });
                 });
         });
     }
@@ -89,8 +89,8 @@ export function showVirtualTabContextMenu(
         item
             .setTitle('Open web viewer + note pair')
             .setIcon('columns')
-            .onClick(async () => {
-                await view.openPaired(file, url, { metaKey: false, ctrlKey: false } as MouseEvent);
+            .onClick(() => {
+                void view.openPaired(file, url, { metaKey: false, ctrlKey: false } as MouseEvent);
             });
     });
 
@@ -100,7 +100,19 @@ export function showVirtualTabContextMenu(
             .setTitle('New linked note from URL')
             .setIcon('file-plus')
             .onClick(() => {
-                view.openCreateNoteModal(url);
+                void view.openCreateNoteModal(url);
+            });
+    });
+
+    menu.addSeparator();
+
+    // Close all linked notes
+    menu.addItem((item) => {
+        item
+            .setTitle('Close all linked notes')
+            .setIcon('x-circle')
+            .onClick(() => {
+                void view.closeLinkedNoteLeaves(url);
             });
     });
 
@@ -112,7 +124,7 @@ export function showVirtualTabContextMenu(
             .setTitle('Copy URL')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(url);
+                void navigator.clipboard.writeText(url);
             });
     });
 
@@ -121,15 +133,16 @@ export function showVirtualTabContextMenu(
         item
             .setTitle('Reveal note in navigation')
             .setIcon('folder')
-            .onClick(async () => {
+            .onClick(() => {
                 const explorerLeaf = view.app.workspace.getLeavesOfType('file-explorer')[0];
                 if (explorerLeaf) {
-                    view.app.workspace.revealLeaf(explorerLeaf);
+                    void view.app.workspace.revealLeaf(explorerLeaf);
                 }
                 const tempLeaf = view.app.workspace.getLeaf('tab');
-                await tempLeaf.openFile(file, { active: false });
-                await (view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
-                tempLeaf.detach();
+                void tempLeaf.openFile(file, { active: false }).then(async () => {
+                    (view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
+                    tempLeaf.detach();
+                });
             });
     });
 

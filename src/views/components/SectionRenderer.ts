@@ -74,8 +74,7 @@ export class SectionRenderer {
             container.appendChild(auxContainer);
         }
 
-        // CRITICAL: Ensure aux container is at the END of container (after virtual section, tabs, etc.)
-        // This prevents aux sections from appearing above main content during initial load
+        // Ensure aux container is at the END (after virtual section, tabs, etc.)
         const virtualSection = container.querySelector('.web-sidecar-virtual-section');
         const newTabBtn = container.querySelector('.web-sidecar-new-tab-btn');
         const tabListContainer = container.querySelector('.web-sidecar-linked-notes-tabs');
@@ -139,11 +138,11 @@ export class SectionRenderer {
             }
         }
 
-        // Add an end-of-list drop zone to allow dropping sections at the very end
+        // End-of-list drop zone for section reordering
         addEndDropZone(this.view, auxContainer);
     }
 
-    // Delegation methods for specific sections if needed individually (kept for API compatibility if any)
+    // Delegation methods for specific sections
 
     renderDomainGroupingSection(container: HTMLElement): void {
         this.domainSection.render(container);

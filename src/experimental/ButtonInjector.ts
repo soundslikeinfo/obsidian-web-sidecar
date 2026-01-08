@@ -136,7 +136,7 @@ export class ButtonInjector {
 
                 newTabBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.openNewWebViewer();
+                    void this.openNewWebViewer();
                 });
 
                 // Insert after New Note button if it exists, otherwise before lastChild
@@ -214,7 +214,7 @@ export class ButtonInjector {
             iconName = 'history';
         }
 
-        // Check if button already exists with correct state to prevent pulsing (unnecessary replacement)
+        // Check if button already exists with correct state
         if (existingBtn && existingBtn.getAttribute('data-note-path') === noteToOpen.path) {
             return;
         }
@@ -254,11 +254,11 @@ export class ButtonInjector {
         const newBtn = btn.cloneNode(true) as HTMLElement;
         btn.replaceWith(newBtn);
 
-        newBtn.addEventListener('click', async (e) => {
+        newBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             // Reuse existing right split instead of always creating new
             const newLeaf = this.getOrCreateRightLeaf(leaf);
-            await newLeaf.openFile(noteToOpen);
+            void newLeaf.openFile(noteToOpen);
         });
     }
 
@@ -361,7 +361,7 @@ export class ButtonInjector {
             type: 'webviewer',
             state: { url: homepage, navigate: true }
         });
-        this.app.workspace.revealLeaf(leaf);
+        void this.app.workspace.revealLeaf(leaf);
     }
 
     private getWebViewerLeaves(): WorkspaceLeaf[] {

@@ -1,12 +1,17 @@
-
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, View } from 'obsidian';
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
-import { getLeafId, getViewFile, getViewFilePath, leafHasFile } from '../../../services/obsidianHelpers';
-import { findMatchingNotes, extractSubreddit } from '../../../services/noteMatcher';
+import { getLeafId, leafHasFile } from '../../../services/obsidianHelpers';
+import { findMatchingNotes } from '../../../services/noteMatcher';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { ContextMenus } from '../ContextMenus';
 import { PageTitleService } from '../../../services/PageTitleService';
+import {
+    createNewNoteButton,
+    renderTldSection,
+    applyStyleModeClass,
+    type NoteRowContext
+} from './NoteRowBuilder';
 
 export class LinkedNotesTabItemRenderer {
     private view: IWebSidecarView;
@@ -46,11 +51,11 @@ export class LinkedNotesTabItemRenderer {
         const tabWrapper = container.createDiv({ cls: 'web-sidecar-linked-notes-tab' });
         const tabRow = tabWrapper.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
 
-        // Click -> Open web viewer and track original URL for redirect detection
+        // Click -> Open web viewer and track original URL
         tabRow.onclick = async (e) => {
             const originalUrl = virtualTab.url;
 
-            // Set pending original URL BEFORE opening - this gets applied when the new tab is registered
+            // Set pending original URL for redirect detection
             this.view.setPendingOriginalUrl(originalUrl);
 
             await this.view.openUrlSmartly(originalUrl, e);
@@ -84,7 +89,7 @@ export class LinkedNotesTabItemRenderer {
         }
 
         // Title (Italicized)
-        // Check service cache first (survives re-renders), then virtualTab cache, then fallback to domain
+        // Check cached titles (service cache > virtualTab cache > domain)
         const serviceCachedTitle = this.view.settings.fetchVirtualTabTitles
             ? this.pageTitleService.getCachedTitle(virtualTab.url)
             : undefined;
@@ -99,13 +104,12 @@ export class LinkedNotesTabItemRenderer {
 
         // On-demand title fetch (if enabled and no cached title anywhere)
         if (this.view.settings.fetchVirtualTabTitles && !serviceCachedTitle && !virtualTab.cachedTitle && domain) {
-            this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
+            void this.pageTitleService.fetchTitle(virtualTab.url).then(title => {
                 if (title) {
-                    // Push to TabStateService urlTitleCache so it persists when virtual tab becomes real tab
+                    // Cache title for persistence across renders
                     this.view.tabStateService.setCachedTitle(virtualTab.url, title);
 
-                    // CRITICAL: Check if element is still attached to DOM before updating
-                    // (polling may have re-rendered and replaced this element)
+                    // Check DOM attachment before updating
                     if (titleSpan.isConnected) {
                         titleSpan.textContent = title;
                         titleSpan.setAttribute('aria-label', `Open web view for ${title}`);
@@ -146,37 +150,21 @@ export class LinkedNotesTabItemRenderer {
             const expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
             // Auto-expand logic: Check if a linked note is currently focused
-            let activeLeaf = this.view.app.workspace.activeLeaf;
+            let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
             // Fallback to last active leaf if sidecar is focused
-            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                activeLeaf = this.view.lastActiveLeaf;
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) activeLeaf = fallback;
             }
 
-            let linkedNoteFocused = false;
-            let focusedNotePath: string | null = null;
-            if (activeLeaf?.view instanceof MarkdownView) {
-                const viewFile = activeLeaf.view.file;
-                if (viewFile) {
-                    focusedNotePath = viewFile.path;
-                    // Check if this note is linked to the current virtual tab (exact matches)
-                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
-                    // Also check tld matches if enabled? Usually we prioritize exact matches for virtual tabs
-                    // But if it's in the "More web notes" section it should also trigger expand?
-                    // matches.tldMatches check:
-                    else if (hasSameDomain && matches.tldMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
-                }
-            }
+            // Note: Auto-expand logic moved to WebSidecarView active-leaf-change handler
+
 
             const key = `virtual:${virtualTab.url}`;
 
-            // Auto-expand if linked note is focused (and not already expanded)
-            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
-                this.view.setGroupExpanded(key, true);
-            }
+            // Auto-expand logic moved to WebSidecarView active-leaf-change handler
+            // ensuring we don't re-expand when user manually collapses
+
 
             const isExpanded = this.view.expandedGroupIds.has(key);
 
@@ -206,12 +194,13 @@ export class LinkedNotesTabItemRenderer {
     ): void {
         const isDeduped = allTabs && allTabs.length > 1;
 
-        // Check if this tab is the currently active/focused one OR if active note is linked
-        let activeLeaf = this.view.app.workspace.activeLeaf;
+        // Check if this tab is active or if active note is linked
+        let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
-        // If the sidecar itself is active (e.g. user clicked sort button), fall back to last active leaf
-        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-            activeLeaf = this.view.lastActiveLeaf;
+        // Fallback to last active leaf if sidecar is focused
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+            const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+            if (fallback) activeLeaf = fallback;
         }
 
         let isActive = false;
@@ -237,7 +226,7 @@ export class LinkedNotesTabItemRenderer {
 
             // 2. Linked Note match (Note is active)
             if (!isActive && activeLeaf.view instanceof MarkdownView) {
-                // Matches - compute early so we know if expandable AND for active check checking
+                // Compute matches early for expandable and active checks
                 const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
                 const viewFile = activeLeaf.view.file;
                 if (viewFile) {
@@ -256,8 +245,12 @@ export class LinkedNotesTabItemRenderer {
             tabWrapper.addClass('is-active');
         }
 
-        // Matches - compute early so we know if expandable
-        const matches = findMatchingNotes(this.view.app, tab.url, this.view.settings, this.view.urlIndex);
+        // Use originalUrl if present (sticky mode), otherwise current url
+        const effectiveUrl = tab.originalUrl || tab.url;
+        let matches = findMatchingNotes(this.view.app, effectiveUrl, this.view.settings, this.view.urlIndex);
+
+        const isSticky = !!(tab.originalUrl && tab.originalUrl !== tab.url);
+
         const exactCount = matches.exactMatches.length;
         const hasSameDomain = this.view.settings.enableTldSearch && matches.tldMatches.length > 0;
         // In basic mode, we don't show expandable content
@@ -287,7 +280,7 @@ export class LinkedNotesTabItemRenderer {
         tabWrapper.setAttribute('data-leaf-id', tab.leafId);
 
         tabWrapper.ondragstart = (e) => {
-            // Set BOTH standard text/plain and custom type for compatibility + filtering
+            // Set both text/plain and custom type for compatibility
             e.dataTransfer?.setData('text/plain', tab.leafId);
             e.dataTransfer?.setData('text/tab-id', tab.leafId);
             tabWrapper.addClass('is-dragging');
@@ -319,7 +312,7 @@ export class LinkedNotesTabItemRenderer {
         };
 
         const toggleExpand = () => {
-            const key = `tab:${tab.url}`;
+            const key = `tab:${tab.leafId}`;
             const newState = !this.view.expandedGroupIds.has(key);
             this.view.setGroupExpanded(key, newState);
             this.view.render(true);
@@ -331,9 +324,10 @@ export class LinkedNotesTabItemRenderer {
 
             // Check if this tab (or any in group) is already the active/focused tab
             // Use lastActiveLeaf fallback when sidecar itself is focused
-            let checkLeaf = this.view.app.workspace.activeLeaf;
-            if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                checkLeaf = this.view.lastActiveLeaf;
+            let checkLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
+            if (checkLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) checkLeaf = fallback;
             }
             let isAlreadyActive = false;
 
@@ -357,10 +351,9 @@ export class LinkedNotesTabItemRenderer {
                 }
             }
 
-            // 3-state click behavior:
-            // Click behavior for open web viewer tabs (NOT pinned tabs - see PinnedTabRenderer):
-            // - Single tab: first click = focus, subsequent clicks = toggle expand/collapse
-            // - Grouped tabs: cycle through instances (expand button handles expand/collapse)
+            // 3-state click behavior for open web viewer tabs:
+            // Single tab: first click = focus, subsequent = toggle expand/collapse
+            // Grouped tabs: cycle through instances
 
             if (!isAlreadyActive) {
                 // Not focused - focus the tab (or start cycling for grouped)
@@ -425,6 +418,7 @@ export class LinkedNotesTabItemRenderer {
             popoutIcon.setAttribute('aria-label', 'In popout window');
         }
 
+
         // Tab count
         if (isDeduped && allTabs) {
             tabRow.createSpan({
@@ -458,29 +452,45 @@ export class LinkedNotesTabItemRenderer {
             };
         }
 
-        // Expand button - now just needs to set up the button since container already exists
+        // Return to Original URL Icon (Sticky Mode)
+        if (isSticky && tab.originalUrl) {
+            const returnIcon = tabRow.createSpan({ cls: 'web-sidecar-return-icon clickable-icon' });
+            setIcon(returnIcon, 'undo-2');
+            returnIcon.setAttribute('aria-label', 'Return to linked note page');
+            returnIcon.onclick = async (e) => {
+                e.stopPropagation();
+                // Navigate existing web viewer back to originalUrl
+                if (tab.leaf) {
+                    await tab.leaf.setViewState({
+                        type: 'webviewer',
+                        state: { url: tab.originalUrl, navigate: true }
+                    });
+                    await this.view.app.workspace.revealLeaf(tab.leaf);
+                    // Trigger refresh to update UI
+                    setTimeout(() => this.view.onRefresh(), 200);
+                } else {
+                    // Fallback if leaf reference is missing
+                    void this.view.openUrlSmartly(tab.originalUrl!, e);
+                }
+            };
+        }
+
+        // Expand button
         if (hasExpandableContent && notesContainer) {
             expandBtn = tabRow.createDiv({ cls: 'web-sidecar-expand-btn clickable-icon' });
 
             // Check if a linked note is currently focused - if so, auto-expand
-            let linkedNoteFocused = false;
             let focusedNotePath: string | null = null;
             if (activeLeaf?.view instanceof MarkdownView) {
                 const viewFile = activeLeaf.view.file;
                 if (viewFile) {
                     focusedNotePath = viewFile.path;
-                    // Check if this note is linked to the current tab
-                    if (matches.exactMatches.some(m => m.file.path === focusedNotePath)) {
-                        linkedNoteFocused = true;
-                    }
                 }
             }
 
-            const key = `tab:${tab.url}`;
-            // Auto-expand if linked note is focused (and not already expanded)
-            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
-                this.view.setGroupExpanded(key, true);
-            }
+            const key = `tab:${tab.leafId}`;
+            // Auto-expand logic moved to WebSidecarView active-leaf-change handler
+
 
             const isCurrentlyExpanded = this.view.expandedGroupIds.has(key);
 
@@ -505,8 +515,7 @@ export class LinkedNotesTabItemRenderer {
                 this.renderLinkedNotesTabNotes(notesContainer, tab.url, matches, tab.leafId);
             }
 
-            // CRITICAL: Update is-focused class on existing note items when focus changes
-            // (renderLinkedTabNotes handled this, but we leave this here if we later optimize to not full re-render)
+            // Update is-focused class on note items
             if (isCurrentlyExpanded && notesContainer.children.length > 0) {
                 this.updateNoteFocusState(notesContainer, focusedNotePath);
             }
@@ -534,13 +543,16 @@ export class LinkedNotesTabItemRenderer {
         });
     }
 
+
     renderLinkedNotesTabNotes(container: HTMLElement, url: string, matches: import('../../../types').MatchResult, leafId?: string): void {
-        // Add style-mode class if using 'style' option (for italic closed notes)
-        if (this.view.settings.linkedNoteDisplayStyle === 'style') {
-            container.addClass('style-mode');
-        } else {
-            container.removeClass('style-mode');
-        }
+        const ctx: NoteRowContext = {
+            view: this.view,
+            contextMenus: this.contextMenus,
+            settings: this.view.settings
+        };
+
+        // Apply style mode class
+        applyStyleModeClass(container, this.view.settings);
 
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
@@ -551,49 +563,33 @@ export class LinkedNotesTabItemRenderer {
                 li.setAttribute('data-note-path', match.file.path);
 
                 // Check if this note is the currently focused leaf
-                let activeLeaf = this.view.app.workspace.activeLeaf;
+                let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
                 // If sidecar is active, check last active leaf
-                if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                    activeLeaf = this.view.lastActiveLeaf;
+                if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                    const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                    if (fallback) activeLeaf = fallback;
                 }
 
                 // Verify if the candidate active leaf is still attached to the workspace
                 // If not (e.g. it was just closed), try to find the mostly likely new active leaf
                 // by looking for the most recent markdown leaf that isn't the one we just checked
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (activeLeaf && (activeLeaf as any).parent === undefined) {
-                    // Leaf is detached
+                if (activeLeaf && (activeLeaf as unknown as { parent: unknown }).parent === undefined) {
+                    // Leaf is detached - heuristic fallback
                     const allMarkdownLeaves = this.view.app.workspace.getLeavesOfType('markdown');
-                    // Simple heuristic: grab the last one (often the most recently active/created)
-                    // A better approach would be to trust Obsidian's focus logic which should settle soon,
-                    // but for immediate render, this is a reasonable guess.
                     if (allMarkdownLeaves.length > 0) {
-                        activeLeaf = allMarkdownLeaves[allMarkdownLeaves.length - 1] || null; // active leaf is usually last in list? Not necessarily.
-                        // Actually, this.view.app.workspace.activeLeaf might be null if sidecar has focus.
-                        // But we want the "visual" active note.
-                        // Let's assume the first visible one if we can't tell?
-                        // Better: don't highlight any if we aren't sure, rather than highlighting wrong one.
-                        // BUT the user WANTS to see the new focus.
-                        // Let's try to get the active leaf of the main workspace container?
-                        // Hard to access reliably without private API.
-                        // Fallback: If `lastActiveLeaf` is detached, checking `app.workspace.getMostRecentLeaf()` might work if we ignore sidecar?
-                        // `getMostRecentLeaf` takes a root.
-                        activeLeaf = null; // Reset if invalid
+                        activeLeaf = undefined; // safe fallback
                     }
                 }
 
-                // Re-check activeLeaf from workspace if we reset it or it was null
-
                 const isNoteFocused = activeLeaf?.view instanceof MarkdownView
                     && activeLeaf.view.file?.path === match.file.path
-                    && activeLeaf.getRoot() === this.view.app.workspace.rootSplit; // Ensure it's in main area? Optional.
+                    && activeLeaf.getRoot() === this.view.app.workspace.rootSplit;
 
                 if (isNoteFocused) {
                     li.addClass('is-focused');
                 }
 
-                // Check if note is open anywhere in workspace (for open/closed styling)
                 // Check if note is open anywhere in workspace (for open/closed styling)
                 if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
                     let isOpen = false;
@@ -623,7 +619,7 @@ export class LinkedNotesTabItemRenderer {
                         this.view.focusNextNoteInstance(match.file.path);
                     } else {
                         // No cycle needed, open smartly
-                        this.view.openNoteSmartly(match.file, e);
+                        void this.view.openNoteSmartly(match.file, e);
                     }
                 });
 
@@ -631,64 +627,14 @@ export class LinkedNotesTabItemRenderer {
             }
         }
 
-        // 2. New linked note button (always show)
-        const newNoteBtn = container.createDiv({ cls: 'web-sidecar-new-note-btn' });
-        const noteIcon = newNoteBtn.createSpan({ cls: 'web-sidecar-new-note-icon' });
-        setIcon(noteIcon, 'file-plus');
-        newNoteBtn.createSpan({ text: 'New linked note', cls: 'web-sidecar-new-note-text' });
-        newNoteBtn.setAttribute('aria-label', 'New linked note');
-        newNoteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.view.openCreateNoteModal(url, leafId);
-        });
+        // 2. New linked note button
+        createNewNoteButton(container, url, leafId, ctx);
 
-        // 3. Same domain notes (if enabled) - collapsible section
+        // 3. Same domain notes
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            const domain = extractDomain(url);
-            let headerText = `More web notes (${domain || 'this domain'})`;
-
-            // Priority: YouTube Channel > Subreddit > Domain
-            if (matches.matchedChannel) {
-                headerText = `More from ${matches.matchedChannel}`;
-            } else if (this.view.settings.enableSubredditFilter) {
-                const subreddit = extractSubreddit(url);
-                if (subreddit) {
-                    headerText = `More web notes (${subreddit})`;
-                }
-            }
-
-            // Create collapsible details element
-            const details = container.createEl('details', { cls: 'web-sidecar-tld-section' });
-            const summary = details.createEl('summary', { cls: 'web-sidecar-linked-notes-subtitle' });
-            summary.createSpan({ text: headerText });
-
-            const domainList = details.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
-            for (const match of matches.tldMatches) {
-                const li = domainList.createEl('li');
-
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                // Check if note is open anywhere in workspace (for open/closed styling)
-                if (this.view.settings.linkedNoteDisplayStyle !== 'none') {
-                    let isOpen = false;
-                    this.view.app.workspace.iterateAllLeaves((leaf) => {
-                        if (leafHasFile(leaf, match.file.path)) {
-                            isOpen = true;
-                        }
-                    });
-                    li.addClass(isOpen ? 'is-open' : 'is-closed');
-                }
-
-                const link = li.createEl('a', {
-                    text: match.file.basename,
-                    cls: 'web-sidecar-linked-notes-note-link web-sidecar-muted',
-                    attr: { href: '#' }
-                });
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.view.openNoteSmartly(match.file, e);
-                });
-                link.addEventListener('contextmenu', (e) => this.contextMenus.showNoteContextMenu(e, match.file, match.url));
-            }
+            renderTldSection(container, url, matches, ctx);
         }
     }
 }
+
+

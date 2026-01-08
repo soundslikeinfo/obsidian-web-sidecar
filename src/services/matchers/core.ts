@@ -50,7 +50,7 @@ export function findMatchingNotes(
 
         // Check each configured property field
         for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
+            const propValue = frontmatter[propName] as unknown;
 
             if (!propValue) continue;
 
@@ -61,7 +61,7 @@ export function findMatchingNotes(
                 if (typeof val !== 'string') continue;
                 if (!isValidUrl(val)) continue;
 
-                // Check for exact match OR domain-specific equivalency (e.g. Reddit post ID match)
+                // Check for exact match OR domain-specific equivalency
                 if (urlsMatch(val, url) || isSameRedditPost(val, url)) {
                     // Check if already added (if we have multiple properties pointing to same URL)
                     if (!exactMatches.some(m => m.file.path === file.path)) {
@@ -124,7 +124,7 @@ export function findMatchingNotes(
         }
     }
 
-    // Remove exact matches from TLD matches and Subreddit matches (exact takes priority)
+    // Remove exact matches from TLD/Subreddit matches
     const exactPaths = new Set(exactMatches.map(m => m.file.path));
 
     // Filter TLD matches

@@ -1,4 +1,4 @@
-import { App, Modal, Setting, TFolder, normalizePath } from 'obsidian';
+import { App, Modal, Setting, normalizePath } from 'obsidian';
 import type { WebSidecarSettings } from '../types';
 
 /**
@@ -36,12 +36,12 @@ export class CreateNoteModal extends Modal {
      */
     private getFolderPath(): string {
         if (this.settings.useVaultDefaultLocation) {
-            // @ts-expect-error - Internal API: vault.getConfig is not typed
-            const newFileLocation: 'root' | 'current' | 'folder' = this.app.vault.getConfig?.('newFileLocation') ?? 'root';
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+            const newFileLocation: 'root' | 'current' | 'folder' = (this.app.vault as any).getConfig?.('newFileLocation') ?? 'root';
 
             if (newFileLocation === 'folder') {
-                // @ts-expect-error - Internal API: vault.getConfig is not typed
-                return this.app.vault.getConfig?.('newFileFolderPath') || '';
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any
+                return (this.app.vault as any).getConfig?.('newFileFolderPath') || '';
             } else if (newFileLocation === 'current') {
                 // Use folder of currently active file
                 const activeFile = this.app.workspace.getActiveFile();
@@ -136,7 +136,7 @@ export class CreateNoteModal extends Modal {
             text: 'Create note',
             cls: 'mod-cta'
         });
-        createBtn.addEventListener('click', () => this.createNote());
+        createBtn.addEventListener('click', () => { void this.createNote(); });
     }
 
     private async createNote(): Promise<void> {

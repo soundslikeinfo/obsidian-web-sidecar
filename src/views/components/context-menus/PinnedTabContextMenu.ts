@@ -24,7 +24,7 @@ export function showPinnedTabContextMenu(
             .setTitle('Open in new web viewer')
             .setIcon('file-plus')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     effectiveUrl,
@@ -49,7 +49,7 @@ export function showPinnedTabContextMenu(
             .setTitle('Open in new window')
             .setIcon('picture-in-picture-2')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.openPopoutLeaf(),
                     effectiveUrl,
@@ -64,7 +64,7 @@ export function showPinnedTabContextMenu(
             .setTitle('Open to the right')
             .setIcon('separator-vertical')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.getOrCreateRightLeaf(),
                     effectiveUrl,
@@ -79,7 +79,7 @@ export function showPinnedTabContextMenu(
             .setTitle('New linked note from URL')
             .setIcon('file-plus')
             .onClick(() => {
-                view.openCreateNoteModal(effectiveUrl, pin.leafId);
+                void view.openCreateNoteModal(effectiveUrl, pin.leafId);
             });
     });
 
@@ -92,9 +92,9 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close web view')
-                .setIcon('x')
+                .setIcon('x-circle')
                 .onClick(() => {
-                    view.closeLeaf(pin.leafId!);
+                    void view.closeLeaf(pin.leafId!);
                 });
         });
     }
@@ -105,7 +105,7 @@ export function showPinnedTabContextMenu(
             .setTitle('Close all linked web views')
             .setIcon('x-circle')
             .onClick(() => {
-                view.closeAllLeavesForUrl(effectiveUrl);
+                void view.closeAllLeavesForUrl(effectiveUrl);
             });
     });
 
@@ -117,9 +117,9 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all linked notes')
-                .setIcon('file-minus')
+                .setIcon('x-circle')
                 .onClick(() => {
-                    view.closeLinkedNoteLeaves(effectiveUrl);
+                    void view.closeLinkedNoteLeaves(effectiveUrl);
                 });
         });
 
@@ -127,10 +127,10 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item
                 .setTitle('Close all web views + linked notes')
-                .setIcon('trash-2')
+                .setIcon('x-circle')
                 .onClick(() => {
-                    view.closeAllLeavesForUrl(effectiveUrl);
-                    view.closeLinkedNoteLeaves(effectiveUrl);
+                    void view.closeAllLeavesForUrl(effectiveUrl);
+                    void view.closeLinkedNoteLeaves(effectiveUrl);
                 });
         });
     }
@@ -144,7 +144,7 @@ export function showPinnedTabContextMenu(
         item.setTitle('Unpin web view')
             .setIcon('pin-off')
             .onClick(() => {
-                view.unpinTab(pin.id);
+                void view.unpinTab(pin.id);
             });
     });
 
@@ -156,20 +156,20 @@ export function showPinnedTabContextMenu(
             item.setTitle('Reset to pinned URL')
                 .setIcon('rotate-ccw')
                 .onClick(() => {
-                    view.resetPinnedTab(pin.id);
+                    void view.resetPinnedTab(pin.id);
                 });
         });
 
         menu.addItem((item) => {
             item.setTitle('Update linked notes to current URL')
                 .setIcon('file-symlink')
-                .onClick(async () => {
-                    // FIX: Re-fetch fresh pin from settings to ensure currentUrl is up-to-date
+                .onClick(() => {
+                    // Re-fetch fresh pin to ensure currentUrl is up-to-date
                     const freshPin = view.settings.pinnedTabs.find(p => p.id === pin.id);
                     if (!freshPin) return;
 
                     if ('updatePinnedTabNotes' in view.tabStateService) {
-                        await (view.tabStateService as any).updatePinnedTabNotes(freshPin.id);
+                        void (view.tabStateService as { updatePinnedTabNotes: (id: string) => Promise<void> }).updatePinnedTabNotes(freshPin.id);
                     }
                     // Force UI refresh after update
                     view.render(true);
@@ -180,7 +180,7 @@ export function showPinnedTabContextMenu(
             item.setTitle('Save current URL as pinned')
                 .setIcon('save')
                 .onClick(() => {
-                    view.updatePinnedTabHomeUrl(pin.id, pin.currentUrl!);
+                    void view.updatePinnedTabHomeUrl(pin.id, pin.currentUrl!);
                 });
         });
     }
@@ -191,7 +191,7 @@ export function showPinnedTabContextMenu(
     menu.addItem((item) => {
         item.setTitle('Copy URL')
             .setIcon('copy')
-            .onClick(() => navigator.clipboard.writeText(effectiveUrl));
+            .onClick(() => { void navigator.clipboard.writeText(effectiveUrl); });
     });
 
     // Copy pinned (home) URL if different
@@ -199,7 +199,7 @@ export function showPinnedTabContextMenu(
         menu.addItem((item) => {
             item.setTitle('Copy pinned URL')
                 .setIcon('copy')
-                .onClick(() => navigator.clipboard.writeText(pin.url));
+                .onClick(() => { void navigator.clipboard.writeText(pin.url); });
         });
     }
 

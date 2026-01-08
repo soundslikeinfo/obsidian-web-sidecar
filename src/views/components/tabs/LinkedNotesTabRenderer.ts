@@ -1,5 +1,5 @@
 
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, View } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../../../types';
 import { findMatchingNotes } from '../../../services/noteMatcher';
 import { ContextMenus } from '../ContextMenus';
@@ -31,7 +31,7 @@ export class LinkedNotesTabRenderer {
     renderLinkedNotesTabList(container: HTMLElement, trackedTabs: TrackedWebViewer[], virtualTabs: VirtualTab[], isBasicMode: boolean = false): void {
         this.isBasicMode = isBasicMode;
         this.itemRenderer.setBasicMode(isBasicMode);
-        // Remove any legacy inline header if it exists (nav-header is now in WebSidecarView)
+        // Remove legacy inline header (nav-header is now in WebSidecarView)
         const legacyHeader = container.querySelector('.web-sidecar-linked-notes-header');
         if (legacyHeader) {
             legacyHeader.remove();
@@ -97,9 +97,7 @@ export class LinkedNotesTabRenderer {
             }
         }
 
-        // "+ New web viewer" button
-        // Must be inside tabListContainer to align correctly
-        // And MUST be after the drop zone so the "end of list" drop target is before the button
+        // "+ New web viewer" button (must be after drop zone)
 
         // Cleanup legacy button class if present (migration)
         const legacyBtn = container.querySelector('.web-sidecar-new-tab-btn');
@@ -117,11 +115,11 @@ export class LinkedNotesTabRenderer {
         if (!newTabBtn) {
             newTabBtn = document.createElement('div');
             newTabBtn.className = 'web-sidecar-linked-notes-tab web-sidecar-linked-notes-new-tab';
-            // Styles moved to CSS: .web-sidecar-linked-new-tab (width: 100%, relative, z-index: 20)
+
 
             const row = newTabBtn.createDiv({ cls: 'web-sidecar-linked-notes-tab-row' });
-            // Click listener on ROW, matching standard tabs, ensures padding is clickable
-            row.addEventListener('click', () => this.view.openNewWebViewer());
+            // Click listener on ROW ensures padding is clickable
+            row.addEventListener('click', () => { void this.view.openNewWebViewer(); });
 
             const iconContainer = row.createDiv({ cls: 'web-sidecar-linked-notes-favicon' });
             setIcon(iconContainer, 'plus');
@@ -131,8 +129,7 @@ export class LinkedNotesTabRenderer {
                 cls: 'web-sidecar-linked-notes-tab-title'
             });
 
-            // Dummy spacer to match height of standard tabs (which have action buttons)
-            // This ensures consistent height across themes without hardcoding pixels
+            // Spacer for consistent height
             const spacer = row.createDiv({ cls: 'web-sidecar-inline-new-note web-sidecar-spacer-hidden' });
             // We need an icon inside to give it the correct height
             setIcon(spacer, 'file-plus');
@@ -141,8 +138,7 @@ export class LinkedNotesTabRenderer {
         // Append button AFTER drop zone
         tabListContainer.appendChild(newTabBtn);
 
-        // --- CRITICAL DOM ORDER ---
-        // Order MUST be: 1) Tab list (includes New Web Viewer), 2) Virtual tabs section, 3) Recent section
+        // DOM order: Tab list -> Virtual tabs -> Auxiliary sections
 
         // Render virtual tabs (from open notes with URLs) in linked mode style
         // Virtual section MUST come AFTER the New web viewer button
@@ -172,10 +168,11 @@ export class LinkedNotesTabRenderer {
 
             const newKeys = new Set<string>();
 
-            // Get current focus state for updating existing tabs
-            let activeLeaf = this.view.app.workspace.activeLeaf;
-            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                activeLeaf = this.view.lastActiveLeaf;
+            // Get current focus        // Check if note is active (fallback to matches)
+            let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) activeLeaf = fallback;
             }
             let focusedNotePath: string | null = null;
             if (activeLeaf?.view instanceof MarkdownView) {
@@ -184,7 +181,7 @@ export class LinkedNotesTabRenderer {
                 }
             }
 
-            // CRITICAL: Deduplicate virtualTabs by URL (same URL = same entry even if from different notes)
+            // Deduplicate by URL
             const seenUrls = new Set<string>();
             const deduplicatedVirtualTabs = virtualTabs.filter(vt => {
                 if (seenUrls.has(vt.url)) return false;
@@ -258,7 +255,7 @@ export class LinkedNotesTabRenderer {
             virtualSection.remove(); // Remove section if no virtual tabs
         }
 
-        // Auxiliary sections (Recent, Domain, Subreddit) - rendered in user-configured order
+        // Auxiliary sections - rendered in user-configured order
         this.sectionRenderer.renderAuxiliarySections(container);
     }
 
@@ -333,7 +330,7 @@ export class LinkedNotesTabRenderer {
 
                 this.view.settings.manualTabOrder = currentOrder;
                 this.view.setManualRefresh(true);
-                this.view.saveSettingsFn(); // Persist changes
+                this.view.saveSettingsFn().then(() => { /* nothing */ }, console.error); // Persist changes
                 this.view.onRefresh();
             }
         };

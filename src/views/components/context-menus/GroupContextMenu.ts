@@ -3,7 +3,7 @@ import { IWebSidecarView } from '../../../types';
 import { openWebViewerAndRefresh } from './ContextMenuHelpers';
 
 /**
- * Show context menu for a domain group (Web notes grouped by domain)
+ * Show context menu for a domain group (Web domains)
  */
 export function showDomainContextMenu(
     view: IWebSidecarView,
@@ -21,7 +21,7 @@ export function showDomainContextMenu(
             .setTitle(`Open ${domain}`)
             .setIcon('globe')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     domainUrl,
@@ -36,7 +36,7 @@ export function showDomainContextMenu(
             .setTitle('Open in new window')
             .setIcon('picture-in-picture-2')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.openPopoutLeaf(),
                     domainUrl,
@@ -51,7 +51,7 @@ export function showDomainContextMenu(
             .setTitle('Open to the right')
             .setIcon('separator-vertical')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.getOrCreateRightLeaf(),
                     domainUrl,
@@ -68,7 +68,7 @@ export function showDomainContextMenu(
             .setTitle('Copy URL')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(domainUrl);
+                void navigator.clipboard.writeText(domainUrl);
             });
     });
 
@@ -76,7 +76,7 @@ export function showDomainContextMenu(
 }
 
 /**
- * Show context menu for a subreddit group (Subreddit notes explorer)
+ * Show context menu for a subreddit group (Subreddits)
  */
 export function showSubredditContextMenu(
     view: IWebSidecarView,
@@ -95,7 +95,7 @@ export function showSubredditContextMenu(
             .setTitle(`Open ${subreddit}`)
             .setIcon('globe')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.getLeaf('tab'),
                     subredditUrl,
@@ -110,7 +110,7 @@ export function showSubredditContextMenu(
             .setTitle('Open in new window')
             .setIcon('picture-in-picture-2')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.app.workspace.openPopoutLeaf(),
                     subredditUrl,
@@ -125,7 +125,7 @@ export function showSubredditContextMenu(
             .setTitle('Open to the right')
             .setIcon('separator-vertical')
             .onClick(() => {
-                openWebViewerAndRefresh(
+                void openWebViewerAndRefresh(
                     view,
                     () => view.getOrCreateRightLeaf(),
                     subredditUrl,
@@ -142,7 +142,7 @@ export function showSubredditContextMenu(
             .setTitle('Copy URL')
             .setIcon('copy')
             .onClick(() => {
-                navigator.clipboard.writeText(subredditUrl);
+                void navigator.clipboard.writeText(subredditUrl);
             });
     });
 

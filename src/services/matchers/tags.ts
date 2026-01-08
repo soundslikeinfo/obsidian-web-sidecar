@@ -52,7 +52,7 @@ export function getNotesGroupedByTags(
         let foundProp: string | null = null;
 
         for (const propName of settings.urlPropertyFields) {
-            const propValue = frontmatter[propName];
+            const propValue = frontmatter[propName] as unknown;
             if (!propValue) continue;
             const values = Array.isArray(propValue) ? propValue : [propValue];
             for (const val of values) {

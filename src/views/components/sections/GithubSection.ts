@@ -95,7 +95,7 @@ export class GithubSection {
 
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
 
-        // Repo owner avatar/favicon (hard to get owner avatar easily without API, so reuse GH icon or generic)
+        // Repo icon (GH icon as fallback since owner avatar requires API)
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
             attr: {

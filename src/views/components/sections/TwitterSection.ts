@@ -95,7 +95,7 @@ export class TwitterSection {
 
         const summary = details.createEl('summary', { cls: 'web-sidecar-domain-row' });
 
-        // User avatar/favicon (use X favicon for now, or user profile pic if we could fetch it, but we can't easily)
+        // User icon (X favicon as fallback)
         const faviconContainer = summary.createDiv({ cls: 'web-sidecar-domain-favicon' });
         faviconContainer.createEl('img', {
             attr: {
@@ -113,7 +113,7 @@ export class TwitterSection {
         // Notes might be named "@username" or "username"?
         // `user` is "@username".
         // Search by name? Or if any note has this URL?
-        // Let's check if there is a note with the exact name "@username" or "username".
+        // Check for note with matching username
         const cleanName = user.substring(1); // remove @
         let userNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(user, '');
         if (!userNoteFile) userNoteFile = this.view.app.metadataCache.getFirstLinkpathDest(cleanName, '');
@@ -128,7 +128,7 @@ export class TwitterSection {
             noteLinkBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                await this.view.app.workspace.getLeaf(false).openFile(userNoteFile!);
+                await this.view.app.workspace.getLeaf(false).openFile(userNoteFile);
             };
         }
 

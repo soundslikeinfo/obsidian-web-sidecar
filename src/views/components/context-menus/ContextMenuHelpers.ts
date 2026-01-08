@@ -16,7 +16,7 @@ export async function openWebViewerAndRefresh(
         state: { url, navigate: true }
     });
     if (reveal) {
-        view.app.workspace.revealLeaf(leaf);
+        await view.app.workspace.revealLeaf(leaf);
     }
 
     // Triple forced refresh for immediate UI update
@@ -29,15 +29,5 @@ export async function openWebViewerAndRefresh(
  * Helper to open URL in system default browser mechanism
  */
 export function openInDefaultBrowser(url: string): void {
-    // Try Electron shell first (definitive external open)
-    try {
-        const { shell } = require('electron');
-        shell.openExternal(url);
-        return;
-    } catch (e) {
-        console.error('Failed to load electron shell', e);
-    }
-
-    // Fallback to window.open
     window.open(url, '_blank');
 }

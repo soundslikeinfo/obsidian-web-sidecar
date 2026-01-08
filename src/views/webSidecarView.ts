@@ -1,18 +1,24 @@
-
-
-import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice } from 'obsidian';
-import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView, AppWithCommands, ObsidianCommand } from '../types';
+import { ItemView, WorkspaceLeaf, TFile, MarkdownView } from 'obsidian';
+import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
+import { getLeafId } from '../services/obsidianHelpers';
+import { findMatchingNotes } from '../services/noteMatcher';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
 
 import { LinkedNotesTabRenderer } from './components/tabs/LinkedNotesTabRenderer';
 import { PinnedTabRenderer } from './components/tabs/PinnedTabRenderer';
+import { NavHeaderBuilder } from './components/NavHeaderBuilder';
 import { NavigationService } from '../services/NavigationService';
 import { TabStateService } from '../services/TabStateService';
 import { UrlIndex } from '../services/UrlIndex';
 
+import { RefactoringLogger } from '../utils/RefactoringLogger';
+import { ViewState } from './ViewState';
+import { ViewEventHandler } from './ViewEventHandler';
+
 export const VIEW_TYPE_WEB_SIDECAR = 'web-sidecar-view';
+
 
 /**
  * Sidebar view for Web Sidecar plugin
@@ -20,24 +26,69 @@ export const VIEW_TYPE_WEB_SIDECAR = 'web-sidecar-view';
 export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Interface implementation properties
     settings: WebSidecarSettings;
-    subredditSort: 'alpha' | 'count' = 'alpha';
-    domainSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    tagSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    selectedTagSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    isSubredditExplorerOpen: boolean = false;
-    isDomainGroupOpen: boolean = false;
-    isRecentNotesOpen: boolean = false;
-    isTagGroupOpen: boolean = false;
-    isSelectedTagGroupOpen: boolean = false;
-    isYouTubeChannelExplorerOpen: boolean = false;
-    youtubeChannelSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    isTwitterExplorerOpen: boolean = false;
 
-    twitterSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    isGithubExplorerOpen: boolean = false;
-    githubSort: 'alpha' | 'count' | 'recent' = 'alpha';
-    expandedGroupIds: Set<string> = new Set();
-    isManualRefresh: boolean = false;
+    // Extracted State
+    viewState: ViewState = new ViewState();
+
+    // State proxied to viewState for IWebSidecarView compatibility
+    get subredditSort() { return this.viewState.subredditSort; }
+    set subredditSort(val) { this.viewState.subredditSort = val; }
+
+    get domainSort() { return this.viewState.domainSort; }
+    set domainSort(val) { this.viewState.domainSort = val; }
+
+    get tagSort() { return this.viewState.tagSort; }
+    set tagSort(val) { this.viewState.tagSort = val; }
+
+    get selectedTagSort() { return this.viewState.selectedTagSort; }
+    set selectedTagSort(val) { this.viewState.selectedTagSort = val; }
+
+    get isSubredditExplorerOpen() { return this.viewState.isSubredditExplorerOpen; }
+    set isSubredditExplorerOpen(val) { this.viewState.isSubredditExplorerOpen = val; }
+
+    get isDomainGroupOpen() { return this.viewState.isDomainGroupOpen; }
+    set isDomainGroupOpen(val) { this.viewState.isDomainGroupOpen = val; }
+
+    get isRecentNotesOpen() { return this.viewState.isRecentNotesOpen; }
+    set isRecentNotesOpen(val) { this.viewState.isRecentNotesOpen = val; }
+
+    get isTagGroupOpen() { return this.viewState.isTagGroupOpen; }
+    set isTagGroupOpen(val) { this.viewState.isTagGroupOpen = val; }
+
+    get isSelectedTagGroupOpen() { return this.viewState.isSelectedTagGroupOpen; }
+    set isSelectedTagGroupOpen(val) { this.viewState.isSelectedTagGroupOpen = val; }
+
+    get isYouTubeChannelExplorerOpen() { return this.viewState.isYouTubeChannelExplorerOpen; }
+    set isYouTubeChannelExplorerOpen(val) { this.viewState.isYouTubeChannelExplorerOpen = val; }
+
+    get youtubeChannelSort() { return this.viewState.youtubeChannelSort; }
+    set youtubeChannelSort(val) { this.viewState.youtubeChannelSort = val; }
+
+    get isTwitterExplorerOpen() { return this.viewState.isTwitterExplorerOpen; }
+    set isTwitterExplorerOpen(val) { this.viewState.isTwitterExplorerOpen = val; }
+
+    get twitterSort() { return this.viewState.twitterSort; }
+    set twitterSort(val) { this.viewState.twitterSort = val; }
+
+    get isGithubExplorerOpen() { return this.viewState.isGithubExplorerOpen; }
+    set isGithubExplorerOpen(val) { this.viewState.isGithubExplorerOpen = val; }
+
+    get githubSort() { return this.viewState.githubSort; }
+    set githubSort(val) { this.viewState.githubSort = val; }
+
+    get expandedGroupIds() { return this.viewState.expandedGroupIds; }
+    set expandedGroupIds(val) { this.viewState.expandedGroupIds = val; }
+
+    get isManualRefresh() { return this.viewState.isManualRefresh; }
+    set isManualRefresh(val) { this.viewState.isManualRefresh = val; }
+
+    get isInteracting() { return this.viewState.isInteracting; }
+    set isInteracting(val) { this.viewState.isInteracting = val; }
+
+    // Track expand state for toggle
+    get allExpanded() { return this.viewState.allExpanded; }
+    set allExpanded(val) { this.viewState.allExpanded = val; }
+
     urlIndex: UrlIndex;
 
     // Private properties
@@ -52,19 +103,17 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // Services & Components
     private navigationService: NavigationService;
     private contextMenus: ContextMenus;
+    private eventHandler: ViewEventHandler;
     private noteRenderer: NoteRenderer;
     private sectionRenderer: SectionRenderer;
 
     private linkedNotesTabRenderer: LinkedNotesTabRenderer;
     private pinnedTabRenderer: PinnedTabRenderer;
+    private navHeaderBuilder: NavHeaderBuilder;
     public tabStateService: TabStateService;
     public saveSettingsFn: () => Promise<void>;
 
-    /** Track if user is interacting with the sidebar (prevents re-render) */
-    private isInteracting: boolean = false;
 
-    /** Track expand state for toggle */
-    private allExpanded: boolean = false;
 
     /** Reference to sort button for dynamic updates */
     private sortBtn: HTMLElement | null = null;
@@ -109,6 +158,9 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         this.linkedNotesTabRenderer = new LinkedNotesTabRenderer(this, this.contextMenus, this.noteRenderer, this.sectionRenderer);
         this.pinnedTabRenderer = new PinnedTabRenderer(this, this.contextMenus);
+        this.navHeaderBuilder = new NavHeaderBuilder(this, this.containerEl);
+
+        this.eventHandler = new ViewEventHandler(this, this.navigationService, this.tabStateService);
     }
 
     getViewType(): string {
@@ -116,7 +168,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     getDisplayText(): string {
-        // eslint-disable-next-line obsidianmd/ui/sentence-case
         return 'Web Sidecar';
     }
 
@@ -125,24 +176,13 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     async onOpen(): Promise<void> {
+        RefactoringLogger.log('ViewOpened');
         this.settings = this.getSettingsFn();
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();
 
         // Restore UI state from settings
-        this.isRecentNotesOpen = this.settings.isRecentNotesOpen;
-        this.isDomainGroupOpen = this.settings.isDomainGroupOpen;
-        this.isSubredditExplorerOpen = this.settings.isSubredditExplorerOpen;
-        this.isTagGroupOpen = this.settings.isTagGroupOpen;
-        this.isSelectedTagGroupOpen = this.settings.isSelectedTagGroupOpen;
-        this.isYouTubeChannelExplorerOpen = this.settings.isYouTubeChannelExplorerOpen;
-        this.youtubeChannelSort = this.settings.youtubeChannelSortOrder || 'alpha';
-        this.isTwitterExplorerOpen = this.settings.isTwitterExplorerOpen;
-        this.twitterSort = this.settings.twitterSortOrder || 'alpha';
-
-        this.isGithubExplorerOpen = this.settings.isGithubExplorerOpen;
-        this.githubSort = this.settings.githubSortOrder || 'alpha';
-        this.expandedGroupIds = new Set(this.settings.expandedGroupIds);
+        this.viewState.syncFromSettings(this.settings);
 
         // Create nav-header toolbar
         this.createNavHeader();
@@ -152,9 +192,38 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Listen for active leaf changes to update "active" highlighting immediately
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', (leaf) => {
-                // Track last active non-sidecar leaf
+                // Track last active non-sidecar leaf ID
                 if (leaf && leaf !== this.leaf) {
-                    this.lastActiveLeaf = leaf;
+                    this.lastActiveLeafId = getLeafId(leaf) || null;
+
+                    // Auto-expand tabs linked to this note
+                    // This logic was moved from render loop to event handler to allow manual collapsing
+                    if (leaf.view instanceof MarkdownView && leaf.view.file) {
+                        const filePath = leaf.view.file.path;
+                        let stateChanged = false;
+
+                        this.trackedTabs.forEach(tab => {
+                            const key = `tab:${tab.leafId}`;
+                            if (this.expandedGroupIds.has(key)) return; // Already expanded
+
+                            const matches = findMatchingNotes(this.app, tab.url, this.settings, this.urlIndex);
+                            const isLinked = matches.exactMatches.some(m => m.file.path === filePath) ||
+                                (this.settings.enableTldSearch && matches.tldMatches.some(m => m.file.path === filePath));
+
+                            if (isLinked) {
+                                this.expandedGroupIds.add(key);
+                                stateChanged = true;
+                            }
+                        });
+
+                        if (stateChanged) {
+                            void this.saveSettingsFn();
+                        }
+                    }
+                }
+
+                if (leaf) {
+                    RefactoringLogger.log('ActiveLeafChange', { type: leaf.view.getViewType(), isSidecar: leaf.view === this });
                 }
 
                 // Should not re-render if the sidecar itself became active, 
@@ -163,10 +232,22 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 this.render(true);
             })
         );
+
+        // Listen for layout changes to ensure UI updates (e.g. for is-open status)
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                // Always render on layout change to ensure is-open/is-closed states are updated
+                this.render();
+            })
+        );
     }
 
-    // Track the last active leaf that wasn't this sidecar
-    public lastActiveLeaf: WorkspaceLeaf | null = null;
+    // Track the last active leaf ID that wasn't this sidecar
+    public lastActiveLeafId: string | null = null;
+    // Deprecated: lastActiveLeaf property removed in favor of ID tracking
+    get lastActiveLeaf(): WorkspaceLeaf | null {
+        return null; // Compatibility shim if needed, but better to remove usage
+    }
 
     async onClose(): Promise<void> {
         // Cleanup
@@ -174,258 +255,17 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     /**
      * Create navigation header with action buttons as its own row
-     * Structure: nav-header > nav-buttons-container > nav-action-button
-     * nav-header is SIBLING of contentEl (view-content), not a child
      */
     private createNavHeader(): void {
-        const contentEl = this.contentEl;
-        if (!contentEl) return;
-
-        // Check if our nav-header already exists
-        let navHeader = this.containerEl.querySelector(':scope > .nav-header.web-sidecar-toolbar') as HTMLElement;
-
-        // Ensure button state is synced even if header exists
-        if (navHeader) {
-            const expandBtn = navHeader.querySelector('.nav-action-button[aria-label="Expand all"], .nav-action-button[aria-label="Collapse all"]') as HTMLElement;
-            if (expandBtn) {
-                setIcon(expandBtn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
-                expandBtn.setAttribute('aria-label', this.allExpanded ? 'Collapse all' : 'Expand all');
-            }
-            return;
-        }
-
-        // Create nav-header
-        navHeader = this.containerEl.createDiv({ cls: 'nav-header web-sidecar-toolbar', prepend: true });
-        const buttonContainer = navHeader.createDiv({ cls: 'nav-buttons-container' });
-
-        // New Web Viewer button (leftmost)
-        const newViewerBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': 'New web viewer' }
-        });
-        setIcon(newViewerBtn, 'plus');
-        newViewerBtn.onclick = () => this.openNewWebViewer();
-
-        // Expand/Collapse button
-        const expandBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': this.allExpanded ? 'Collapse all' : 'Expand all' }
-        });
-        setIcon(expandBtn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
-        expandBtn.onclick = () => this.handleExpandToggle(expandBtn);
-
-        // Sort button - cycles through: focus -> title -> manual -> focus
-        const getSortIcon = (order: string) => {
-            switch (order) {
-                case 'focus': return 'clock';
-                case 'title': return 'arrow-down-az';
-                case 'manual': return 'grip-vertical';
-                default: return 'clock';
-            }
-        };
-        const getNextSortLabel = (order: string) => {
-            switch (order) {
-                case 'focus': return 'Sort by title';
-                case 'title': return 'Sort manually';
-                case 'manual': return 'Sort by recent';
-                default: return 'Sort by title';
-            }
-        };
-        const getNextSortOrder = (order: string): 'focus' | 'title' | 'manual' => {
-            switch (order) {
-                case 'focus': return 'title';
-                case 'title': return 'manual';
-                case 'manual': return 'focus';
-                default: return 'title';
-            }
-        };
-
-        this.sortBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': getNextSortLabel(this.settings.tabSortOrder) }
-        });
-        setIcon(this.sortBtn, getSortIcon(this.settings.tabSortOrder));
-        this.sortBtn.onclick = async () => {
-            this.isManualRefresh = true;
-            const newOrder = getNextSortOrder(this.settings.tabSortOrder);
-            this.settings.tabSortOrder = newOrder;
-
-            // ALWAYS capture current visual order when entering manual mode
-            if (newOrder === 'manual') {
-                this.settings.manualTabOrder = this.trackedTabs.map(t => t.leafId);
-            }
-
-            this.updateSortButtonIcon();
-            await this.saveSettingsFn();
-        };
-
-        // History button (activates "Web Viewer: Show history")
-        const historyBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': 'Show history' }
-        });
-        setIcon(historyBtn, 'clock');
-        historyBtn.onclick = () => {
-            const app = this.app as AppWithCommands;
-            if (app.commands) {
-                const commands = app.commands.commands;
-                const cmdList = Object.values(commands);
-
-                // Try to find the command:
-                // 1. Exact match (case insensitive) "Show history"
-                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'show history');
-
-                // 2. Exact match full string "Web Viewer: Show history"
-                if (!cmd) {
-                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: show history');
-                }
-
-                if (cmd) {
-                    app.commands.executeCommandById(cmd.id);
-                } else {
-                    // eslint-disable-next-line obsidianmd/ui/sentence-case
-                    new Notice('Web Sidecar: Command "Show history" not found.');
-                    console.warn('Web Sidecar: Command "Show history" not found. Available commands:', cmdList.map(c => c.name));
-                }
-            }
-        };
-
-        // Search button (activates "Web Viewer: Search the web")
-        const searchBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': 'Search the web' }
-        });
-        setIcon(searchBtn, 'search');
-        searchBtn.onclick = () => {
-            const app = this.app as AppWithCommands;
-            if (app.commands) {
-                const commands = app.commands.commands;
-                const cmdList = Object.values(commands);
-
-                // Try to find the command:
-                // 1. Exact match (case insensitive) "Search the web"
-                let cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'search the web');
-
-                // 2. Exact match full string "Web Viewer: Search the web"
-                if (!cmd) {
-                    cmd = cmdList.find((c: ObsidianCommand) => c.name && c.name.toLowerCase() === 'web viewer: search the web');
-                }
-
-                // 3. Heuristic: Contains "Search the web" and plugin ID looks relevant
-                if (!cmd) {
-                    cmd = cmdList.find((c: ObsidianCommand) =>
-                        c.name && c.name.toLowerCase().includes('search the web') &&
-                        (c.id.includes('web-viewer') || c.id.includes('web-browser') || c.id.includes('surfing'))
-                    );
-                }
-
-                if (cmd) {
-                    app.commands.executeCommandById(cmd.id);
-                } else {
-                    // eslint-disable-next-line obsidianmd/ui/sentence-case
-                    new Notice('Web Sidecar: Command "Search the web" not found.');
-                    console.warn('Web Sidecar: Command "Search the web" not found. Available commands:', cmdList.map(c => c.name));
-                }
-            }
-        };
-
-        // Refresh button
-        const refreshBtn = buttonContainer.createEl('div', {
-            cls: 'clickable-icon nav-action-button',
-            attr: { 'aria-label': 'Refresh' }
-        });
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.onclick = () => {
-            this.isManualRefresh = true;
-            this.onRefresh();
-        };
-
-        // Insert nav-header into containerEl BEFORE contentEl (making it a sibling)
-        this.containerEl.insertBefore(navHeader, contentEl);
+        this.navHeaderBuilder.create(this.contentEl);
     }
 
-    private handleExpandToggle(btn: HTMLElement): void {
-        this.allExpanded = !this.allExpanded;
-        const newState = this.allExpanded;
-
-        // Update button icon
-        setIcon(btn, this.allExpanded ? 'fold-vertical' : 'unfold-vertical');
-        btn.setAttribute('aria-label', this.allExpanded ? 'Collapse all' : 'Expand all');
-
-        // Update state tracking & settings
-        this.isRecentNotesOpen = newState;
-        this.settings.isRecentNotesOpen = newState;
-
-        this.isDomainGroupOpen = newState;
-        this.settings.isDomainGroupOpen = newState;
-
-        this.isSubredditExplorerOpen = newState;
-        this.settings.isSubredditExplorerOpen = newState;
-
-        this.isTagGroupOpen = newState;
-        this.settings.isTagGroupOpen = newState;
-
-        this.isSelectedTagGroupOpen = newState;
-        this.settings.isSelectedTagGroupOpen = newState;
-
-        this.isYouTubeChannelExplorerOpen = newState;
-        this.settings.isYouTubeChannelExplorerOpen = newState;
-
-        this.isGithubExplorerOpen = newState;
-        this.settings.isGithubExplorerOpen = newState;
-
-        // Persist changes
-        this.saveSettingsFn();
-
-        // Expand/Collapse global tab state
-        if (newState) {
-            // 1. Pinned Tabs
-            if (this.settings.pinnedTabs) {
-                this.settings.pinnedTabs.forEach(pin => this.expandedGroupIds.add(`pin:${pin.id}`));
-            }
-            // 2. Linked Tabs (keyed by url for dedupe support)
-            if (this.trackedTabs) {
-                this.trackedTabs.forEach(tab => this.expandedGroupIds.add(`tab:${tab.url}`));
-            }
-            // 3. Virtual Tabs
-            if (this.virtualTabs) {
-                this.virtualTabs.forEach(vtab => this.expandedGroupIds.add(`virtual:${vtab.url}`));
-            }
-        } else {
-            this.expandedGroupIds.clear();
-        }
-
-        // Force re-render to populate content with new state
-        this.isManualRefresh = true;
-        this.onRefresh();
+    private handleExpandToggle(_btn: HTMLElement): void {
+        // Handled by NavHeaderBuilder
     }
 
-    /**
-     * Update the sort button icon to reflect current tabSortOrder
-     * Called when sort mode changes (either via button click or drag-drop)
-     */
     private updateSortButtonIcon(): void {
-        if (!this.sortBtn) return;
-
-        const getSortIcon = (order: string) => {
-            switch (order) {
-                case 'focus': return 'clock';
-                case 'title': return 'arrow-down-az';
-                case 'manual': return 'grip-vertical';
-                default: return 'clock';
-            }
-        };
-        const getNextSortLabel = (order: string) => {
-            switch (order) {
-                case 'focus': return 'Sort by title';
-                case 'title': return 'Sort manually';
-                case 'manual': return 'Sort by recent';
-                default: return 'Sort by title';
-            }
-        };
-
-        setIcon(this.sortBtn, getSortIcon(this.settings.tabSortOrder));
-        this.sortBtn.setAttribute('aria-label', getNextSortLabel(this.settings.tabSortOrder));
+        this.navHeaderBuilder.updateSortButtonIcon();
     }
 
     // Interface implementation methods
@@ -448,68 +288,68 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     setSubredditExplorerOpen(open: boolean): void {
         this.isSubredditExplorerOpen = open;
         this.settings.isSubredditExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setDomainGroupOpen(open: boolean): void {
         this.isDomainGroupOpen = open;
         this.settings.isDomainGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setRecentNotesOpen(open: boolean): void {
         this.isRecentNotesOpen = open;
         this.settings.isRecentNotesOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
         // No auto-refresh needed here, as it's just state tracking for next render
     }
 
     setTagGroupOpen(open: boolean): void {
         this.isTagGroupOpen = open;
         this.settings.isTagGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setSelectedTagGroupOpen(open: boolean): void {
         this.isSelectedTagGroupOpen = open;
         this.settings.isSelectedTagGroupOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setYouTubeChannelSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.youtubeChannelSort = sort;
         this.settings.youtubeChannelSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setYouTubeChannelExplorerOpen(open: boolean): void {
         this.isYouTubeChannelExplorerOpen = open;
         this.settings.isYouTubeChannelExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setTwitterSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.twitterSort = sort;
         this.settings.twitterSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setTwitterExplorerOpen(open: boolean): void {
         this.isTwitterExplorerOpen = open;
         this.settings.isTwitterExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGithubSort(sort: 'alpha' | 'count' | 'recent'): void {
         this.githubSort = sort;
         this.settings.githubSortOrder = sort;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGithubExplorerOpen(open: boolean): void {
         this.isGithubExplorerOpen = open;
         this.settings.isGithubExplorerOpen = open;
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
     }
 
     setGroupExpanded(id: string, expanded: boolean): void {
@@ -519,7 +359,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             this.expandedGroupIds.delete(id);
         }
         this.settings.expandedGroupIds = Array.from(this.expandedGroupIds);
-        this.saveSettingsFn();
+        void this.saveSettingsFn();
         // No auto-refresh needed here
     }
 
@@ -576,72 +416,15 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     handleTabDrop(draggedLeafId: string, targetLeafId: string): void {
-        // Auto-switch to manual mode if not already
-        if (this.settings.tabSortOrder !== 'manual') {
-            this.settings.tabSortOrder = 'manual';
-            // Update the nav-header icon to show we're in manual mode
-            this.updateSortButtonIcon();
-        }
-
-        // Initialize order from current visible order if empty
-        let currentOrder = [...this.settings.manualTabOrder];
-        if (currentOrder.length === 0) {
-            currentOrder = this.trackedTabs.map(t => t.leafId);
-        }
-
-        // Remove dragged item
-        const draggedIdx = currentOrder.indexOf(draggedLeafId);
-        if (draggedIdx > -1) {
-            currentOrder.splice(draggedIdx, 1);
-        } else {
-            // If dragged item not in order yet, it's a new tab - add it
-        }
-
-        // Insert before target
-        const targetIdx = currentOrder.indexOf(targetLeafId);
-        if (targetIdx > -1) {
-            currentOrder.splice(targetIdx, 0, draggedLeafId);
-        } else {
-            currentOrder.push(draggedLeafId);
-        }
-
-        // All three steps required for immediate visual feedback of manual sort order
-        this.isManualRefresh = true;
-        this.saveManualTabOrder(currentOrder);
-        this.onRefresh();
-        this.render(true);
+        this.eventHandler.handleTabDrop(draggedLeafId, targetLeafId);
     }
 
     handleSectionDrop(draggedId: string, targetId: string): void {
-        const currentOrder = [...this.settings.sectionOrder];
-
-        // Remove dragged item
-        const draggedIdx = currentOrder.indexOf(draggedId);
-        if (draggedIdx > -1) {
-            currentOrder.splice(draggedIdx, 1);
-        }
-
-        // Insert before target
-        const targetIdx = currentOrder.indexOf(targetId);
-        if (targetIdx > -1) {
-            currentOrder.splice(targetIdx, 0, draggedId);
-        } else {
-            currentOrder.push(draggedId);
-        }
-
-        // Update settings and persist
-        this.settings.sectionOrder = currentOrder;
-        this.isManualRefresh = true;
-        this.saveSettingsFn();
-        this.onRefresh();
+        this.eventHandler.handleSectionDrop(draggedId, targetId);
     }
 
     openCreateNoteModal(url: string, leafId?: string): void {
-        // Dispatch custom event for main.ts to handle content capture and modal opening
-        const event = new CustomEvent('web-sidecar:create-note', {
-            detail: { url, leafId }
-        });
-        window.dispatchEvent(event);
+        this.eventHandler.openCreateNoteModal(url, leafId);
     }
 
     async openPaired(file: TFile, url: string, evt: MouseEvent): Promise<void> {
@@ -651,19 +434,15 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     // --- Pinned Tab Implementations ---
 
     async pinTab(tab: TrackedWebViewer | VirtualTab): Promise<void> {
-        // Just delegate to service
-        await this.tabStateService.addPinnedTab(tab);
-        this.render(true);
+        await this.eventHandler.pinTab(tab);
     }
 
     async unpinTab(pinId: string): Promise<void> {
-        await this.tabStateService.removePinnedTab(pinId);
-        // Ensure refresh (service calls it, but just in case)
-        this.render(true);
+        await this.eventHandler.unpinTab(pinId);
     }
 
     async reorderPinnedTabs(movedPinId: string, targetPinId: string): Promise<void> {
-        await this.tabStateService.reorderPinnedTabs(movedPinId, targetPinId);
+        await this.eventHandler.reorderPinnedTabs(movedPinId, targetPinId);
     }
 
     async resetPinnedTab(pinId: string): Promise<void> {
@@ -706,7 +485,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     focusWebViewer(leafId: string): void {
-        this.navigationService.focusWebViewer(leafId);
+        void this.navigationService.focusWebViewer(leafId);
     }
 
     focusTab(tab: TrackedWebViewer): void {
@@ -715,6 +494,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
     getOrCreateRightLeaf(): WorkspaceLeaf {
         return this.navigationService.getOrCreateRightLeaf();
+    }
+
+    getOrCreateWebViewerLeaf(): WorkspaceLeaf {
+        return this.navigationService.getOrCreateWebViewerLeaf();
     }
 
     /**
@@ -728,6 +511,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
+        RefactoringLogger.log('RenderRequest', { force });
         // Capture manual refresh state at call time (before async delay)
         const shouldForce = force || this.isManualRefresh;
         if (this.isManualRefresh) {
@@ -750,24 +534,21 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // Prevent re-rendering while user is interacting, unless forced
         if (this.isInteracting && !force) {
+            RefactoringLogger.log('RenderSkipped', { reason: 'isInteracting' });
             return;
         }
+
+        RefactoringLogger.log('PerformRender', { force });
 
         container.addClass('web-sidecar-container');
 
         // Track mode changes
         const wasLinkedMode = container.hasClass('web-sidecar-linked-mode');
-        // Drop Target for Main Container (Unpinning)
-        // If a pinned tab is dropped anywhere outside the pinned section (i.e. on the main list), unpin it.
+        // Drop target for unpinning (drops outside pinned section)
         container.ondragover = (e) => {
             if (e.dataTransfer?.types.includes('text/pin-id')) {
-                // Ensure we are NOT over the pinned section?
-                // The pinned section handles its own drop (reorder).
-                // If event bubbles here, it means it wasn't handled (or we need stopPropagation there).
-                // We should check target.
                 if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
                     e.preventDefault();
-                    // styling?
                 }
             }
         };
@@ -778,7 +559,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 // Check if dropped outside pinned section
                 if (!(e.target as HTMLElement).closest('.web-sidecar-pinned-section')) {
                     e.preventDefault();
-                    this.unpinTab(pinId);
+                    void this.unpinTab(pinId);
                 }
             }
         };
@@ -827,16 +608,10 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
             return;
         }
 
-        // --- Render Pinned Tabs (Always first) ---
-        // We render inside container. 
-        // If container was cleared, this creates the section. 
-        // If not cleared (DOM reconciliation), it updates in place.
+        // Render pinned tabs first
         this.pinnedTabRenderer.render(container, pinnedTabs, isBasicMode);
 
-
-        // Filter out pinned tabs from trackedTabs if they are "active" as pins?
-        // TabStateService.getTrackedTabs() ALREADY does this filtering!
-
+        // Render main tab list (trackedTabs already filtered by TabStateService)
         this.linkedNotesTabRenderer.renderLinkedNotesTabList(container, this.trackedTabs, this.virtualTabs, isBasicMode);
     }
 }

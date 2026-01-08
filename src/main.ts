@@ -4,6 +4,7 @@ import { WebSidecarSettings, DEFAULT_SETTINGS } from './types';
 import { WebSidecarSettingTab } from './settings/settingsTab';
 import { WebSidecarView, VIEW_TYPE_WEB_SIDECAR } from './views/webSidecarView';
 import { WebViewerManager } from './experimental/WebViewerManager';
+import { registerCommands } from './commands';
 import { UrlIndex } from './services/UrlIndex';
 import { TabStateService } from './services/TabStateService';
 import { capturePageAsMarkdown, findWebViewerLeafById } from './services/contentCapture';
@@ -14,10 +15,10 @@ import { capturePageAsMarkdown, findWebViewerLeafById } from './services/content
  */
 export default class WebSidecarPlugin extends Plugin {
 	settings!: WebSidecarSettings;
-	private view: WebSidecarView | null = null;
+	// private view: WebSidecarView | null = null; // Removed to avoid circular reference warning
 	private webViewerManager: WebViewerManager | null = null;
-	private urlIndex!: UrlIndex;
-	private tabStateService!: TabStateService;
+	public urlIndex!: UrlIndex;
+	public tabStateService!: TabStateService;
 
 
 
@@ -38,8 +39,7 @@ export default class WebSidecarPlugin extends Plugin {
 			() => this.updateView()
 		);
 
-		// CRITICAL: Initialize both services AFTER layout is ready
-		// This ensures workspace is fully restored (web viewers exist, metadata cache is populated)
+		// Initialize services after layout is ready
 		this.app.workspace.onLayoutReady(() => {
 			this.urlIndex.initialize();
 			this.tabStateService.initialize();
@@ -58,7 +58,7 @@ export default class WebSidecarPlugin extends Plugin {
 		this.registerView(
 			VIEW_TYPE_WEB_SIDECAR,
 			(leaf) => {
-				this.view = new WebSidecarView(
+				return new WebSidecarView(
 					leaf,
 					() => this.settings,
 					() => this.tabStateService.refreshState(), // onRefresh callback
@@ -68,30 +68,11 @@ export default class WebSidecarPlugin extends Plugin {
 					this.tabStateService,
 					async () => { await this.saveData(this.settings); } // saveSettings callback - LIGHTWEIGHT (no rebuild/refresh)
 				);
-				return this.view;
 			}
 		);
 
 		// 3. Register Commands & Icons
-		this.addRibbonIcon('globe', 'Open Web Sidecar', () => {
-			this.activateView();
-		});
-
-		this.addCommand({
-			id: 'open-web-sidecar',
-			name: 'Open sidebar',
-			callback: () => {
-				this.activateView();
-			},
-		});
-
-		this.addCommand({
-			id: 'refresh-web-sidecar',
-			name: 'Refresh',
-			callback: () => {
-				this.tabStateService.refreshState();
-			},
-		});
+		registerCommands(this);
 
 		this.addSettingTab(new WebSidecarSettingTab(this.app, this));
 
@@ -106,8 +87,9 @@ export default class WebSidecarPlugin extends Plugin {
 				await this.createLinkedNoteFromUrl(url, leafId);
 			}
 		};
-		window.addEventListener('web-sidecar:create-note', handleCreateNote);
-		this.register(() => window.removeEventListener('web-sidecar:create-note', handleCreateNote));
+		const listener = (e: Event) => void handleCreateNote(e);
+		window.addEventListener('web-sidecar:create-note', listener);
+		this.register(() => window.removeEventListener('web-sidecar:create-note', listener));
 
 		// File menu (More Options)
 		this.registerEvent(
@@ -126,7 +108,7 @@ export default class WebSidecarPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as unknown);
 
 		// Migration: Ensure new sections are in sectionOrder
 		const allSections = ['recent', 'domain', 'subreddit', 'youtube', 'twitter', 'github', 'tag', 'selected-tag'];
@@ -148,10 +130,15 @@ export default class WebSidecarPlugin extends Plugin {
 	 * Callback when tab state changes
 	 */
 	private updateView(): void {
-		this.view?.updateTabs(
-			this.tabStateService.getTrackedTabs(),
-			this.tabStateService.getVirtualTabs()
-		);
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR);
+		for (const leaf of leaves) {
+			if (leaf.view instanceof WebSidecarView) {
+				leaf.view.updateTabs(
+					this.tabStateService.getTrackedTabs(),
+					this.tabStateService.getVirtualTabs()
+				);
+			}
+		}
 		// Also update dynamic buttons in web viewers
 		this.webViewerManager?.updateAllButtons();
 	}
@@ -174,7 +161,7 @@ export default class WebSidecarPlugin extends Plugin {
 		}
 
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 			this.tabStateService.refreshState();
 		}
 	}
@@ -239,9 +226,32 @@ export default class WebSidecarPlugin extends Plugin {
 
 		// Create file and open it
 		try {
-			await this.app.vault.create(fullPath, content);
+			const newFile = await this.app.vault.create(fullPath, content);
 			await this.app.workspace.openLinkText(fullPath, '', true);
+
+			// Force UrlIndex to process the new file immediately
+			this.urlIndex?.updateFileIndex(newFile);
+
+			// Immediate refresh
 			this.tabStateService.refreshState();
+
+			// Force render on all sidecar views (bypasses isInteracting check)
+			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+				if (leaf.view instanceof WebSidecarView) {
+					leaf.view.render(true);
+				}
+			}
+
+			// Delayed refresh to catch any async index updates
+			setTimeout(() => {
+				this.tabStateService?.refreshState();
+				// Force render again
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+					if (leaf.view instanceof WebSidecarView) {
+						leaf.view.render(true);
+					}
+				}
+			}, 300);
 		} catch (error) {
 			console.error('Web Sidecar: Failed to create note:', error);
 		}
@@ -286,12 +296,16 @@ export default class WebSidecarPlugin extends Plugin {
 	 */
 	private getFolderPath(): string {
 		if (this.settings.useVaultDefaultLocation) {
-			// @ts-expect-error - Internal API: vault.getConfig is not typed
-			const newFileLocation: 'root' | 'current' | 'folder' = this.app.vault.getConfig?.('newFileLocation') ?? 'root';
+			// Define interface for internal API
+			interface VaultWithConfig {
+				getConfig(key: string): unknown;
+			}
+
+			const vault = this.app.vault as unknown as VaultWithConfig;
+			const newFileLocation = vault.getConfig('newFileLocation');
 
 			if (newFileLocation === 'folder') {
-				// @ts-expect-error - Internal API: vault.getConfig is not typed
-				return this.app.vault.getConfig?.('newFileFolderPath') || '';
+				return (vault.getConfig('newFileFolderPath') as string) || '';
 			} else if (newFileLocation === 'current') {
 				// Use folder of currently active file
 				const activeFile = this.app.workspace.getActiveFile();

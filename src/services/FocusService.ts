@@ -1,4 +1,4 @@
-import { App, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
+import { App } from 'obsidian';
 import { getLeafId, leafHasFile } from './obsidianHelpers';
 import { TrackedWebViewer } from '../types';
 
@@ -21,7 +21,7 @@ export class FocusService {
         for (const leaf of leaves) {
             const id = getLeafId(leaf) || leaf.view.getViewType() + '-' + leaves.indexOf(leaf);
             if (id === leafId) {
-                this.app.workspace.revealLeaf(leaf);
+                await this.app.workspace.revealLeaf(leaf);
                 this.app.workspace.setActiveLeaf(leaf, { focus: true });
                 return;
             }
@@ -34,12 +34,12 @@ export class FocusService {
     focusTab(tab: TrackedWebViewer): void {
         if (tab.leaf) {
             if (tab.leaf.view && tab.leaf.parent) {
-                this.app.workspace.revealLeaf(tab.leaf);
+                void this.app.workspace.revealLeaf(tab.leaf);
                 this.app.workspace.setActiveLeaf(tab.leaf, { focus: true });
                 return;
             }
         }
-        this.focusWebViewer(tab.leafId);
+        void this.focusWebViewer(tab.leafId);
     }
 
     /**
@@ -68,7 +68,7 @@ export class FocusService {
         if (leaves.length === 0) return;
 
         if (leaves.length === 1) {
-            this.app.workspace.revealLeaf(leaves[0]!);
+            void this.app.workspace.revealLeaf(leaves[0]!);
             this.app.workspace.setActiveLeaf(leaves[0]!, { focus: true });
             return;
         }
@@ -77,7 +77,7 @@ export class FocusService {
         const nextIndex = (currentIndex + 1) % leaves.length;
         this.noteCycleIndex.set(filePath, nextIndex);
 
-        this.app.workspace.revealLeaf(leaves[nextIndex]!);
+        void this.app.workspace.revealLeaf(leaves[nextIndex]!);
         this.app.workspace.setActiveLeaf(leaves[nextIndex]!, { focus: true });
     }
 }

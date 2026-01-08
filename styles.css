@@ -854,7 +854,7 @@ ul.web-sidecar-recent-list {
   height: 16px;
 }
 
-/* Web notes grouped by domain section */
+/* Web domains section */
 .web-sidecar-domain-section {
   /* Border handled by generic .web-sidecar-aux-section rule */
 }
