@@ -2,7 +2,7 @@
 import { TFile, View, setIcon, App, WorkspaceLeaf, MarkdownView } from 'obsidian';
 import { MatchResult, WebSidecarSettings, IWebSidecarView } from '../../../types';
 import { extractDomain } from '../../../services/urlUtils';
-import { leafHasFile } from '../../../services/obsidianHelpers';
+import { leafHasFile, getLeafId } from '../../../services/obsidianHelpers';
 import { ContextMenus } from '../ContextMenus';
 
 export interface NoteRowContext {
@@ -15,6 +15,8 @@ export interface NoteRowOptions {
     file: TFile;
     url: string;
     stopPropagation?: boolean;
+    /** If false, focus indicator is suppressed (e.g., when parent web viewer is closed) */
+    webViewerOpen?: boolean;
 }
 
 /**
@@ -22,14 +24,21 @@ export interface NoteRowOptions {
  */
 export function isNoteFocused(app: App, view: IWebSidecarView, filePath: string): boolean {
     let activeLeaf = app.workspace.getActiveViewOfType(View)?.leaf;
-    // Handle sidecar focus/fallback
-    if (activeLeaf === view.leaf && view.lastActiveLeaf) {
-        activeLeaf = view.lastActiveLeaf;
+
+    // Handle sidecar focus/fallback using ID
+    if (activeLeaf === view.leaf && view.lastActiveLeafId) {
+        // Resolve the last active leaf from ID
+        // If the leaf was closed, getLeafById returns undefined/null -> Stale ref handled!
+        const fallbackLeaf = app.workspace.getLeafById(view.lastActiveLeafId);
+        if (fallbackLeaf) {
+            activeLeaf = fallbackLeaf;
+        }
     }
 
+    if (!activeLeaf) return false;
+
     // Check if active leaf matches file path
-    // We use a looser check here to match original logic safely
-    if (activeLeaf?.view instanceof MarkdownView && activeLeaf.view.file?.path === filePath) {
+    if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.file?.path === filePath) {
         return true;
     }
     return false;
@@ -41,8 +50,13 @@ export function isNoteFocused(app: App, view: IWebSidecarView, filePath: string)
 export function isNoteOpen(app: App, filePath: string): boolean {
     let isOpen = false;
     app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
-        if (leafHasFile(leaf, filePath)) {
-            isOpen = true;
+        // Verify leaf is valid by checking if its ID exists in the map
+        // This filters out "zombie" leaves that might be in the iterator but are technically closed
+        const id = getLeafId(leaf);
+        if (id && app.workspace.getLeafById(id)) {
+            if (leafHasFile(leaf, filePath)) {
+                isOpen = true;
+            }
         }
     });
     return isOpen;
@@ -56,14 +70,15 @@ export function createNoteLink(
     options: NoteRowOptions,
     ctx: NoteRowContext
 ): HTMLElement {
-    const { file, url, stopPropagation } = options;
+    const { file, url, stopPropagation, webViewerOpen } = options;
     const { view, contextMenus, settings } = ctx;
 
     const li = container.createEl('li');
     li.setAttribute('data-note-path', file.path);
 
-    // Apply focused state
-    if (isNoteFocused(view.app, view, file.path)) {
+    // Apply focused state only when associated web viewer is open
+    // webViewerOpen defaults to true for backward compatibility with non-pinned contexts
+    if (webViewerOpen !== false && isNoteFocused(view.app, view, file.path)) {
         li.addClass('is-focused');
     }
 

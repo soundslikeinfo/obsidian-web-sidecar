@@ -290,8 +290,9 @@ export class PinnedTabRenderer {
         // 2. Is it active?
         let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
-        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-            activeLeaf = this.view.lastActiveLeaf;
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+            const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+            if (fallback) activeLeaf = fallback;
         }
 
         if (pin.leafId && activeLeaf) {
@@ -312,6 +313,9 @@ export class PinnedTabRenderer {
         // Apply style mode class
         applyStyleModeClass(container, this.view.settings);
 
+        // Check if the associated web viewer is actually open
+        const isWebViewerOpen = !!(leafId && this.view.app.workspace.getLeafById(leafId));
+
         // 1. Exact matches first
         if (matches.exactMatches.length > 0) {
             const exactList = container.createEl('ul', { cls: 'web-sidecar-linked-notes-note-list' });
@@ -319,7 +323,8 @@ export class PinnedTabRenderer {
                 createNoteLink(exactList, {
                     file: match.file,
                     url: match.url,
-                    stopPropagation: true
+                    stopPropagation: true,
+                    webViewerOpen: isWebViewerOpen
                 }, ctx);
             }
         }
@@ -346,8 +351,9 @@ export class PinnedTabRenderer {
 
         // Check if this pinned tab is already focused
         let checkLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
-        if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-            checkLeaf = this.view.lastActiveLeaf;
+        if (checkLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+            const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+            if (fallback) checkLeaf = fallback;
         }
         const isAlreadyFocused = openLeaf && checkLeaf && getLeafId(checkLeaf) === freshPin.leafId;
 

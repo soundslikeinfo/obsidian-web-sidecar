@@ -1,5 +1,7 @@
-import { ItemView, WorkspaceLeaf, TFile } from 'obsidian';
+import { ItemView, WorkspaceLeaf, TFile, MarkdownView, View } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
+import { getLeafId } from '../services/obsidianHelpers';
+import { findMatchingNotes } from '../services/noteMatcher';
 import { ContextMenus } from './components/ContextMenus';
 import { NoteRenderer } from './components/NoteRenderer';
 import { SectionRenderer } from './components/SectionRenderer';
@@ -190,9 +192,34 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         // Listen for active leaf changes to update "active" highlighting immediately
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', (leaf) => {
-                // Track last active non-sidecar leaf
+                // Track last active non-sidecar leaf ID
                 if (leaf && leaf !== this.leaf) {
-                    this.lastActiveLeaf = leaf;
+                    this.lastActiveLeafId = getLeafId(leaf) || null;
+
+                    // Auto-expand tabs linked to this note
+                    // This logic was moved from render loop to event handler to allow manual collapsing
+                    if (leaf.view instanceof MarkdownView && leaf.view.file) {
+                        const filePath = leaf.view.file.path;
+                        let stateChanged = false;
+
+                        this.trackedTabs.forEach(tab => {
+                            const key = `tab:${tab.leafId}`;
+                            if (this.expandedGroupIds.has(key)) return; // Already expanded
+
+                            const matches = findMatchingNotes(this.app, tab.url, this.settings, this.urlIndex);
+                            const isLinked = matches.exactMatches.some(m => m.file.path === filePath) ||
+                                (this.settings.enableTldSearch && matches.tldMatches.some(m => m.file.path === filePath));
+
+                            if (isLinked) {
+                                this.expandedGroupIds.add(key);
+                                stateChanged = true;
+                            }
+                        });
+
+                        if (stateChanged) {
+                            this.saveSettingsFn();
+                        }
+                    }
                 }
 
                 if (leaf) {
@@ -205,10 +232,22 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                 this.render(true);
             })
         );
+
+        // Listen for layout changes to ensure UI updates (e.g. for is-open status)
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                // Always render on layout change to ensure is-open/is-closed states are updated
+                this.render();
+            })
+        );
     }
 
-    // Track the last active leaf that wasn't this sidecar
-    public lastActiveLeaf: WorkspaceLeaf | null = null;
+    // Track the last active leaf ID that wasn't this sidecar
+    public lastActiveLeafId: string | null = null;
+    // Deprecated: lastActiveLeaf property removed in favor of ID tracking
+    get lastActiveLeaf(): WorkspaceLeaf | null {
+        return null; // Compatibility shim if needed, but better to remove usage
+    }
 
     async onClose(): Promise<void> {
         // Cleanup

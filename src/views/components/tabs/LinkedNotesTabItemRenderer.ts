@@ -152,8 +152,9 @@ export class LinkedNotesTabItemRenderer {
             // Auto-expand logic: Check if a linked note is currently focused
             let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
             // Fallback to last active leaf if sidecar is focused
-            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                activeLeaf = this.view.lastActiveLeaf;
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) activeLeaf = fallback;
             }
 
             let linkedNoteFocused = false;
@@ -175,10 +176,9 @@ export class LinkedNotesTabItemRenderer {
 
             const key = `virtual:${virtualTab.url}`;
 
-            // Auto-expand if linked note is focused (and not already expanded)
-            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
-                this.view.setGroupExpanded(key, true);
-            }
+            // Auto-expand logic moved to WebSidecarView active-leaf-change handler
+            // ensuring we don't re-expand when user manually collapses
+
 
             const isExpanded = this.view.expandedGroupIds.has(key);
 
@@ -212,8 +212,9 @@ export class LinkedNotesTabItemRenderer {
         let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
         // Fallback to last active leaf if sidecar is focused
-        if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-            activeLeaf = this.view.lastActiveLeaf;
+        if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+            const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+            if (fallback) activeLeaf = fallback;
         }
 
         let isActive = false;
@@ -338,8 +339,9 @@ export class LinkedNotesTabItemRenderer {
             // Check if this tab (or any in group) is already the active/focused tab
             // Use lastActiveLeaf fallback when sidecar itself is focused
             let checkLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
-            if (checkLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                checkLeaf = this.view.lastActiveLeaf;
+            if (checkLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) checkLeaf = fallback;
             }
             let isAlreadyActive = false;
 
@@ -506,10 +508,8 @@ export class LinkedNotesTabItemRenderer {
             }
 
             const key = `tab:${tab.leafId}`;
-            // Auto-expand if linked note is focused (and not already expanded)
-            if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
-                this.view.setGroupExpanded(key, true);
-            }
+            // Auto-expand logic moved to WebSidecarView active-leaf-change handler
+
 
             const isCurrentlyExpanded = this.view.expandedGroupIds.has(key);
 
@@ -585,8 +585,9 @@ export class LinkedNotesTabItemRenderer {
                 let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
 
                 // If sidecar is active, check last active leaf
-                if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                    activeLeaf = this.view.lastActiveLeaf;
+                if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                    const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                    if (fallback) activeLeaf = fallback;
                 }
 
                 // Verify if the candidate active leaf is still attached to the workspace

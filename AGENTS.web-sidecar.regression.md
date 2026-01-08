@@ -498,4 +498,33 @@ if (linkedNoteFocused && !this.view.expandedGroupIds.has(key)) {
 - [ ] Does closing a note immediately remove its virtual tab (if it was the last one)?
 - [ ] Is the `layout-change` listener active?
 
+---
 
+## Stale Focus Indicator in Pinned Tabs
+
+**Symptom:** A linked note in a pinned tab shows the focus indicator (purple border/blue dot) even when no web viewers are open for that pinned tab.
+
+**Cause:** `isNoteFocused()` in `NoteRowBuilder.ts` only checked if the note was the active leaf. It did not verify that the parent context (pinned web viewer) was actually open. When a user focused a note, then closed all web viewers, the note remained visually highlighted.
+
+**Fix (2026-01-08):**
+1. **Architecture Change**: Refactored `lastActiveLeaf` (object reference) to `lastActiveLeafId` (string ID) in `WebSidecarView` and `IWebSidecarView`. Objects held in memory become stale/zombies; IDs do not.
+2. **Robust Verification**: Updated `isNoteFocused` and `isNoteOpen` to verify validity against Obsidian's master leaf map (`app.workspace.getLeafById(id)`).
+   - If `getLeafById` returns nothing, the leaf is effectively closed, even if `iterateAllLeaves` still sees it as a zombie.
+3. **Flashing Fix**: Removed aggressive re-rendering logic in event handlers. `active-leaf-change` now silently updates the ID. `layout-change` triggers a single render to update "open" states.
+4. **Collapse Regression Fix**: Moved "Auto-Expand" logic from `LinkedNotesTabItemRenderer` (render loop) to `WebSidecarView` (`on-active-leaf-change`).
+   - Before: Render loop constantly re-expanded the tab if the note was focused, making it impossible to collapse manually.
+   - After: Expansion only happens once when navigating TO the note. Manual collapse is respected thereafter.
+
+```typescript
+// WebSidecarView.ts (active-leaf-change)
+if (isLinked && !this.expandedGroupIds.has(key)) {
+    this.expandedGroupIds.add(key); // Expand once on navigation
+}
+```
+
+**Checklist:**
+- [ ] Does `isNoteFocused` use `getLeafById` to resolve fallback?
+- [ ] Does `isNoteOpen` verify leaf ID existence to ignore zombies?
+- [ ] Is flashing gone (no render loops on focus)?
+- [ ] Do closed notes immediately update status?
+- [ ] Can you manually collapse a tab while its note is focused?

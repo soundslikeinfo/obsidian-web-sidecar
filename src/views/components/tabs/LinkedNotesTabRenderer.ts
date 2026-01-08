@@ -168,10 +168,11 @@ export class LinkedNotesTabRenderer {
 
             const newKeys = new Set<string>();
 
-            // Get current focus state for updating existing tabs
+            // Get current focus        // Check if note is active (fallback to matches)
             let activeLeaf = this.view.app.workspace.getActiveViewOfType(View)?.leaf;
-            if (activeLeaf === this.view.leaf && this.view.lastActiveLeaf) {
-                activeLeaf = this.view.lastActiveLeaf;
+            if (activeLeaf === this.view.leaf && this.view.lastActiveLeafId) {
+                const fallback = this.view.app.workspace.getLeafById(this.view.lastActiveLeafId);
+                if (fallback) activeLeaf = fallback;
             }
             let focusedNotePath: string | null = null;
             if (activeLeaf?.view instanceof MarkdownView) {

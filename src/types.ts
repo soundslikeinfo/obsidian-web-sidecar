@@ -11,7 +11,7 @@ export interface IWebSidecarView {
     settings: WebSidecarSettings;
     urlIndex: UrlIndex;
     leaf: WorkspaceLeaf;
-    lastActiveLeaf: WorkspaceLeaf | null;
+    lastActiveLeafId: string | null;
 
     // State
     trackedTabs: TrackedWebViewer[];
