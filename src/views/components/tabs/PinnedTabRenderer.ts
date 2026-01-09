@@ -1,3 +1,9 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import { extractDomain } from '../../../services/urlUtils';
 import { getFaviconUrl } from '../../../services/faviconUtils';
 import { getLeafId } from '../../../services/obsidianHelpers';

@@ -1,3 +1,9 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import { ItemView, WorkspaceLeaf, TFile, MarkdownView } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, IWebSidecarView } from '../types';
 import { getLeafId } from '../services/obsidianHelpers';
@@ -13,7 +19,6 @@ import { NavigationService } from '../services/NavigationService';
 import { TabStateService } from '../services/TabStateService';
 import { UrlIndex } from '../services/UrlIndex';
 
-import { RefactoringLogger } from '../utils/RefactoringLogger';
 import { ViewState } from './ViewState';
 import { ViewEventHandler } from './ViewEventHandler';
 
@@ -176,7 +181,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     async onOpen(): Promise<void> {
-        RefactoringLogger.log('ViewOpened');
+
         this.settings = this.getSettingsFn();
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();
@@ -220,10 +225,6 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
                             void this.saveSettingsFn();
                         }
                     }
-                }
-
-                if (leaf) {
-                    RefactoringLogger.log('ActiveLeafChange', { type: leaf.view.getViewType(), isSidecar: leaf.view === this });
                 }
 
                 // Should not re-render if the sidecar itself became active, 
@@ -511,7 +512,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
      * Main render method
      */
     render(force?: boolean): void {
-        RefactoringLogger.log('RenderRequest', { force });
+
         // Capture manual refresh state at call time (before async delay)
         const shouldForce = force || this.isManualRefresh;
         if (this.isManualRefresh) {
@@ -534,11 +535,11 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
 
         // Prevent re-rendering while user is interacting, unless forced
         if (this.isInteracting && !force) {
-            RefactoringLogger.log('RenderSkipped', { reason: 'isInteracting' });
+
             return;
         }
 
-        RefactoringLogger.log('PerformRender', { force });
+
 
         container.addClass('web-sidecar-container');
 

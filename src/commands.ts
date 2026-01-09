@@ -1,5 +1,11 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import WebSidecarPlugin from './main';
-import { RefactoringLogger } from './utils/RefactoringLogger';
+
 
 export function registerCommands(plugin: WebSidecarPlugin): void {
     // Ribbon Icon
@@ -25,12 +31,5 @@ export function registerCommands(plugin: WebSidecarPlugin): void {
         },
     });
 
-    // Debug: Download Refactoring Trace
-    plugin.addCommand({
-        id: 'download-refactoring-trace',
-        name: 'Download Refactoring Trace',
-        callback: () => {
-            RefactoringLogger.downloadLogs();
-        },
-    });
+
 }

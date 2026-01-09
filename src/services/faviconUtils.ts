@@ -1,3 +1,9 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 /**
  * Favicon Utility Functions
  * Centralized Google Favicon API access for consistent usage across the plugin

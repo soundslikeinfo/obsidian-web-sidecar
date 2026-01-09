@@ -1,7 +1,13 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import type { IWebSidecarView, TrackedWebViewer, VirtualTab } from '../types';
 import type { NavigationService } from '../services/NavigationService';
 import type { TabStateService } from '../services/TabStateService';
-import { RefactoringLogger } from '../utils/RefactoringLogger';
+
 
 export class ViewEventHandler {
     constructor(
@@ -11,7 +17,7 @@ export class ViewEventHandler {
     ) { }
 
     handleTabDrop(draggedLeafId: string, targetLeafId: string): void {
-        RefactoringLogger.log('DragDrop', { type: 'tab', dragged: draggedLeafId, target: targetLeafId });
+
 
         // Auto-switch to manual mode if not already
         if (this.view.settings.tabSortOrder !== 'manual') {
@@ -46,7 +52,7 @@ export class ViewEventHandler {
     }
 
     handleSectionDrop(draggedId: string, targetId: string): void {
-        RefactoringLogger.log('DragDrop', { type: 'section', dragged: draggedId, target: targetId });
+
 
         const currentOrder = [...this.view.settings.sectionOrder];
 

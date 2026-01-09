@@ -1,3 +1,9 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import { TFile } from 'obsidian';
 import type { WebSidecarSettings, TrackedWebViewer, VirtualTab, PinnedTab } from '../types';
 import type WebSidecarPlugin from '../main';

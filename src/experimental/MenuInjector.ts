@@ -1,3 +1,8 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 
 import { App, setIcon, TFile, View, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
 import type { WebSidecarSettings } from '../types';

@@ -1,3 +1,9 @@
+/*
+ * Web Sidecar
+ * Copyright (c) 2025 soundslikeinfo
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 import { TFile, WorkspaceLeaf } from 'obsidian';
 import { IWebSidecarView, TrackedWebViewer, PinnedTab } from '../../types';
 import { openWebViewerAndRefresh, openInDefaultBrowser } from './context-menus/ContextMenuHelpers';
