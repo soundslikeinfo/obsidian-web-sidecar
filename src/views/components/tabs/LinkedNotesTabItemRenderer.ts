@@ -324,7 +324,7 @@ export class LinkedNotesTabItemRenderer {
             this.view.render(true);
         };
 
-        tabRow.onclick = async (e) => {
+        tabRow.onclick = (e) => {
             if ((e.target as HTMLElement).closest('.web-sidecar-expand-btn')) return;
             if ((e.target as HTMLElement).closest('.web-sidecar-inline-new-note')) return;
 

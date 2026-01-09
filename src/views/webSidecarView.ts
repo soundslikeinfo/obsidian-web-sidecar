@@ -181,7 +181,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     async onOpen(): Promise<void> {
-
+        // Minimal await to satisfy interface contract (operations below are synchronous)
+        await Promise.resolve();
         this.settings = this.getSettingsFn();
         this.trackedTabs = this.getTabsFn();
         this.virtualTabs = this.getVirtualTabsFn();

@@ -42,16 +42,18 @@ export class CreateNoteModal extends Modal {
      */
     private getFolderPath(): string {
         if (this.settings.useVaultDefaultLocation) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-            const newFileLocation: 'root' | 'current' | 'folder' = (this.app.vault as any).getConfig?.('newFileLocation') ?? 'root';
+            // Access internal Obsidian vault config (undocumented API)
+            const vaultConfig = this.app.vault as unknown as {
+                getConfig?: (key: string) => string | undefined;
+            };
+            const newFileLocation = vaultConfig.getConfig?.('newFileLocation') ?? 'root';
 
             if (newFileLocation === 'folder') {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any
-                return (this.app.vault as any).getConfig?.('newFileFolderPath') || '';
+                return vaultConfig.getConfig?.('newFileFolderPath') ?? '';
             } else if (newFileLocation === 'current') {
                 // Use folder of currently active file
                 const activeFile = this.app.workspace.getActiveFile();
-                return activeFile?.parent?.path || '';
+                return activeFile?.parent?.path ?? '';
             }
             // 'root' or default
             return '';

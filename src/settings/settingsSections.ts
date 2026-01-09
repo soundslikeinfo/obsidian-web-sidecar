@@ -123,7 +123,7 @@ export function renderDomainRulesSettings(containerEl: HTMLElement, plugin: WebS
 
     new Setting(domainRulesContainer)
         .setName('Reveal other notes from the same subreddit')
-        .setDesc('Filter "More notes from this domain" to show only notes from the same subreddit as the current page.')
+        .setDesc('Show only notes from the same subreddit as the current page.')
         .setClass('web-sidecar-sub-setting')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableSubredditFilter)
@@ -136,7 +136,7 @@ export function renderDomainRulesSettings(containerEl: HTMLElement, plugin: WebS
 
     new Setting(domainRulesContainer)
         .setName('Reveal other notes from the same YouTube channel')
-        .setDesc('Filter "More notes from this domain" to show only notes from the same channel.')
+        .setDesc('Show only notes from the same channel.')
         .setClass('web-sidecar-sub-setting')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableYouTubeChannelFilter)
