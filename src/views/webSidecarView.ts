@@ -173,7 +173,7 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
     }
 
     getDisplayText(): string {
-        return 'Web Sidecar';
+        return 'Web sidecar';
     }
 
     getIcon(): string {

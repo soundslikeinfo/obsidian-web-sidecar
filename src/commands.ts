@@ -9,7 +9,7 @@ import WebSidecarPlugin from './main';
 
 export function registerCommands(plugin: WebSidecarPlugin): void {
     // Ribbon Icon
-    plugin.addRibbonIcon('globe', 'Open Web Sidecar', () => {
+    plugin.addRibbonIcon('globe', 'Open web navigation pane to the right sidebar', () => {
         void plugin.activateView();
     });
 

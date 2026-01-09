@@ -103,7 +103,7 @@ export class ButtonInjector {
         const settings = this.getSettings();
         const lastChild = viewActions.lastElementChild;
 
-        // Handle New Note button - add or remove based on setting
+        // Handle New note button - add or remove based on setting
         const existingNewNoteBtn = viewActions.querySelector('.web-sidecar-new-note-header-btn');
         if (settings.showWebViewerNewNoteButton) {
             if (!existingNewNoteBtn) {
@@ -144,7 +144,7 @@ export class ButtonInjector {
                     void this.openNewWebViewer();
                 });
 
-                // Insert after New Note button if it exists, otherwise before lastChild
+                // Insert after New note button if it exists, otherwise before lastChild
                 const newNoteBtnNow = viewActions.querySelector('.web-sidecar-new-note-header-btn');
                 if (newNoteBtnNow && newNoteBtnNow.nextSibling) {
                     viewActions.insertBefore(newTabBtn, newNoteBtnNow.nextSibling);

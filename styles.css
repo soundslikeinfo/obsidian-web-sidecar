@@ -840,7 +840,7 @@ ul.web-sidecar-recent-list {
   padding: 0 8px 8px;
 }
 
-/* Inline New Note button on tab row (when no exact matches) */
+/* Inline New note button on tab row (when no exact matches) */
 .web-sidecar-inline-new-note {
   flex-shrink: 0;
   padding: 4px;

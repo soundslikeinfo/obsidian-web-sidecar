@@ -82,7 +82,7 @@ To maintain this clean state ("flush out nuisances before they start"), adhere t
 ## Plugin Overview
 
 **Web Sidecar** is a sidebar companion for Obsidian's web viewers. It:
-- Tracks all open web viewer tabs (native `webviewer` and Surfing plugin `surfing-view`)
+- Tracks all open web viewer tabs (native `webviewer`)
 - Displays matching notes from the vault for each tracked URL
 - Shows "Virtual Tabs" for open notes with URL properties (but no active web viewer)
 - Provides quick actions: create notes, open URLs, focus tabs, open paired view
@@ -158,7 +158,7 @@ src/
 ### 1. Tab Tracking
 
 **Expected behavior:**
-- All open `webviewer` and `surfing-view` leaves are tracked
+- All open `webviewer` leaves are tracked
 - Each tab stores: `leafId`, `url`, `title`, `lastFocused` timestamp, `isPopout`, `leaf` reference
 - Tabs sorted by `lastFocused` (most recent first) or alphabetically by title
 - Closed tabs are automatically removed on next poll cycle
@@ -674,10 +674,10 @@ if (e.dataTransfer?.types?.includes('text/tab-id')) {
 |---------|-------------|
 | `enableWebViewerActions` | Master toggle for header injection features |
 | `showWebViewerHeaderButton` | New Web Viewer button in header |
-| `showWebViewerNewNoteButton` | New Note button in header |
-| `showWebViewerOpenNoteButton` | Open Note button (dynamic, conditional) |
+| `showWebViewerNewNoteButton` | New note button in header |
+| `showWebViewerOpenNoteButton` | Open note button (dynamic, conditional) |
 | `showWebViewerMenuOption` | New Web View Tab in More Options menu |
-| `showWebViewerOpenNoteOption` | Open Note in More Options menu (conditional) |
+| `showWebViewerOpenNoteOption` | Open note in More Options menu (conditional) |
 
 ---
 

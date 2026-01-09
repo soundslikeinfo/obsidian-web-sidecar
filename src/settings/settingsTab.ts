@@ -28,9 +28,9 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// URL Property Fields
 		new Setting(containerEl)
 			.setName('URL property fields')
-			.setDesc('Comma-separated list of frontmatter property names to search for URLs (e.g., source, url, URL)')
+			.setDesc('Comma-separated list of frontmatter property names to search for URLs (e.g., source, url)')
 			.addText(text => text
-				.setPlaceholder('source, url, URL')
+				.setPlaceholder('source, url')
 				.setValue(this.plugin.settings.urlPropertyFields.join(', '))
 				.onChange(async (value) => {
 					this.plugin.settings.urlPropertyFields = value
@@ -45,7 +45,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 			.setName('Primary URL property')
 			.setDesc('Property name used when creating new notes with URL')
 			.addText(text => text
-				.setPlaceholder('source')
+				.setPlaceholder('Source')
 				.setValue(this.plugin.settings.primaryUrlProperty)
 				.onChange(async (value) => {
 					this.plugin.settings.primaryUrlProperty = value.trim() || DEFAULT_SETTINGS.primaryUrlProperty;
@@ -71,7 +71,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Use Vault's Default Location Toggle
 		new Setting(containerEl)
 			.setName('Use vault\'s default location')
-			.setDesc('Use the location configured in Obsidian\'s Files & Links settings')
+			.setDesc('Use the location configured in the vault\'s default location for new notes')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.useVaultDefaultLocation)
 				.onChange(async (value) => {
@@ -87,7 +87,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 				.setDesc('Custom folder for new notes created from this plugin (leave empty for vault root)')
 				.setClass('web-sidecar-sub-setting')
 				.addText(text => text
-					.setPlaceholder('Folder/Subfolder')
+					.setPlaceholder('Folder/subfolder')
 					.setValue(this.plugin.settings.newNoteFolderPath)
 					.onChange(async (value) => {
 						this.plugin.settings.newNoteFolderPath = value.trim();
@@ -98,7 +98,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Capture Page Content
 		new Setting(containerEl)
 			.setName('Capture page content')
-			.setDesc('When creating a new linked note, extract and include the page content as markdown using Defuddle (desktop only)')
+			.setDesc('When creating a new linked note, extract and include the page content as markdown')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.capturePageContent)
 				.onChange(async (value) => {

@@ -117,9 +117,9 @@ export function renderAuxiliarySectionsSettings(containerEl: HTMLElement, plugin
  */
 export function renderDomainRulesSettings(containerEl: HTMLElement, plugin: WebSidecarPlugin): void {
     const domainRulesContainer = containerEl.createDiv({ cls: 'web-sidecar-settings-group' });
-    domainRulesContainer.createEl('div', { text: 'Domain Rules', cls: 'web-sidecar-settings-group-title' });
+    domainRulesContainer.createEl('div', { text: 'Domain rules', cls: 'web-sidecar-settings-group-title' });
 
-    new Setting(domainRulesContainer).setName('reddit.com').setHeading();
+    new Setting(domainRulesContainer).setName('Reddit.com').setHeading();
 
     new Setting(domainRulesContainer)
         .setName('Reveal other notes from the same subreddit')
@@ -132,7 +132,7 @@ export function renderDomainRulesSettings(containerEl: HTMLElement, plugin: WebS
                 await plugin.saveSettings();
             }));
 
-    new Setting(domainRulesContainer).setName('youtube.com').setHeading();
+    new Setting(domainRulesContainer).setName('Youtube.com').setHeading();
 
     new Setting(domainRulesContainer)
         .setName('Reveal other notes from the same YouTube channel')
@@ -150,7 +150,7 @@ export function renderDomainRulesSettings(containerEl: HTMLElement, plugin: WebS
         .setDesc('Frontmatter properties containing channel name, in priority order (first match wins)')
         .setClass('web-sidecar-sub-setting')
         .addText(text => text
-            .setPlaceholder('channel_name, author')
+            .setPlaceholder('Examples:channel_name, author')
             .setValue(plugin.settings.youtubeChannelPropertyFields.join(', '))
             .onChange(async (value) => {
                 plugin.settings.youtubeChannelPropertyFields = value

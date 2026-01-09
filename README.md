@@ -110,9 +110,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ### How does the plugin find my web notes?
 The plugin looks for notes with a URL property (default: `source`) in the frontmatter. You can customize which properties to search in the settings.
 
-### Can I use this with the Surfing plugin?
-Yes! Web Sidecar tracks both native Obsidian web viewers and Surfing plugin views.
-
 ### Why doesn't my note appear in the sidebar?
 Make sure your note has a URL property in its frontmatter that matches the web page URL. Check **Settings → Web Sidecar → URL property fields**.
 

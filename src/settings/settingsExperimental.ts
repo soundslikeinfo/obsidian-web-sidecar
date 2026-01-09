@@ -22,7 +22,7 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
     new Setting(containerEl).setName('Pinned Tabs').setHeading();
 
     new Setting(containerEl)
-        .setName('Enable Pinned Web View Tabs')
+        .setName('Enable pinned web view tabs')
         .setDesc('Allow pinning web views to the top of the sidecar')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enablePinnedTabs)
@@ -38,7 +38,7 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
             .setDesc('Frontmatter property used to identify notes linked to pins (e.g. pinned-status)')
             .setClass('web-sidecar-sub-setting')
             .addText(text => text
-                .setPlaceholder('pinned-status')
+                .setPlaceholder('Pinned-status')
                 .setValue(plugin.settings.pinnedPropertyKey)
                 .onChange(async (value) => {
                     plugin.settings.pinnedPropertyKey = value;
@@ -60,7 +60,7 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
 
     new Setting(containerEl)
         .setName('Web viewer header actions')
-        .setDesc('Add a "New web view tab" button to web viewer headers and menus. May break with Obsidian updates.')
+        .setDesc('Add a "New web view tab" button to web viewer headers and menus. May break with future Obsidian updates.')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableWebViewerActions)
             .onChange(async (value) => {
@@ -94,7 +94,7 @@ function renderWebViewerActionSettings(containerEl: HTMLElement, plugin: WebSide
             }));
 
     new Setting(containerEl)
-        .setName('New Note button')
+        .setName('New note button')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.showWebViewerNewNoteButton)
             .onChange(async (value) => {
