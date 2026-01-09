@@ -3,7 +3,11 @@
 	"name": "Web Sidecar",
 	"version": "0.0.5",
 	"minAppVersion": "1.8.0",
-	"description": "Sidebar that watches active web viewer URLs and displays related notes",
-	"author": "grrstine",
+	"description": "A streamlined interface for rediscovering web notes. Track open pages and connect them to your vault, seamlessly navigating between research and your notes—featuring a vertical tabs interface.",
+	"author": "Greg K. (@soundslikeinfo)",
+	"authorUrl": "https://github.com/soundslikeinfo",
+	"fundingUrl": {
+		"Buy Me a Coffee": "https://www.buymeacoffee.com/soundslikeinfo"
+	},
 	"isDesktopOnly": true
 }

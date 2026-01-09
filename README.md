@@ -1,6 +1,6 @@
 # Web Sidecar
 
-A sidebar companion for Obsidian's web viewers. Track all your open web pages, see matching notes from your vault, and seamlessly navigate between web content and your notes.
+Elevate the web viewer with a sleek, vertical tab interface designed for rediscovering your web-linked notes. Track all your open web pages, see matching notes from your vault, and seamlessly navigate between web content and your notes.
 
 ## Features
 
