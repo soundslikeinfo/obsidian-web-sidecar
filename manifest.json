@@ -3,7 +3,7 @@
 	"name": "Web Sidecar",
 	"version": "0.0.5",
 	"minAppVersion": "1.8.0",
-	"description": "A streamlined interface for rediscovering web notes. Track open pages and connect them to your vault, seamlessly navigating between research and your notes—featuring a vertical tabs interface.",
+	"description": "Rediscover web notes with a streamlined design. Track open pages and connect them to your vault, using vertical tabs to navigate between web content and your notes.",
 	"author": "Greg K. (@soundslikeinfo)",
 	"authorUrl": "https://github.com/soundslikeinfo",
 	"fundingUrl": {
