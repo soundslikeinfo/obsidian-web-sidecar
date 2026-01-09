@@ -399,8 +399,8 @@ export class WebSidecarView extends ItemView implements IWebSidecarView {
         this.navigationService.focusNextNoteInstance(filePath);
     }
 
-    async openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent): Promise<void> {
-        await this.navigationService.openNoteSmartly(file, e);
+    async openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent, referenceLeafId?: string): Promise<void> {
+        await this.navigationService.openNoteSmartly(file, e, referenceLeafId);
     }
 
     async openUrlSmartly(url: string, e: MouseEvent): Promise<void> {

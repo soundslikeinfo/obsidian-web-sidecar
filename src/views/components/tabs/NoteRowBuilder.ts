@@ -22,6 +22,8 @@ export interface NoteRowOptions {
     stopPropagation?: boolean;
     /** If false, focus indicator is suppressed (e.g., when parent web viewer is closed) */
     webViewerOpen?: boolean;
+    /** Optional: leaf ID of the source web viewer (for splitting context) */
+    leafId?: string;
 }
 
 /**
@@ -75,7 +77,7 @@ export function createNoteLink(
     options: NoteRowOptions,
     ctx: NoteRowContext
 ): HTMLElement {
-    const { file, url, stopPropagation, webViewerOpen } = options;
+    const { file, url, stopPropagation, webViewerOpen, leafId } = options;
     const { view, contextMenus, settings } = ctx;
 
     const li = container.createEl('li');
@@ -102,7 +104,7 @@ export function createNoteLink(
     link.addEventListener('click', (e) => {
         e.preventDefault();
         if (stopPropagation) e.stopPropagation();
-        void view.openNoteSmartly(file, e);
+        void view.openNoteSmartly(file, e, leafId);
     });
 
     link.addEventListener('contextmenu', (e) => {
@@ -160,7 +162,8 @@ export function renderTldSection(
     url: string,
     matches: MatchResult,
     ctx: NoteRowContext,
-    stopPropagation: boolean = false
+    stopPropagation: boolean = false,
+    leafId?: string
 ): void {
     const { view, contextMenus, settings } = ctx;
 
@@ -201,7 +204,7 @@ export function renderTldSection(
         link.addEventListener('click', (e) => {
             e.preventDefault();
             if (stopPropagation) e.stopPropagation();
-            void view.openNoteSmartly(match.file, e);
+            void view.openNoteSmartly(match.file, e, leafId);
         });
 
         link.addEventListener('contextmenu', (e) => {

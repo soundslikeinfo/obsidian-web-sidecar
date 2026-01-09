@@ -17,8 +17,9 @@
  * @returns The Google Favicon API URL
  * 
  * @example
- * getFaviconUrl('github.com', 32) // "https://www.google.com/s2/favicons?domain=github.com&sz=32"
+ * getFaviconUrl('github.com', 32) // Uses faviconV2 with https:// target
  */
 export function getFaviconUrl(domain: string, size: 16 | 32 = 32): string {
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
+    // Use faviconV2 directly with forced HTTPS to avoid 404s from HTTP fallback
+    return `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=${size}`;
 }

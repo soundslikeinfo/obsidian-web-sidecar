@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-import { App, TFile, WorkspaceLeaf, WorkspaceSplit } from 'obsidian';
+import { App, TFile, WorkspaceLeaf, WorkspaceSplit, View } from 'obsidian';
 import { CreateNoteModal } from '../modals/createNoteModal';
 import { TrackedWebViewer, WebSidecarSettings } from '../types';
 import type { UrlIndex } from './UrlIndex';
@@ -13,7 +13,6 @@ import { getViewFile } from './obsidianHelpers';
 
 // Import helper modules
 import {
-    isInMainArea,
     getMainAreaLeaves,
     getWebViewerLeaves
 } from './navigationLeafHelpers';
@@ -101,7 +100,7 @@ export class NavigationService {
 
     // --- Smart Opening Operations ---
 
-    async openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent): Promise<void> {
+    async openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent, referenceLeafId?: string): Promise<void> {
         // CMD/Ctrl + click = open in new popout window
         if (e.metaKey || e.ctrlKey) {
             const newWindow = this.app.workspace.openPopoutLeaf();
@@ -129,7 +128,15 @@ export class NavigationService {
         // Not open - use noteOpenBehavior setting
         const settings = this.getSettings();
         if (settings.noteOpenBehavior === 'split') {
-            const newLeaf = this.getOrCreateRightLeaf();
+            let referenceLeaf: WorkspaceLeaf | undefined;
+            if (referenceLeafId) {
+                // If ID provided, try to find it
+                const leaf = this.app.workspace.getLeafById(referenceLeafId);
+                // Also verify it's valid/attached
+                if (leaf && leaf.view) referenceLeaf = leaf;
+            }
+
+            const newLeaf = this.getOrCreateRightLeaf(referenceLeaf);
             await newLeaf.openFile(file);
         } else {
             const newLeaf = this.app.workspace.getLeaf('tab');
@@ -237,17 +244,6 @@ export class NavigationService {
             return workspace.getLeaf('split', 'vertical');
         }
 
-        let sourceLeaf = referenceLeaf;
-        if (!sourceLeaf || !isInMainArea(this.app, sourceLeaf)) {
-            const webViewerLeaf = mainLeaves.find(l =>
-                l.view.getViewType() === 'webviewer' ||
-                l.view.getViewType() === 'surfing-view'
-            );
-            sourceLeaf = webViewerLeaf || mainLeaves[0]!;
-        }
-
-        const sourceParent = sourceLeaf.parent;
-
         // Collect all unique tab groups
         const tabGroups = new Map<WorkspaceSplit, WorkspaceLeaf[]>();
         for (const leaf of mainLeaves) {
@@ -258,28 +254,65 @@ export class NavigationService {
             tabGroups.get(leaf.parent)!.push(leaf);
         }
 
-        // Find target group (different from source, prefer markdown)
-        let targetParent: WorkspaceSplit | null = null;
-        let fallbackParent: WorkspaceSplit | null = null;
+        // Ensure reference leaf's parent is included if valid
+        if (referenceLeaf && referenceLeaf.parent && !tabGroups.has(referenceLeaf.parent)) {
+            tabGroups.set(referenceLeaf.parent, [referenceLeaf]);
+        }
+
+        // Identify the "Web Viewer Group" (source) 
+        let webViewerGroup: WorkspaceSplit | null = null;
 
         for (const [parent, leaves] of tabGroups.entries()) {
-            if (parent === sourceParent) continue;
-
-            const hasMarkdown = leaves.some(l => l.view?.getViewType() === 'markdown');
-            if (hasMarkdown) {
-                targetParent = parent;
+            const hasWebViewer = leaves.some(l =>
+                l.view?.getViewType() === 'webviewer' ||
+                l.view?.getViewType() === 'surfing-view'
+            );
+            if (hasWebViewer) {
+                webViewerGroup = parent;
                 break;
-            } else if (!fallbackParent) {
-                fallbackParent = parent;
             }
         }
 
-        const chosenParent = targetParent || fallbackParent;
-        if (chosenParent) {
-            return workspace.createLeafInParent(chosenParent, -1);
+        // Determine source: reference > web viewer > null
+        const sourceParent = referenceLeaf?.parent || webViewerGroup;
+
+        // Case 1: We have a source (web viewer or reference), find a different group
+        if (sourceParent) {
+            for (const [parent, leaves] of tabGroups.entries()) {
+                if (parent === sourceParent) continue;
+                // Prefer markdown-heavy groups
+                const hasMarkdown = leaves.some(l => l.view?.getViewType() === 'markdown');
+                if (hasMarkdown) {
+                    return workspace.createLeafInParent(parent, -1);
+                }
+            }
+            // No markdown group found, pick any different group
+            for (const [parent] of tabGroups.entries()) {
+                if (parent !== sourceParent) {
+                    return workspace.createLeafInParent(parent, -1);
+                }
+            }
         }
 
-        return workspace.createLeafBySplit(sourceLeaf, 'vertical');
+        // Case 2: No web viewer and no reference - use active leaf's group for continuity
+        const activeLeaf = workspace.getActiveViewOfType(View)?.leaf;
+        if (activeLeaf && activeLeaf.parent && tabGroups.has(activeLeaf.parent)) {
+            return workspace.createLeafInParent(activeLeaf.parent, -1);
+        }
+
+        // Case 3: Only one group or can't determine - split from first available
+        if (tabGroups.size === 1) {
+            const firstLeaf = mainLeaves[0]!;
+            return workspace.createLeafBySplit(firstLeaf, 'vertical');
+        }
+
+        // Fallback: use first group
+        const firstParent = tabGroups.keys().next().value;
+        if (firstParent) {
+            return workspace.createLeafInParent(firstParent, -1);
+        }
+
+        return workspace.getLeaf('split', 'vertical');
     }
 
     getOrCreateWebViewerLeaf(): WorkspaceLeaf {
@@ -290,6 +323,17 @@ export class NavigationService {
             return workspace.getLeaf('tab');
         }
 
+        // Prioritize finding an existing web viewer group anywhere
+        const allWebViewerLeaves = this.app.workspace.getLeavesOfType('webviewer')
+            .concat(this.app.workspace.getLeavesOfType('surfing-view'));
+
+        const existingWebViewerLeaf = allWebViewerLeaves.find(l => l.parent !== null);
+
+        if (existingWebViewerLeaf && existingWebViewerLeaf.parent) {
+            return workspace.createLeafInParent(existingWebViewerLeaf.parent, -1);
+        }
+
+        // Fallback to Main Area check logic (incase web viewers are floating/popout and we want main area)
         const webViewerLeaf = mainLeaves.find(l =>
             l.view.getViewType() === 'webviewer' ||
             l.view.getViewType() === 'surfing-view'

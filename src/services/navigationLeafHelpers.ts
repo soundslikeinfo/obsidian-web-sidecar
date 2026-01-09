@@ -39,7 +39,13 @@ export function getMainAreaLeaves(app: App): WorkspaceLeaf[] {
         .concat(workspace.getLeavesOfType('surfing-view'))
         .concat(workspace.getLeavesOfType('empty'));
 
-    return allLeaves.filter(leaf => isInMainArea(app, leaf));
+    // Fix: explicitly include web viewers even if 'isInMainArea' check is ambiguous
+    // This handles Pinned Tabs or other states where parent hierarchy might be complex
+    return allLeaves.filter(leaf => {
+        const type = leaf.view.getViewType();
+        if (type === 'webviewer' || type === 'surfing-view') return true;
+        return isInMainArea(app, leaf);
+    });
 }
 
 /**

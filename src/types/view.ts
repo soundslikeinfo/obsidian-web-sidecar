@@ -38,7 +38,7 @@ export interface IWebSidecarView {
 
     // Opening/Focusing
     openPaired(file: TFile, url: string, e: MouseEvent): Promise<void>;
-    openNoteSmartly(file: TFile, e: MouseEvent): Promise<void>;
+    openNoteSmartly(file: TFile, e: MouseEvent | KeyboardEvent, referenceLeafId?: string): Promise<void>;
     openUrlSmartly(url: string, e: MouseEvent): Promise<void>;
     openCreateNoteModal(url: string, leafId?: string): void;
 

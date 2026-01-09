@@ -330,7 +330,8 @@ export class PinnedTabRenderer {
                     file: match.file,
                     url: match.url,
                     stopPropagation: true,
-                    webViewerOpen: isWebViewerOpen
+                    webViewerOpen: isWebViewerOpen,
+                    leafId: leafId // Use leafId from renderer context
                 }, ctx);
             }
         }
@@ -340,7 +341,7 @@ export class PinnedTabRenderer {
 
         // 3. Same domain notes
         if (this.view.settings.enableTldSearch && matches.tldMatches.length > 0) {
-            renderTldSection(container, url, matches, ctx, true);
+            renderTldSection(container, url, matches, ctx, true, leafId);
         }
     }
 
