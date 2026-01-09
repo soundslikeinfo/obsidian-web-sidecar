@@ -145,7 +145,7 @@ export function showVirtualTabContextMenu(
                     void view.app.workspace.revealLeaf(explorerLeaf);
                 }
                 const tempLeaf = view.app.workspace.getLeaf('tab');
-                void tempLeaf.openFile(file, { active: false }).then(async () => {
+                void tempLeaf.openFile(file, { active: false }).then(() => {
                     (view.app as AppWithCommands).commands.executeCommandById('file-explorer:reveal-active-file');
                     tempLeaf.detach();
                 });

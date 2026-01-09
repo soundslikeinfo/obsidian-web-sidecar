@@ -193,7 +193,7 @@ export class PinnedTabManager {
 
     // --- Sync Logic ---
 
-    async syncAllPinnedNotes(): Promise<void> {
+    syncAllPinnedNotes(): void {
         if (!this.getSettings().enablePinnedTabs) return;
 
         const files = this.plugin.app.vault.getMarkdownFiles();
