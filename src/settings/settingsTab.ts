@@ -52,6 +52,22 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(containerEl)
+			.setName('Tab appearance')
+			.setDesc('Choose how tabs are displayed in the sidebar')
+			.addDropdown(dropdown => {
+				dropdown
+					.addOption('basic', 'Basic')
+					.addOption('linked-mode', 'Linked notes');
+
+				dropdown
+					.setValue(this.plugin.settings.tabAppearance)
+					.onChange(async (value) => {
+						this.plugin.settings.tabAppearance = value as 'linked-mode' | 'basic';
+						await this.plugin.saveSettings();
+					});
+			});
+
 		// Use Vault's Default Location Toggle
 		new Setting(containerEl)
 			.setName('Use vault\'s default location')
@@ -117,22 +133,6 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}
 				}));
-
-		new Setting(containerEl)
-			.setName('Tab appearance')
-			.setDesc('Choose how tabs are displayed in the sidebar')
-			.addDropdown(dropdown => {
-				dropdown
-					.addOption('basic', 'Basic')
-					.addOption('linked-mode', 'Linked notes');
-
-				dropdown
-					.setValue(this.plugin.settings.tabAppearance)
-					.onChange(async (value) => {
-						this.plugin.settings.tabAppearance = value as 'linked-mode' | 'basic';
-						await this.plugin.saveSettings();
-					});
-			});
 
 		// Collapse Duplicate URLs
 		new Setting(containerEl)

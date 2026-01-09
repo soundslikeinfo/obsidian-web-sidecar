@@ -12,7 +12,7 @@ import { WebViewerManager } from './experimental/WebViewerManager';
 import { registerCommands } from './commands';
 import { UrlIndex } from './services/UrlIndex';
 import { TabStateService } from './services/TabStateService';
-import { capturePageAsMarkdown, findWebViewerLeafById } from './services/contentCapture';
+import { NoteCreationService } from './services/NoteCreationService';
 
 /**
  * Web Sidecar Plugin
@@ -20,41 +20,27 @@ import { capturePageAsMarkdown, findWebViewerLeafById } from './services/content
  */
 export default class WebSidecarPlugin extends Plugin {
 	settings!: WebSidecarSettings;
-	// private view: WebSidecarView | null = null; // Removed to avoid circular reference warning
 	private webViewerManager: WebViewerManager | null = null;
+	private noteCreationService!: NoteCreationService;
 	public urlIndex!: UrlIndex;
 	public tabStateService!: TabStateService;
-
-
-
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-
-
 		// 1. Initialize Services
-		// UrlIndex for fast lookups
 		this.urlIndex = new UrlIndex(this.app, () => this.settings);
+		this.tabStateService = new TabStateService(this, () => this.settings, () => this.updateView());
+		this.noteCreationService = new NoteCreationService(this.app, () => this.settings);
 
-		// TabStateService for tracking web viewers
-		this.tabStateService = new TabStateService(
-			this,
-			() => this.settings,
-			() => this.updateView()
-		);
-
-		// Initialize services after layout is ready
 		this.app.workspace.onLayoutReady(() => {
 			this.urlIndex.initialize();
 			this.tabStateService.initialize();
 		});
 
-		// WebViewerManager for UI injection (buttons, menus)
 		this.webViewerManager = new WebViewerManager(this.app, () => this.settings, this.urlIndex);
 		this.webViewerManager.initialize();
 
-		// Listen for index updates to refresh view (fixes missing aux sections on load)
 		this.urlIndex.on('index-updated', () => {
 			this.tabStateService.refreshState();
 		});
@@ -62,48 +48,25 @@ export default class WebSidecarPlugin extends Plugin {
 		// 2. Register View
 		this.registerView(
 			VIEW_TYPE_WEB_SIDECAR,
-			(leaf) => {
-				return new WebSidecarView(
-					leaf,
-					() => this.settings,
-					() => this.tabStateService.refreshState(), // onRefresh callback
-					() => this.tabStateService.getTrackedTabs(),
-					() => this.tabStateService.getVirtualTabs(),
-					this.urlIndex,
-					this.tabStateService,
-					async () => { await this.saveData(this.settings); } // saveSettings callback - LIGHTWEIGHT (no rebuild/refresh)
-				);
-			}
+			(leaf) => new WebSidecarView(
+				leaf,
+				() => this.settings,
+				() => this.tabStateService.refreshState(),
+				() => this.tabStateService.getTrackedTabs(),
+				() => this.tabStateService.getVirtualTabs(),
+				this.urlIndex,
+				this.tabStateService,
+				async () => { await this.saveData(this.settings); }
+			)
 		);
 
-		// 3. Register Commands & Icons
+		// 3. Register Commands & Settings
 		registerCommands(this);
-
 		this.addSettingTab(new WebSidecarSettingTab(this.app, this));
 
 		// 4. Register Events
-		// Custom event for direct note creation (no modal - captures content and creates immediately)
-		const handleCreateNote = async (e: Event) => {
-			const customEvent = e as CustomEvent<{ url: string; leafId?: string }>;
-			if (customEvent.detail?.url) {
-				const url = customEvent.detail.url;
-				const leafId = customEvent.detail.leafId;
-
-				await this.createLinkedNoteFromUrl(url, leafId);
-			}
-		};
-		const listener = (e: Event) => void handleCreateNote(e);
-		window.addEventListener('web-sidecar:create-note', listener);
-		this.register(() => window.removeEventListener('web-sidecar:create-note', listener));
-
-		// File menu (More Options)
-		this.registerEvent(
-			this.app.workspace.on('file-menu', (menu: Menu, _file, _source, leaf?: WorkspaceLeaf) => {
-				if (leaf && this.webViewerManager) {
-					this.webViewerManager.addMenuItems(menu, leaf);
-				}
-			})
-		);
+		this.registerNoteCreationEvent();
+		this.registerFileMenuEvent();
 	}
 
 	onunload(): void {
@@ -131,37 +94,15 @@ export default class WebSidecarPlugin extends Plugin {
 		this.urlIndex?.rebuildIndex();
 	}
 
-	/**
-	 * Callback when tab state changes
-	 */
-	private updateView(): void {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR);
-		for (const leaf of leaves) {
-			if (leaf.view instanceof WebSidecarView) {
-				leaf.view.updateTabs(
-					this.tabStateService.getTrackedTabs(),
-					this.tabStateService.getVirtualTabs()
-				);
-			}
-		}
-		// Also update dynamic buttons in web viewers
-		this.webViewerManager?.updateAllButtons();
-	}
-
 	async activateView(): Promise<void> {
 		const { workspace } = this.app;
-		let leaf: WorkspaceLeaf | null = null;
 		const leaves = workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR);
+		let leaf: WorkspaceLeaf | null = leaves[0] ?? null;
 
-		if (leaves.length > 0) {
-			leaf = leaves[0] ?? null;
-		} else {
+		if (!leaf) {
 			leaf = workspace.getRightLeaf(false);
 			if (leaf) {
-				await leaf.setViewState({
-					type: VIEW_TYPE_WEB_SIDECAR,
-					active: true,
-				});
+				await leaf.setViewState({ type: VIEW_TYPE_WEB_SIDECAR, active: true });
 			}
 		}
 
@@ -171,154 +112,59 @@ export default class WebSidecarPlugin extends Plugin {
 		}
 	}
 
-	/**
-	 * Create a linked note directly from URL without modal.
-	 * Captures page content if setting is enabled and leafId is provided.
-	 */
-	private async createLinkedNoteFromUrl(url: string, leafId?: string): Promise<void> {
-		// Capture content if setting enabled and we have a leafId
-		let capturedContent: string | null = null;
-		if (this.settings.capturePageContent && leafId) {
-			const leaf = findWebViewerLeafById(this.app, leafId);
-			if (leaf) {
-				capturedContent = await capturePageAsMarkdown(leaf);
+	private updateView(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+			if (leaf.view instanceof WebSidecarView) {
+				leaf.view.updateTabs(
+					this.tabStateService.getTrackedTabs(),
+					this.tabStateService.getVirtualTabs()
+				);
 			}
 		}
-
-		// Generate title from URL
-		const noteTitle = this.generateTitleFromUrl(url);
-		const fileName = this.sanitizeFileName(noteTitle) + '.md';
-		const folderPath = this.getFolderPath();
-
-		// Construct full path
-		let fullPath = folderPath ? `${folderPath}/${fileName}` : fileName;
-		fullPath = fullPath.replace(/\/+/g, '/'); // Normalize slashes
-
-		// Create folder if needed
-		if (folderPath) {
-			const folder = this.app.vault.getAbstractFileByPath(folderPath);
-			if (!folder) {
-				await this.app.vault.createFolder(folderPath);
-			}
-		}
-
-		// Handle existing file (append timestamp)
-		const existingFile = this.app.vault.getAbstractFileByPath(fullPath);
-		if (existingFile) {
-			const timestamp = Date.now();
-			fullPath = folderPath
-				? `${folderPath}/${this.sanitizeFileName(noteTitle)}-${timestamp}.md`
-				: `${this.sanitizeFileName(noteTitle)}-${timestamp}.md`;
-		}
-
-		// Generate note content
-		const lines = [
-			'---',
-			`${this.settings.primaryUrlProperty}: ${url}`,
-			'---',
-			'',
-			`# ${noteTitle}`,
-			'',
-		];
-
-		// Add captured content if available
-		if (capturedContent) {
-			lines.push(capturedContent);
-			lines.push('');
-		}
-
-		const content = lines.join('\n');
-
-		// Create file and open it
-		try {
-			const newFile = await this.app.vault.create(fullPath, content);
-			await this.app.workspace.openLinkText(fullPath, '', true);
-
-			// Force UrlIndex to process the new file immediately
-			this.urlIndex?.updateFileIndex(newFile);
-
-			// Immediate refresh
-			this.tabStateService.refreshState();
-
-			// Force render on all sidecar views (bypasses isInteracting check)
-			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
-				if (leaf.view instanceof WebSidecarView) {
-					leaf.view.render(true);
-				}
-			}
-
-			// Delayed refresh to catch any async index updates
-			setTimeout(() => {
-				this.tabStateService?.refreshState();
-				// Force render again
-				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
-					if (leaf.view instanceof WebSidecarView) {
-						leaf.view.render(true);
-					}
-				}
-			}, 300);
-		} catch (error) {
-			console.error('Web Sidecar: Failed to create note:', error);
-		}
+		this.webViewerManager?.updateAllButtons();
 	}
 
-	private generateTitleFromUrl(url: string): string {
-		try {
-			let urlWithProtocol = url;
-			if (!url.match(/^https?:\/\//)) {
-				urlWithProtocol = 'https://' + url;
-			}
-			const parsed = new URL(urlWithProtocol);
+	private registerNoteCreationEvent(): void {
+		const handleCreateNote = async (e: Event) => {
+			const customEvent = e as CustomEvent<{ url: string; leafId?: string }>;
+			if (!customEvent.detail?.url) return;
 
-			// Try to get a meaningful title from the pathname
-			const pathname = parsed.pathname.replace(/\/$/, '');
-			if (pathname && pathname !== '/') {
-				const lastSegment = pathname.split('/').pop() || '';
-				const cleaned = lastSegment
-					.replace(/[-_]/g, ' ')
-					.replace(/\.[^.]+$/, '')
-					.trim();
-				if (cleaned) {
-					return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+			const newFile = await this.noteCreationService.createLinkedNoteFromUrl(
+				customEvent.detail.url,
+				customEvent.detail.leafId
+			);
+
+			if (newFile) {
+				this.urlIndex?.updateFileIndex(newFile);
+				this.tabStateService.refreshState();
+				this.forceRenderAllViews();
+				setTimeout(() => {
+					this.tabStateService?.refreshState();
+					this.forceRenderAllViews();
+				}, 300);
+			}
+		};
+
+		const listener = (e: Event) => void handleCreateNote(e);
+		window.addEventListener('web-sidecar:create-note', listener);
+		this.register(() => window.removeEventListener('web-sidecar:create-note', listener));
+	}
+
+	private registerFileMenuEvent(): void {
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu: Menu, _file, _source, leaf?: WorkspaceLeaf) => {
+				if (leaf && this.webViewerManager) {
+					this.webViewerManager.addMenuItems(menu, leaf);
 				}
-			}
-
-			return parsed.hostname.replace(/^www\./, '');
-		} catch {
-			return 'New Note';
-		}
+			})
+		);
 	}
 
-	private sanitizeFileName(name: string): string {
-		return name
-			.replace(/[\\/:*?"<>|]/g, '')
-			.replace(/\s+/g, ' ')
-			.trim();
-	}
-
-	/**
-	 * Resolve folder path based on settings - uses vault config or custom path
-	 */
-	private getFolderPath(): string {
-		if (this.settings.useVaultDefaultLocation) {
-			// Define interface for internal API
-			interface VaultWithConfig {
-				getConfig(key: string): unknown;
+	private forceRenderAllViews(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WEB_SIDECAR)) {
+			if (leaf.view instanceof WebSidecarView) {
+				leaf.view.render(true);
 			}
-
-			const vault = this.app.vault as unknown as VaultWithConfig;
-			const newFileLocation = vault.getConfig('newFileLocation');
-
-			if (newFileLocation === 'folder') {
-				return (vault.getConfig('newFileFolderPath') as string) || '';
-			} else if (newFileLocation === 'current') {
-				// Use folder of currently active file
-				const activeFile = this.app.workspace.getActiveFile();
-				return activeFile?.parent?.path || '';
-			}
-			// 'root' or default
-			return '';
 		}
-		return this.settings.newNoteFolderPath;
 	}
 }
