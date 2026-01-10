@@ -44,7 +44,7 @@ export interface WebSidecarSettings {
     showWebViewerOpenNoteOption: boolean;
     /** Show "Open note to the right" button in web viewer header */
     showWebViewerOpenNoteButton: boolean;
-    /** Collapse duplicate URLs into single entry with click-to-cycle */
+    /** Collapse duplicate urls into single entry with click-to-cycle */
     collapseDuplicateUrls: boolean;
     /** How to open notes when clicked from sidebar */
     noteOpenBehavior: NoteOpenBehavior;

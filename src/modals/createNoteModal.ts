@@ -126,7 +126,7 @@ export class CreateNoteModal extends Modal {
         if (this.capturedContent) {
             new Setting(contentEl)
                 .setName('Include page content')
-                .setDesc('Add the web page content as markdown to the note.')
+                .setDesc('Add the web page content as markdown to the note')
                 .addToggle(toggle => toggle
                     .setValue(this.includeContent)
                     .onChange(value => {

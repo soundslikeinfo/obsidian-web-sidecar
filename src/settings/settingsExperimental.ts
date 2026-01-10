@@ -18,8 +18,8 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
         cls: 'setting-item-description'
     });
 
-    // Pinned Tabs Section
-    new Setting(containerEl).setName('Pinned Tabs').setHeading();
+    // Pinned tabs Section
+    new Setting(containerEl).setName('Pinned tabs').setHeading();
 
     new Setting(containerEl)
         .setName('Enable pinned web view tabs')
@@ -47,10 +47,10 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
 
         new Setting(containerEl)
             .setName('Pinned property value')
-            .setDesc('Value for the property that marks a note as pinned source (e.g. sidecar)')
+            .setDesc('Value for the property that marks a note as pinned source (e.g. Pinned)')
             .setClass('web-sidecar-sub-setting')
             .addText(text => text
-                .setPlaceholder('sidecar')
+                .setPlaceholder('Pinned')
                 .setValue(plugin.settings.pinnedPropertyValue)
                 .onChange(async (value) => {
                     plugin.settings.pinnedPropertyValue = value;
@@ -60,7 +60,7 @@ export function renderExperimentalSettings(containerEl: HTMLElement, plugin: Web
 
     new Setting(containerEl)
         .setName('Web viewer header actions')
-        .setDesc('Add a "New web view tab" button to web viewer headers and menus. May break with future Obsidian updates.')
+        .setDesc('Add additional action buttons to web viewer headers and menus. May break with future updates.')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableWebViewerActions)
             .onChange(async (value) => {
@@ -118,7 +118,7 @@ function renderWebViewerActionSettings(containerEl: HTMLElement, plugin: WebSide
 
     new Setting(containerEl)
         .setName('New web view tab')
-        .setDesc('Add "New web view tab" option to menu')
+        .setDesc('Add new web view tab option to menu')
         .setClass('web-sidecar-sub-setting')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.showWebViewerMenuOption)
@@ -129,7 +129,7 @@ function renderWebViewerActionSettings(containerEl: HTMLElement, plugin: WebSide
 
     new Setting(containerEl)
         .setName('Open note to the right')
-        .setDesc('Add "Open note to the right" option when viewing URLs that are linked in notes')
+        .setDesc('Add new note option to menu when viewing pages that are linked in notes')
         .setClass('web-sidecar-sub-setting')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.showWebViewerOpenNoteOption)

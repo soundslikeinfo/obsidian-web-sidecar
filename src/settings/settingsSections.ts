@@ -18,7 +18,7 @@ export function renderAuxiliarySectionsSettings(containerEl: HTMLElement, plugin
 
     new Setting(auxSectionsContainer)
         .setName('Recent web notes')
-        .setDesc('Show section with recently modified notes that have URLs')
+        .setDesc('Show section with recently modified notes that have a web source')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableRecentNotes)
             .onChange(async (value) => {
@@ -72,7 +72,7 @@ export function renderAuxiliarySectionsSettings(containerEl: HTMLElement, plugin
     }
 
     new Setting(auxSectionsContainer)
-        .setName('Group by subreddit (reddit.com)')
+        .setName('Group by subreddit')
         .setDesc('Show section with notes grouped by subreddit')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableSubredditExplorer)
@@ -82,7 +82,7 @@ export function renderAuxiliarySectionsSettings(containerEl: HTMLElement, plugin
             }));
 
     new Setting(auxSectionsContainer)
-        .setName('Group by YouTube channel (youtube.com)')
+        .setName('Group by YouTube channel')
         .setDesc('Show section with notes grouped by YouTube channel')
         .addToggle(toggle => toggle
             .setValue(plugin.settings.enableYouTubeChannelExplorer)

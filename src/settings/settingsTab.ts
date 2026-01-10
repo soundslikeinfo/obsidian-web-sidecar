@@ -28,7 +28,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// URL Property Fields
 		new Setting(containerEl)
 			.setName('URL property fields')
-			.setDesc('Comma-separated list of frontmatter property names to search for URLs (e.g., source, url)')
+			.setDesc('Comma-separated list of frontmatter property names to search for urls (e.g., source, url)')
 			.addText(text => text
 				.setPlaceholder('source, url')
 				.setValue(this.plugin.settings.urlPropertyFields.join(', '))
@@ -109,7 +109,7 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 		// Recent Notes Count
 		new Setting(containerEl)
 			.setName('Recent notes count')
-			.setDesc('Number of recent notes with URLs to show when no web viewer is active')
+			.setDesc('Number of recent notes with a web source to show in the recent notes section')
 			.addSlider(slider => slider
 				.setLimits(5, 20, 1)
 				.setValue(this.plugin.settings.recentNotesCount)
@@ -136,8 +136,8 @@ export class WebSidecarSettingTab extends PluginSettingTab {
 
 		// Collapse Duplicate URLs
 		new Setting(containerEl)
-			.setName('Collapse duplicate URLs')
-			.setDesc('Show only one entry per URL. Click to cycle through open instances.')
+			.setName('Collapse duplicate urls')
+			.setDesc('Show only one entry per url. Click to cycle through open instances.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.collapseDuplicateUrls)
 				.onChange(async (value) => {
